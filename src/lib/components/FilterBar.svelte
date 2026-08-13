@@ -1,8 +1,8 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { CategoryFilter, SortOption } from '$lib/types/test';
 
-const store = getTestStore();
+const app = getAppContext();
 
 const categories: CategoryFilter[] = [
 	'All',
@@ -24,16 +24,16 @@ const sortOptions: { label: string; value: SortOption }[] = [
 
 function handleSearchInput(e: Event) {
 	const val = (e.target as HTMLInputElement).value;
-	store.setSearch(val);
+	app.filter.setSearch(val);
 }
 
 function handleCategoryClick(cat: CategoryFilter) {
-	store.setCategory(cat);
+	app.filter.setCategory(cat);
 }
 
 function handleSortChange(e: Event) {
 	const val = (e.target as HTMLSelectElement).value as SortOption;
-	store.setSort(val);
+	app.filter.setSort(val);
 }
 </script>
 
@@ -59,14 +59,14 @@ function handleSortChange(e: Event) {
 			<input
 				type="text"
 				placeholder="Search assessments by title, subject, filename, or tags..."
-				value={store.searchQuery}
+				value={app.filter.searchQuery}
 				oninput={handleSearchInput}
 				class="neo-input w-full !pl-11 pr-8 text-sm"
 			/>
-			{#if store.searchQuery}
+			{#if app.filter.searchQuery}
 				<button
 					type="button"
-					onclick={() => store.setSearch('')}
+					onclick={() => app.filter.setSearch('')}
 					class="absolute inset-y-0 right-0 flex items-center pr-3 font-mono text-xs font-bold text-text-muted hover:text-text-primary"
 					title="Clear search"
 				>
@@ -82,7 +82,7 @@ function handleSortChange(e: Event) {
 			</label>
 			<select
 				id="sort-select"
-				value={store.sortBy}
+				value={app.filter.sortBy}
 				onchange={handleSortChange}
 				class="neo-input text-xs font-mono py-2 pr-8"
 			>
@@ -104,7 +104,7 @@ function handleSortChange(e: Event) {
 					type="button"
 					onclick={() => handleCategoryClick(category)}
 					class={`neo-badge cursor-pointer transition-all ${
-						store.selectedCategory === category
+						app.filter.selectedCategory === category
 							? 'bg-accent-contrast text-accent-contrast-text border-border-color shadow-[2px_2px_0px_var(--shadow-color)]'
 							: 'hover:bg-muted opacity-80 hover:opacity-100'
 					}`}
@@ -115,20 +115,17 @@ function handleSortChange(e: Event) {
 		</div>
 
 		<div class="flex items-center gap-2">
-			{#if store.searchQuery || store.selectedCategory !== 'All'}
+			{#if app.filter.searchQuery || app.filter.selectedCategory !== 'All'}
 				<button
 					type="button"
-					onclick={() => {
-						store.setSearch('');
-						store.setCategory('All');
-					}}
+					onclick={() => app.filter.reset()}
 					class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
 				>
 					Reset Filters
 				</button>
 			{/if}
 			<span class="font-mono text-xs font-bold text-text-secondary">
-				Showing {store.filteredTests.length} of {store.totalTests}
+				Showing {app.filteredTests.length} of {app.tests.totalTests}
 			</span>
 		</div>
 	</div>

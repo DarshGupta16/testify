@@ -1,7 +1,7 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 
-const store = getTestStore();
+const app = getAppContext();
 
 function formatDuration(totalMins: number): string {
 	if (totalMins < 60) return `${totalMins}m`;
@@ -19,7 +19,7 @@ function formatDuration(totalMins: number): string {
 		</div>
 		<div class="flex items-baseline gap-2">
 			<span class="font-sans text-2xl sm:text-4xl font-black text-text-primary">
-				{store.totalTests}
+				{app.tests.totalTests}
 			</span>
 			<span class="font-mono text-xs text-text-muted font-bold">Tests</span>
 		</div>
@@ -34,7 +34,7 @@ function formatDuration(totalMins: number): string {
 		</div>
 		<div class="flex items-baseline gap-2">
 			<span class="font-sans text-2xl sm:text-4xl font-black text-text-primary">
-				{store.totalQuestions}
+				{app.tests.totalQuestions}
 			</span>
 			<span class="font-mono text-xs text-text-muted font-bold">Items</span>
 		</div>
@@ -49,7 +49,7 @@ function formatDuration(totalMins: number): string {
 		</div>
 		<div class="flex items-baseline gap-2">
 			<span class="font-sans text-2xl sm:text-4xl font-black text-text-primary">
-				{formatDuration(store.totalDurationMinutes)}
+				{formatDuration(app.tests.totalDurationMinutes)}
 			</span>
 		</div>
 		<span class="font-mono text-[10px] text-text-secondary mt-1">Total timed test time</span>
@@ -63,9 +63,9 @@ function formatDuration(totalMins: number): string {
 		</div>
 		<div class="flex items-baseline gap-2">
 			<span class="font-sans text-2xl sm:text-4xl font-black text-text-primary">
-				{store.answerKeyCoverage}%
+				{app.tests.answerKeyCoverage}%
 			</span>
-			<span class="font-mono text-xs text-emerald-600 font-bold">Key Linked</span>
+			<span class="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-bold">Key Linked</span>
 		</div>
 		<span class="font-mono text-[10px] text-text-secondary mt-1">Instant scoring enabled</span>
 	</div>

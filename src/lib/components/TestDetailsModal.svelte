@@ -1,35 +1,35 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 
-const store = getTestStore();
+const app = getAppContext();
 
 function handleStartSimulatedExam() {
-	if (store.selectedTest) {
-		store.showToast(
-			`Starting test session for "${store.selectedTest.title}"... (Simulated)`,
+	if (app.modals.selectedTest) {
+		app.toast.show(
+			`Starting test session for "${app.modals.selectedTest.title}"... (Simulated)`,
 			'info'
 		);
-		store.closeDetailsModal();
+		app.modals.closeDetails();
 	}
 }
 
 function handleKeyDown(e: KeyboardEvent) {
 	if (e.key === 'Escape') {
-		store.closeDetailsModal();
+		app.modals.closeDetails();
 	}
 }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
 
-{#if store.isDetailsModalOpen && store.selectedTest}
-	{@const test = store.selectedTest}
+{#if app.modals.isDetailsModalOpen && app.modals.selectedTest}
+	{@const test = app.modals.selectedTest}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) {
-				store.closeDetailsModal();
+				app.modals.closeDetails();
 			}
 		}}
 		role="presentation"
@@ -49,7 +49,7 @@ function handleKeyDown(e: KeyboardEvent) {
 							{test.subject}
 						</span>
 						{#if test.hasAnswerKey}
-							<span class="neo-badge bg-emerald-500 text-white">
+							<span class="neo-badge bg-emerald-600 dark:bg-emerald-700 text-white">
 								✓ Answer Key Active
 							</span>
 						{:else}
@@ -65,7 +65,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 				<button
 					type="button"
-					onclick={() => store.closeDetailsModal()}
+					onclick={() => app.modals.closeDetails()}
 					class="neo-btn text-xs py-1 px-2.5"
 					aria-label="Close details"
 				>
@@ -122,7 +122,7 @@ function handleKeyDown(e: KeyboardEvent) {
 									</div>
 								{/if}
 								{#if q.correctAnswer && test.hasAnswerKey}
-									<div class="font-mono text-[11px] text-emerald-600 font-bold pt-1">
+									<div class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
 										✓ Linked Solution: {q.correctAnswer}
 									</div>
 								{/if}
@@ -140,8 +140,8 @@ function handleKeyDown(e: KeyboardEvent) {
 			<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-border-color">
 				<button
 					type="button"
-					onclick={() => store.deleteTest(test.id)}
-					class="neo-btn text-xs py-2 px-3 text-red-500 hover:bg-red-500 hover:text-white w-full sm:w-auto"
+					onclick={() => app.handleDeleteTest(test.id)}
+					class="neo-btn text-xs py-2 px-3 text-rose-500 hover:bg-rose-600 hover:text-white w-full sm:w-auto"
 				>
 					Delete Assessment
 				</button>
@@ -149,7 +149,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<div class="flex items-center gap-2 w-full sm:w-auto">
 					<button
 						type="button"
-						onclick={() => store.closeDetailsModal()}
+						onclick={() => app.modals.closeDetails()}
 						class="neo-btn text-xs py-2 px-4 flex-1 sm:flex-none"
 					>
 						Close

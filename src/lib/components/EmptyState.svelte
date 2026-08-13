@@ -1,8 +1,8 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestUploadPayload } from '$lib/types/test';
 
-const store = getTestStore();
+const app = getAppContext();
 
 let title = $state('');
 let subject = $state('STEM');
@@ -85,7 +85,7 @@ async function handleSubmit(e: SubmitEvent) {
 		answerKeyFile: answerKeyFile,
 	};
 
-	await store.addTest(payload);
+	await app.handleAddTest(payload);
 }
 
 function fillDemoFile() {
@@ -348,19 +348,19 @@ function fillDemoFile() {
 			</div>
 
 			<!-- Processing State Indicator -->
-			{#if store.isUploading}
+			{#if app.tests.isUploading}
 				<div class="neo-box p-4 bg-muted/40 animate-slide-down">
 					<div class="flex items-center justify-between text-xs font-mono font-bold mb-2">
 						<span class="flex items-center gap-2">
 							<span class="inline-block h-2.5 w-2.5 bg-accent-contrast animate-spin"></span>
-							{store.uploadStatusText}
+							{app.tests.uploadStatusText}
 						</span>
-						<span>{store.uploadProgress}%</span>
+						<span>{app.tests.uploadProgress}%</span>
 					</div>
 					<div class="h-3 w-full border-2 border-border-color bg-surface overflow-hidden">
 						<div
 							class="h-full bg-accent-contrast transition-all duration-300 ease-out"
-							style={`width: ${store.uploadProgress}%`}
+							style={`width: ${app.tests.uploadProgress}%`}
 						></div>
 					</div>
 				</div>
@@ -370,7 +370,7 @@ function fillDemoFile() {
 			<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
 				<button
 					type="button"
-					onclick={() => store.loadSampleTests()}
+					onclick={() => app.handleLoadSamples()}
 					class="neo-btn text-xs w-full sm:w-auto"
 				>
 					&rarr; Or Populate Demo Tests
@@ -378,10 +378,10 @@ function fillDemoFile() {
 
 				<button
 					type="submit"
-					disabled={store.isUploading}
+					disabled={app.tests.isUploading}
 					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
 				>
-					{#if store.isUploading}
+					{#if app.tests.isUploading}
 						<span class="animate-pulse">Processing PDF...</span>
 					{:else}
 						<span>Generate Test &rarr;</span>

@@ -1,8 +1,8 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestUploadPayload } from '$lib/types/test';
 
-const store = getTestStore();
+const app = getAppContext();
 
 let title = $state('');
 let subject = $state('STEM');
@@ -93,7 +93,7 @@ async function handleSubmit(e: SubmitEvent) {
 		answerKeyFile: answerKeyFile,
 	};
 
-	await store.addTest(payload);
+	await app.handleAddTest(payload);
 	// Reset inputs
 	title = '';
 	testFile = null;
@@ -101,21 +101,21 @@ async function handleSubmit(e: SubmitEvent) {
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-	if (e.key === 'Escape' && !store.isUploading) {
-		store.closeUploadModal();
+	if (e.key === 'Escape' && !app.tests.isUploading) {
+		app.modals.closeUpload();
 	}
 }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
 
-{#if store.isUploadModalOpen}
+{#if app.modals.isUploadModalOpen}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
-			if (e.target === e.currentTarget && !store.isUploading) {
-				store.closeUploadModal();
+			if (e.target === e.currentTarget && !app.tests.isUploading) {
+				app.modals.closeUpload();
 			}
 		}}
 		role="presentation"
@@ -137,8 +137,8 @@ function handleKeyDown(e: KeyboardEvent) {
 				</div>
 				<button
 					type="button"
-					onclick={() => store.closeUploadModal()}
-					disabled={store.isUploading}
+					onclick={() => app.modals.closeUpload()}
+					disabled={app.tests.isUploading}
 					class="neo-btn text-xs py-1 px-2.5 disabled:opacity-40"
 					aria-label="Close modal"
 				>
@@ -153,7 +153,7 @@ function handleKeyDown(e: KeyboardEvent) {
 					<div>
 						<div class="flex items-center justify-between mb-1.5">
 							<label for="modal-test-file" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-								1. Test Paper PDF <span class="text-red-500">*</span>
+								1. Test Paper PDF <span class="text-rose-500">*</span>
 							</label>
 						</div>
 
@@ -318,19 +318,19 @@ function handleKeyDown(e: KeyboardEvent) {
 				</div>
 
 				<!-- Simulated Progress Bar -->
-				{#if store.isUploading}
+				{#if app.tests.isUploading}
 					<div class="neo-box p-3.5 bg-muted/40 animate-slide-down">
 						<div class="flex items-center justify-between text-xs font-mono font-bold mb-1.5">
 							<span class="flex items-center gap-1.5">
 								<span class="h-2 w-2 bg-accent-contrast animate-ping"></span>
-								{store.uploadStatusText}
+								{app.tests.uploadStatusText}
 							</span>
-							<span>{store.uploadProgress}%</span>
+							<span>{app.tests.uploadProgress}%</span>
 						</div>
 						<div class="h-2.5 w-full border border-border-color bg-surface overflow-hidden">
 							<div
 								class="h-full bg-accent-contrast transition-all duration-300 ease-out"
-								style={`width: ${store.uploadProgress}%`}
+								style={`width: ${app.tests.uploadProgress}%`}
 							></div>
 						</div>
 					</div>
@@ -349,18 +349,18 @@ function handleKeyDown(e: KeyboardEvent) {
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							onclick={() => store.closeUploadModal()}
-							disabled={store.isUploading}
+							onclick={() => app.modals.closeUpload()}
+							disabled={app.tests.isUploading}
 							class="neo-btn text-xs py-2 px-3"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
-							disabled={store.isUploading}
+							disabled={app.tests.isUploading}
 							class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-50"
 						>
-							{#if store.isUploading}
+							{#if app.tests.isUploading}
 								Processing...
 							{:else}
 								Create Test &rarr;

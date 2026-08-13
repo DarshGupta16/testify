@@ -1,9 +1,9 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 
 const { test }: { test: TestItem } = $props();
-const store = getTestStore();
+const app = getAppContext();
 
 let isConfirmingDelete = $state(false);
 
@@ -21,8 +21,8 @@ function formatDate(isoString: string): string {
 }
 
 function handleLaunchExam() {
-	store.showToast(`[SIMULATOR] Launching test session for "${test.title}"...`, 'info');
-	store.openDetailsModal(test);
+	app.toast.show(`[SIMULATOR] Launching test session for "${test.title}"...`, 'info');
+	app.modals.openDetails(test);
 }
 
 function handleDelete() {
@@ -30,7 +30,7 @@ function handleDelete() {
 		isConfirmingDelete = true;
 		return;
 	}
-	store.deleteTest(test.id);
+	app.handleDeleteTest(test.id);
 }
 </script>
 
@@ -45,7 +45,7 @@ function handleDelete() {
 
 			<div class="flex items-center gap-1.5">
 				{#if test.hasAnswerKey}
-					<span class="neo-badge bg-emerald-500 text-white" title="Auto-grading key linked">
+					<span class="neo-badge bg-emerald-600 dark:bg-emerald-700 text-white" title="Auto-grading key linked">
 						✓ Key Linked
 					</span>
 				{:else}
@@ -95,7 +95,7 @@ function handleDelete() {
 			</div>
 			{#if test.hasAnswerKey && test.answerKeyFileName}
 				<div class="flex items-center gap-1.5 truncate">
-					<span class="text-emerald-600 font-bold">KEY:</span>
+					<span class="text-emerald-600 dark:text-emerald-400 font-bold">KEY:</span>
 					<span class="truncate text-text-secondary">{test.answerKeyFileName}</span>
 				</div>
 			{/if}
@@ -128,7 +128,7 @@ function handleDelete() {
 		<div class="flex items-center justify-between gap-2">
 			<button
 				type="button"
-				onclick={() => store.openDetailsModal(test)}
+				onclick={() => app.modals.openDetails(test)}
 				class="neo-btn text-xs py-1.5 px-3 flex-1"
 			>
 				View Structure
@@ -156,7 +156,7 @@ function handleDelete() {
 				<button
 					type="button"
 					onclick={handleDelete}
-					class="neo-btn text-xs py-1.5 px-3 text-red-500 hover:bg-red-500 hover:text-white"
+					class="neo-btn text-xs py-1.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
 					title="Delete this test"
 				>
 					<svg

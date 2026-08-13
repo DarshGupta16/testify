@@ -5,17 +5,17 @@ import Header from '$lib/components/Header.svelte';
 import TestDetailsModal from '$lib/components/TestDetailsModal.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import UploadModal from '$lib/components/UploadModal.svelte';
-import { setTestStore, TestStore } from '$lib/stores/testStore.svelte';
+import { AppStore, setAppContext } from '$lib/stores/appContext.svelte';
 import './layout.css';
 
 let { children } = $props();
 
 // Instantiate client-isolated singleton store and provide via SvelteKit context
-const store = new TestStore();
-setTestStore(store);
+const app = new AppStore();
+setAppContext(app);
 
 onMount(() => {
-	store.init();
+	app.init();
 });
 </script>
 

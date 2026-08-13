@@ -1,7 +1,7 @@
 <script lang="ts">
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 
-const store = getTestStore();
+const app = getAppContext();
 </script>
 
 <header class="sticky top-0 z-30 w-full border-b-2 border-border-color bg-surface/90 backdrop-blur-md transition-colors">
@@ -52,7 +52,7 @@ const store = getTestStore();
 			<!-- Quick Sample Loader Button -->
 			<button
 				type="button"
-				onclick={() => store.loadSampleTests()}
+				onclick={() => app.handleLoadSamples()}
 				class="neo-btn text-xs py-2 px-3 hidden sm:inline-flex"
 				title="Load sample tests to preview dashboard"
 			>
@@ -76,7 +76,7 @@ const store = getTestStore();
 			<!-- New Test Upload CTA -->
 			<button
 				type="button"
-				onclick={() => store.openUploadModal()}
+				onclick={() => app.modals.openUpload()}
 				class="neo-btn neo-btn-primary text-xs py-2 px-3.5"
 				aria-label="Upload New Test"
 			>
@@ -98,12 +98,12 @@ const store = getTestStore();
 			<!-- Theme Toggle Button -->
 			<button
 				type="button"
-				onclick={() => store.toggleTheme()}
+				onclick={() => app.theme.toggleTheme()}
 				class="neo-btn text-xs py-2 px-2.5"
 				aria-label="Toggle theme mode"
-				title={`Switch to ${store.theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+				title={`Switch to ${app.theme.theme === 'dark' ? 'Light' : 'Dark'} Mode`}
 			>
-				{#if store.theme === 'dark'}
+				{#if app.theme.theme === 'dark'}
 					<!-- Sun icon for light switch -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

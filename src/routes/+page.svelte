@@ -3,9 +3,9 @@ import EmptyState from '$lib/components/EmptyState.svelte';
 import FilterBar from '$lib/components/FilterBar.svelte';
 import StatsBar from '$lib/components/StatsBar.svelte';
 import TestCard from '$lib/components/TestCard.svelte';
-import { getTestStore } from '$lib/stores/testStore.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 
-const store = getTestStore();
+const app = getAppContext();
 </script>
 
 <svelte:head>
@@ -13,7 +13,7 @@ const store = getTestStore();
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-	{#if store.totalTests === 0}
+	{#if app.tests.totalTests === 0}
 		<!-- Zero Tests: Show Centered Empty State with Direct Upload Prompt -->
 		<EmptyState />
 	{:else}
@@ -28,7 +28,7 @@ const store = getTestStore();
 							ENGINE ACTIVE
 						</span>
 						<span class="font-mono text-xs text-text-muted">
-							{store.totalTests} {store.totalTests === 1 ? 'Exam' : 'Exams'} Available
+							{app.tests.totalTests} {app.tests.totalTests === 1 ? 'Exam' : 'Exams'} Available
 						</span>
 					</div>
 					<h1 class="text-2xl sm:text-4xl font-black uppercase tracking-tight text-text-primary">
@@ -39,8 +39,8 @@ const store = getTestStore();
 				<div class="flex items-center gap-2 sm:gap-3">
 					<button
 						type="button"
-						onclick={() => store.clearAllTests()}
-						class="neo-btn text-xs py-2 px-3 text-red-500 hover:bg-red-500 hover:text-white"
+						onclick={() => app.handleClearAllTests()}
+						class="neo-btn text-xs py-2 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
 						title="Remove all tests"
 					>
 						Clear All
@@ -48,7 +48,7 @@ const store = getTestStore();
 
 					<button
 						type="button"
-						onclick={() => store.openUploadModal()}
+						onclick={() => app.modals.openUpload()}
 						class="neo-btn neo-btn-primary text-xs py-2 px-4"
 					>
 						<svg
@@ -75,7 +75,7 @@ const store = getTestStore();
 			<FilterBar />
 
 			<!-- Tests Grid -->
-			{#if store.filteredTests.length === 0}
+			{#if app.filteredTests.length === 0}
 				<!-- No Filter Matches -->
 				<div class="neo-box p-8 sm:p-12 text-center bg-surface my-8 space-y-4">
 					<div class="mx-auto flex h-12 w-12 items-center justify-center border-2 border-border-color bg-muted">
@@ -102,10 +102,7 @@ const store = getTestStore();
 					</div>
 					<button
 						type="button"
-						onclick={() => {
-							store.setSearch('');
-							store.setCategory('All');
-						}}
+						onclick={() => app.filter.reset()}
 						class="neo-btn text-xs py-2 px-4"
 					>
 						Reset Search & Filters
@@ -114,7 +111,7 @@ const store = getTestStore();
 			{:else}
 				<!-- Grid of Test Cards -->
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					{#each store.filteredTests as test (test.id)}
+					{#each app.filteredTests as test (test.id)}
 						<TestCard {test} />
 					{/each}
 				</div>
