@@ -1,0 +1,374 @@
+<script lang="ts">
+import { getTestStore } from '$lib/stores/testStore.svelte';
+import type { TestUploadPayload } from '$lib/types/test';
+
+const store = getTestStore();
+
+let title = $state('');
+let subject = $state('STEM');
+let durationMinutes = $state(60);
+let questionCount = $state(25);
+
+let testFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+let answerKeyFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+
+let testInputRef = $state<HTMLInputElement | null>(null);
+let answerKeyInputRef = $state<HTMLInputElement | null>(null);
+
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return '0 B';
+	const k = 1024;
+	const sizes = ['B', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+}
+
+function handleTestFileChange(event: Event) {
+	const input = event.target as HTMLInputElement;
+	if (input.files?.[0]) {
+		const file = input.files[0];
+		testFile = {
+			name: file.name,
+			size: file.size,
+			formattedSize: formatBytes(file.size),
+		};
+		if (!title) {
+			title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+		}
+	}
+}
+
+function handleAnswerKeyFileChange(event: Event) {
+	const input = event.target as HTMLInputElement;
+	if (input.files?.[0]) {
+		const file = input.files[0];
+		answerKeyFile = {
+			name: file.name,
+			size: file.size,
+			formattedSize: formatBytes(file.size),
+		};
+	}
+}
+
+function clearTestFile() {
+	testFile = null;
+	if (testInputRef) testInputRef.value = '';
+}
+
+function clearAnswerKeyFile() {
+	answerKeyFile = null;
+	if (answerKeyInputRef) answerKeyInputRef.value = '';
+}
+
+function fillDemoFile() {
+	testFile = {
+		name: 'Calculus_Integration_Assessment.pdf',
+		size: 2800000,
+		formattedSize: '2.7 MB',
+	};
+	answerKeyFile = {
+		name: 'Calculus_Answers_Detailed.pdf',
+		size: 950000,
+		formattedSize: '928 KB',
+	};
+	title = 'Calculus II: Advanced Integration Techniques';
+	subject = 'STEM';
+	durationMinutes = 80;
+	questionCount = 28;
+}
+
+async function handleSubmit(e: SubmitEvent) {
+	e.preventDefault();
+
+	const payload: TestUploadPayload = {
+		title: title.trim() || testFile?.name.replace(/\.[^/.]+$/, '') || 'Custom Test',
+		subject,
+		durationMinutes: Number(durationMinutes) || 60,
+		questionCount: Number(questionCount) || 20,
+		testFile: testFile || {
+			name: 'Test_Exam_Document.pdf',
+			size: 2100000,
+			formattedSize: '2.0 MB',
+		},
+		answerKeyFile: answerKeyFile,
+	};
+
+	await store.addTest(payload);
+	// Reset inputs
+	title = '';
+	testFile = null;
+	answerKeyFile = null;
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+	if (e.key === 'Escape' && !store.isUploading) {
+		store.closeUploadModal();
+	}
+}
+</script>
+
+<svelte:window onkeydown={handleKeyDown} />
+
+{#if store.isUploadModalOpen}
+	<!-- Backdrop -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+		onclick={(e) => {
+			if (e.target === e.currentTarget && !store.isUploading) {
+				store.closeUploadModal();
+			}
+		}}
+		role="presentation"
+	>
+		<!-- Modal Content -->
+		<div
+			class="neo-box-lg w-full max-w-2xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[90vh] overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="upload-modal-title"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b-2 border-border-color pb-4 mb-6">
+				<div class="flex items-center gap-2.5">
+					<div class="h-4 w-4 bg-accent-contrast"></div>
+					<h2 id="upload-modal-title" class="text-lg sm:text-xl font-extrabold uppercase tracking-wide">
+						Upload & Convert Test PDF
+					</h2>
+				</div>
+				<button
+					type="button"
+					onclick={() => store.closeUploadModal()}
+					disabled={store.isUploading}
+					class="neo-btn text-xs py-1 px-2.5 disabled:opacity-40"
+					aria-label="Close modal"
+				>
+					✕
+				</button>
+			</div>
+
+			<form onsubmit={handleSubmit} class="space-y-5">
+				<!-- Dual File Uploads -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<!-- 1. Question Paper PDF -->
+					<div>
+						<div class="flex items-center justify-between mb-1.5">
+							<label for="modal-test-file" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+								1. Test Paper PDF <span class="text-red-500">*</span>
+							</label>
+						</div>
+
+						<input
+							id="modal-test-file"
+							type="file"
+							accept=".pdf"
+							bind:this={testInputRef}
+							onchange={handleTestFileChange}
+							class="hidden"
+						/>
+
+						{#if testFile}
+							<div class="neo-box-sm p-3 flex items-center justify-between bg-muted/40">
+								<div class="truncate pr-2">
+									<p class="text-xs font-bold truncate text-text-primary">{testFile.name}</p>
+									<p class="font-mono text-[10px] text-text-muted">{testFile.formattedSize}</p>
+								</div>
+								<button
+									type="button"
+									onclick={clearTestFile}
+									class="neo-btn text-[10px] py-0.5 px-1.5"
+								>
+									✕
+								</button>
+							</div>
+						{:else}
+							<button
+								type="button"
+								onclick={() => testInputRef?.click()}
+								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									class="h-5 w-5 mb-1 text-text-muted"
+								>
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+									<polyline points="17 8 12 3 7 8" />
+									<line x1="12" y1="3" x2="12" y2="15" />
+								</svg>
+								<span class="text-xs font-bold uppercase">Select Test PDF</span>
+							</button>
+						{/if}
+					</div>
+
+					<!-- 2. Answer Key PDF -->
+					<div>
+						<div class="flex items-center justify-between mb-1.5">
+							<label for="modal-key-file" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+								2. Answer Key PDF
+							</label>
+							<span class="font-mono text-[10px] uppercase text-text-muted">Optional</span>
+						</div>
+
+						<input
+							id="modal-key-file"
+							type="file"
+							accept=".pdf"
+							bind:this={answerKeyInputRef}
+							onchange={handleAnswerKeyFileChange}
+							class="hidden"
+						/>
+
+						{#if answerKeyFile}
+							<div class="neo-box-sm p-3 flex items-center justify-between bg-muted/40">
+								<div class="truncate pr-2">
+									<p class="text-xs font-bold truncate text-text-primary">{answerKeyFile.name}</p>
+									<p class="font-mono text-[10px] text-text-muted">{answerKeyFile.formattedSize}</p>
+								</div>
+								<button
+									type="button"
+									onclick={clearAnswerKeyFile}
+									class="neo-btn text-[10px] py-0.5 px-1.5"
+								>
+									✕
+								</button>
+							</div>
+						{:else}
+							<button
+								type="button"
+								onclick={() => answerKeyInputRef?.click()}
+								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									class="h-5 w-5 mb-1 text-text-muted"
+								>
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+									<polyline points="14 2 14 8 20 8" />
+								</svg>
+								<span class="text-xs font-bold uppercase">Select Answer Key</span>
+							</button>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Metadata Fields -->
+				<div class="space-y-3 pt-2 border-t border-border-color/20">
+					<div>
+						<label for="modal-title" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
+							Assessment Title
+						</label>
+						<input
+							id="modal-title"
+							type="text"
+							bind:value={title}
+							placeholder="e.g. Organic Chemistry Final Examination"
+							class="neo-input w-full text-sm"
+						/>
+					</div>
+
+					<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+						<div>
+							<label for="modal-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
+								Subject
+							</label>
+							<select id="modal-subject" bind:value={subject} class="neo-input w-full text-sm font-sans">
+								<option value="STEM">STEM</option>
+								<option value="Computer Science">Computer Science</option>
+								<option value="Humanities">Humanities</option>
+								<option value="Languages">Languages</option>
+								<option value="General">General</option>
+							</select>
+						</div>
+
+						<div>
+							<label for="modal-duration" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
+								Duration (Mins)
+							</label>
+							<input
+								id="modal-duration"
+								type="number"
+								min="5"
+								max="360"
+								bind:value={durationMinutes}
+								class="neo-input w-full text-sm font-mono"
+							/>
+						</div>
+
+						<div>
+							<label for="modal-questions" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
+								Questions
+							</label>
+							<input
+								id="modal-questions"
+								type="number"
+								min="1"
+								max="200"
+								bind:value={questionCount}
+								class="neo-input w-full text-sm font-mono"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<!-- Simulated Progress Bar -->
+				{#if store.isUploading}
+					<div class="neo-box p-3.5 bg-muted/40 animate-slide-down">
+						<div class="flex items-center justify-between text-xs font-mono font-bold mb-1.5">
+							<span class="flex items-center gap-1.5">
+								<span class="h-2 w-2 bg-accent-contrast animate-ping"></span>
+								{store.uploadStatusText}
+							</span>
+							<span>{store.uploadProgress}%</span>
+						</div>
+						<div class="h-2.5 w-full border border-border-color bg-surface overflow-hidden">
+							<div
+								class="h-full bg-accent-contrast transition-all duration-300 ease-out"
+								style={`width: ${store.uploadProgress}%`}
+							></div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Actions -->
+				<div class="flex items-center justify-between gap-3 pt-3 border-t border-border-color/20">
+					<button
+						type="button"
+						onclick={fillDemoFile}
+						class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
+					>
+						Fill Sample Data
+					</button>
+
+					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							onclick={() => store.closeUploadModal()}
+							disabled={store.isUploading}
+							class="neo-btn text-xs py-2 px-3"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={store.isUploading}
+							class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-50"
+						>
+							{#if store.isUploading}
+								Processing...
+							{:else}
+								Create Test &rarr;
+							{/if}
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}

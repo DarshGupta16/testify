@@ -1,3 +1,274 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+	--font-sans:
+		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-mono: 'Space Mono', monospace;
+
+	--color-canvas: var(--bg-canvas);
+	--color-surface: var(--bg-surface);
+	--color-surface-elevated: var(--bg-surface-elevated);
+	--color-muted: var(--bg-muted);
+	--color-canvas-text: var(--text-primary);
+	--color-text-primary: var(--text-primary);
+	--color-text-secondary: var(--text-secondary);
+	--color-text-muted: var(--text-muted);
+	--color-border-color: var(--border-color);
+	--color-accent-contrast: var(--accent-contrast);
+	--color-accent-contrast-text: var(--accent-contrast-text);
+	--color-badge-bg: var(--badge-bg);
+	--color-badge-text: var(--badge-text);
+}
+
+@layer base {
+	:root {
+		/* Light Mode Colors (Balanced & Crisp) */
+		--bg-canvas: #f6f6f8;
+		--bg-surface: #ffffff;
+		--bg-surface-elevated: #ffffff;
+		--bg-muted: #ededf2;
+		--text-primary: #121217;
+		--text-secondary: #5a5a6c;
+		--text-muted: #79798e;
+		--border-color: #181820;
+		--shadow-color: #181820;
+		--accent-contrast: #121217;
+		--accent-contrast-text: #ffffff;
+		--badge-bg: #e8e8ee;
+		--badge-text: #181820;
+		--card-pattern: radial-gradient(#181820 1px, transparent 1px);
+	}
+
+	.dark {
+		/* Dark Mode Colors (Comfortable, Elegant & Easy on the Eyes) */
+		--bg-canvas: #0e0f12;
+		--bg-surface: #16171d;
+		--bg-surface-elevated: #1e1f26;
+		--bg-muted: #23242e;
+		--text-primary: #e6e6ee;
+		--text-secondary: #9ca0b4;
+		--text-muted: #6e7184;
+		--border-color: #313340;
+		--shadow-color: #060709;
+		--accent-contrast: #e2e2ec;
+		--accent-contrast-text: #0e0f12;
+		--badge-bg: #21222b;
+		--badge-text: #d2d3e0;
+		--card-pattern: radial-gradient(#313340 1px, transparent 1px);
+	}
+
+	* {
+		border-color: var(--border-color);
+	}
+
+	body {
+		font-family: var(--font-sans);
+		background-color: var(--bg-canvas);
+		color: var(--text-primary);
+		min-height: 100vh;
+	}
+
+	/* Subtle tactical canvas pattern */
+	.bg-grid-pattern {
+		background-size: 24px 24px;
+		background-image: var(--card-pattern);
+		background-position: 0 0;
+		opacity: 0.04;
+	}
+
+	.dark .bg-grid-pattern {
+		opacity: 0.06;
+	}
+}
+
+/* Custom Neobrutalist Utility Classes */
+.font-mono {
+	font-family: var(--font-mono), monospace;
+}
+
+.neo-box {
+	background-color: var(--bg-surface);
+	border: 2px solid var(--border-color);
+	box-shadow: 4px 4px 0px var(--shadow-color);
+	transition:
+		transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+		box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.dark .neo-box {
+	box-shadow:
+		4px 4px 0px var(--shadow-color),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.neo-box-sm {
+	background-color: var(--bg-surface);
+	border: 1.5px solid var(--border-color);
+	box-shadow: 2px 2px 0px var(--shadow-color);
+}
+
+.dark .neo-box-sm {
+	box-shadow: 2px 2px 0px var(--shadow-color);
+}
+
+.neo-box-lg {
+	background-color: var(--bg-surface);
+	border: 2.5px solid var(--border-color);
+	box-shadow: 6px 6px 0px var(--shadow-color);
+}
+
+.dark .neo-box-lg {
+	box-shadow:
+		6px 6px 0px var(--shadow-color),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.neo-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 0.65rem 1.25rem;
+	border: 2px solid var(--border-color);
+	background-color: var(--bg-surface);
+	color: var(--text-primary);
+	box-shadow: 3px 3px 0px var(--shadow-color);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		transform 0.1s ease,
+		box-shadow 0.1s ease,
+		background-color 0.15s ease,
+		color 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.neo-btn:hover {
+	transform: translate(-1px, -1px);
+	box-shadow: 4px 4px 0px var(--shadow-color);
+	background-color: var(--bg-muted);
+}
+
+.neo-btn:active {
+	transform: translate(2px, 2px);
+	box-shadow: 1px 1px 0px var(--shadow-color);
+}
+
+.neo-btn-primary {
+	background-color: var(--accent-contrast);
+	color: var(--accent-contrast-text);
+	border-color: var(--accent-contrast);
+}
+
+.neo-btn-primary:hover {
+	background-color: var(--accent-contrast);
+	opacity: 0.92;
+}
+
+.dark .neo-btn-primary {
+	border-color: var(--accent-contrast);
+}
+
+.neo-btn-danger {
+	background-color: #e11d48;
+	color: #ffffff;
+	border-color: #be123c;
+}
+
+.neo-btn-danger:hover {
+	background-color: #be123c;
+}
+
+.dark .neo-btn-danger {
+	background-color: #be123c;
+	border-color: #9f1239;
+}
+
+.dark .neo-btn-danger:hover {
+	background-color: #9f1239;
+}
+
+.neo-input {
+	background-color: var(--bg-surface);
+	color: var(--text-primary);
+	border: 2px solid var(--border-color);
+	box-shadow: 3px 3px 0px var(--shadow-color);
+	padding: 0.65rem 0.9rem;
+	outline: none;
+	transition:
+		box-shadow 0.15s ease,
+		transform 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.neo-input:focus {
+	border-color: var(--text-primary);
+	box-shadow: 4px 4px 0px var(--shadow-color);
+	transform: translate(-1px, -1px);
+}
+
+.neo-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.2rem 0.6rem;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	border: 1.5px solid var(--border-color);
+	background-color: var(--badge-bg);
+	color: var(--badge-text);
+}
+
+/* Animations */
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-8px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.animate-slide-down {
+	animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--border-color);
+	border: 1px solid var(--bg-canvas);
+}
