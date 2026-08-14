@@ -10,7 +10,10 @@ let durationMinutes = $state(60);
 let questionCount = $state(25);
 
 let testFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+let testFileObj = $state<File | null>(null);
+
 let answerKeyFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+let answerKeyFileObj = $state<File | null>(null);
 
 let testInputRef = $state<HTMLInputElement | null>(null);
 let answerKeyInputRef = $state<HTMLInputElement | null>(null);
@@ -27,13 +30,13 @@ function handleTestFileChange(event: Event) {
 	const input = event.target as HTMLInputElement;
 	if (input.files?.[0]) {
 		const file = input.files[0];
+		testFileObj = file;
 		testFile = {
 			name: file.name,
 			size: file.size,
 			formattedSize: formatBytes(file.size),
 		};
 		if (!title) {
-			// Auto-suggest title based on file name
 			title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 		}
 	}
@@ -43,6 +46,7 @@ function handleAnswerKeyFileChange(event: Event) {
 	const input = event.target as HTMLInputElement;
 	if (input.files?.[0]) {
 		const file = input.files[0];
+		answerKeyFileObj = file;
 		answerKeyFile = {
 			name: file.name,
 			size: file.size,
@@ -53,18 +57,19 @@ function handleAnswerKeyFileChange(event: Event) {
 
 function clearTestFile() {
 	testFile = null;
+	testFileObj = null;
 	if (testInputRef) testInputRef.value = '';
 }
 
 function clearAnswerKeyFile() {
 	answerKeyFile = null;
+	answerKeyFileObj = null;
 	if (answerKeyInputRef) answerKeyInputRef.value = '';
 }
 
 async function handleSubmit(e: SubmitEvent) {
 	e.preventDefault();
 	if (!testFile && !title) {
-		// Provide dummy files if none selected for easy testing
 		testFile = {
 			name: 'Practice_Midterm_Paper.pdf',
 			size: 2450000,
@@ -77,12 +82,19 @@ async function handleSubmit(e: SubmitEvent) {
 		subject,
 		durationMinutes: Number(durationMinutes) || 60,
 		questionCount: Number(questionCount) || 20,
-		testFile: testFile || {
-			name: 'Test_Document.pdf',
-			size: 1800000,
-			formattedSize: '1.7 MB',
-		},
-		answerKeyFile: answerKeyFile,
+		scale: Number(app.selectedScale) || 1.25,
+		testFile: testFile
+			? {
+					...testFile,
+					rawFile: testFileObj || undefined,
+				}
+			: null,
+		answerKeyFile: answerKeyFile
+			? {
+					...answerKeyFile,
+					rawFile: answerKeyFileObj || undefined,
+				}
+			: null,
 	};
 
 	await app.handleAddTest(payload);
@@ -94,15 +106,18 @@ function fillDemoFile() {
 		size: 3200000,
 		formattedSize: '3.1 MB',
 	};
+	testFileObj = null;
 	answerKeyFile = {
 		name: 'Thermodynamics_AnswerKey.pdf',
 		size: 1100000,
 		formattedSize: '1.0 MB',
 	};
+	answerKeyFileObj = null;
 	title = 'Physics: Thermodynamics & Kinetic Theory';
 	subject = 'STEM';
 	durationMinutes = 90;
 	questionCount = 30;
+	app.selectedScale = 1.25;
 }
 </script>
 
@@ -119,7 +134,7 @@ function fillDemoFile() {
 			No Tests Created Yet
 		</h1>
 		<p class="mt-2.5 max-w-xl mx-auto text-sm sm:text-base text-text-secondary">
-			Upload your question paper PDF and optional answer key to convert static documents into an interactive, timed test.
+			Upload your question paper PDF to automatically extract pages, raster images, and vector diagrams with MuPDF.
 		</p>
 	</div>
 
@@ -135,7 +150,8 @@ function fillDemoFile() {
 			<button
 				type="button"
 				onclick={fillDemoFile}
-				class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
+				disabled={app.tests.isUploading}
+				class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer disabled:opacity-40"
 			>
 				Auto-fill Demo PDF
 			</button>
@@ -173,7 +189,8 @@ function fillDemoFile() {
 							<button
 								type="button"
 								onclick={clearTestFile}
-								class="neo-btn text-[10px] py-1 px-2 shrink-0"
+								disabled={app.tests.isUploading}
+								class="neo-btn text-[10px] py-1 px-2 shrink-0 disabled:opacity-40"
 								title="Remove file"
 							>
 								Clear
@@ -183,7 +200,8 @@ function fillDemoFile() {
 						<button
 							type="button"
 							onclick={() => testInputRef?.click()}
-							class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-5 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer group"
+							disabled={app.tests.isUploading}
+							class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-5 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer group disabled:opacity-50"
 						>
 							<div class="mb-2 flex h-9 w-9 items-center justify-center border-2 border-border-color bg-surface group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-transform">
 								<svg
@@ -244,7 +262,8 @@ function fillDemoFile() {
 							<button
 								type="button"
 								onclick={clearAnswerKeyFile}
-								class="neo-btn text-[10px] py-1 px-2 shrink-0"
+								disabled={app.tests.isUploading}
+								class="neo-btn text-[10px] py-1 px-2 shrink-0 disabled:opacity-40"
 								title="Remove answer key"
 							>
 								Clear
@@ -254,7 +273,8 @@ function fillDemoFile() {
 						<button
 							type="button"
 							onclick={() => answerKeyInputRef?.click()}
-							class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-5 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer group"
+							disabled={app.tests.isUploading}
+							class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-5 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer group disabled:opacity-50"
 						>
 							<div class="mb-2 flex h-9 w-9 items-center justify-center border-2 border-border-color bg-surface group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-transform">
 								<svg
@@ -282,6 +302,35 @@ function fillDemoFile() {
 				</div>
 			</div>
 
+			<!-- Scale Preset Selector -->
+			<div class="p-3.5 bg-muted/30 border-2 border-border-color/60">
+				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+					<div>
+						<div class="flex items-center gap-1.5">
+							<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full"></span>
+							<label for="empty-scale-select" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+								Extraction Resolution Scale
+							</label>
+						</div>
+						<p class="text-[11px] text-text-muted mt-0.5">
+							Specifies the rendering fidelity of pages and vector diagram crops.
+						</p>
+					</div>
+
+					<select
+						id="empty-scale-select"
+						bind:value={app.selectedScale}
+						disabled={app.tests.isUploading}
+						class="neo-input text-xs font-mono py-1.5 px-2.5 bg-surface"
+					>
+						<option value={1.0}>1.0× (Standard - Compact)</option>
+						<option value={1.25}>1.25× (Recommended for AI Vision)</option>
+						<option value={1.5}>1.5× (High Resolution)</option>
+						<option value={2.0}>2.0× (Ultra Crisp)</option>
+					</select>
+				</div>
+			</div>
+
 			<!-- Metadata Inputs -->
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t-2 border-border-color/20">
 				<!-- Title -->
@@ -293,6 +342,7 @@ function fillDemoFile() {
 						id="empty-title"
 						type="text"
 						bind:value={title}
+						disabled={app.tests.isUploading}
 						placeholder="e.g. Physics Midterm Examination 2026"
 						class="neo-input w-full text-sm"
 					/>
@@ -306,6 +356,7 @@ function fillDemoFile() {
 					<select
 						id="empty-subject"
 						bind:value={subject}
+						disabled={app.tests.isUploading}
 						class="neo-input w-full text-sm font-sans"
 					>
 						<option value="STEM">STEM & Sciences</option>
@@ -327,6 +378,7 @@ function fillDemoFile() {
 						min="5"
 						max="360"
 						bind:value={durationMinutes}
+						disabled={app.tests.isUploading}
 						class="neo-input w-full text-sm font-mono"
 					/>
 				</div>
@@ -342,6 +394,7 @@ function fillDemoFile() {
 						min="1"
 						max="200"
 						bind:value={questionCount}
+						disabled={app.tests.isUploading}
 						class="neo-input w-full text-sm font-mono"
 					/>
 				</div>
@@ -349,13 +402,13 @@ function fillDemoFile() {
 
 			<!-- Processing State Indicator -->
 			{#if app.tests.isUploading}
-				<div class="neo-box p-4 bg-muted/40 animate-slide-down">
-					<div class="flex items-center justify-between text-xs font-mono font-bold mb-2">
-						<span class="flex items-center gap-2">
-							<span class="inline-block h-2.5 w-2.5 bg-accent-contrast animate-spin"></span>
-							{app.tests.uploadStatusText}
+				<div class="neo-box p-4 bg-muted/40 animate-slide-down border-2 border-border-color space-y-2">
+					<div class="flex items-center justify-between text-xs font-mono font-bold">
+						<span class="flex items-center gap-2 text-text-primary truncate">
+							<span class="h-2.5 w-2.5 bg-accent-contrast animate-pulse"></span>
+							<span class="truncate">{app.tests.uploadStatusText || 'Extracting pages & diagrams...'}</span>
 						</span>
-						<span>{app.tests.uploadProgress}%</span>
+						<span class="font-mono text-accent-contrast ml-2">{app.tests.uploadProgress}%</span>
 					</div>
 					<div class="h-3 w-full border-2 border-border-color bg-surface overflow-hidden">
 						<div
@@ -371,7 +424,8 @@ function fillDemoFile() {
 				<button
 					type="button"
 					onclick={() => app.handleLoadSamples()}
-					class="neo-btn text-xs w-full sm:w-auto"
+					disabled={app.tests.isUploading}
+					class="neo-btn text-xs w-full sm:w-auto disabled:opacity-40"
 				>
 					&rarr; Or Populate Demo Tests
 				</button>
@@ -379,10 +433,11 @@ function fillDemoFile() {
 				<button
 					type="submit"
 					disabled={app.tests.isUploading}
-					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
 				>
 					{#if app.tests.isUploading}
-						<span class="animate-pulse">Processing PDF...</span>
+						<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent animate-spin"></span>
+						<span>Ingesting PDF...</span>
 					{:else}
 						<span>Generate Test &rarr;</span>
 					{/if}

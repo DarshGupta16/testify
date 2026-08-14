@@ -43,7 +43,12 @@ function handleDelete() {
 				{test.subject}
 			</span>
 
-			<div class="flex items-center gap-1.5">
+			<div class="flex flex-wrap items-center gap-1.5">
+				{#if test.extractedDiagramsCount !== undefined && test.extractedDiagramsCount > 0}
+					<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px]" title="Extracted diagrams and figures">
+						🎨 {test.extractedDiagramsCount} {test.extractedDiagramsCount === 1 ? 'Diagram' : 'Diagrams'}
+					</span>
+				{/if}
 				{#if test.hasAnswerKey}
 					<span class="neo-badge bg-emerald-600 dark:bg-emerald-700 text-white" title="Auto-grading key linked">
 						✓ Key Linked

@@ -1,3 +1,5 @@
+import type { PdfExtractionResult } from '$lib/services/pdf';
+
 /**
  * Testify - Domain Models & Types
  */
@@ -10,6 +12,7 @@ export interface QuestionPreview {
 	options?: string[];
 	correctAnswer?: string;
 	marks: number;
+	associatedDiagramId?: string;
 }
 
 export type TestStatus = 'ready' | 'processing' | 'error';
@@ -31,6 +34,11 @@ export interface TestItem {
 	status: TestStatus;
 	tags: string[];
 	questions?: QuestionPreview[];
+	// Extracted PDF assets and metrics
+	extractedData?: PdfExtractionResult;
+	extractedPagesCount?: number;
+	extractedDiagramsCount?: number;
+	renderScale?: number;
 }
 
 export interface TestUploadPayload {
@@ -40,15 +48,18 @@ export interface TestUploadPayload {
 	questionCount: number;
 	totalMarks?: number;
 	description?: string;
+	scale?: number;
 	testFile: {
 		name: string;
 		size: number;
 		formattedSize: string;
+		rawFile?: File | Blob | Uint8Array;
 	} | null;
 	answerKeyFile: {
 		name: string;
 		size: number;
 		formattedSize: string;
+		rawFile?: File | Blob | Uint8Array;
 	} | null;
 }
 

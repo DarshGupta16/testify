@@ -1,0 +1,232 @@
+import * as mupdf from 'mupdf';
+import { doBoxesOverlapOrNear, isPointInside, unionBoxes } from './geometry';
+import { createPngUrls } from './imageUtils';
+import type { BoundingBox, ExtractedEmbeddedImage, VectorPathRecord } from './types';
+
+/**
+ * Filters raw vector path commands to remove background watermarks,
+ * full-page boundary boxes, and faint tint patterns.
+ */
+export function filterVectorPaths(
+	paths: VectorPathRecord[],
+	pageWidth: number,
+	pageHeight: number
+): VectorPathRecord[] {
+	return paths.filter((p) => {
+		const w = p.bounds[2] - p.bounds[0];
+		const h = p.bounds[3] - p.bounds[1];
+
+		// Filter out full-page borders or full-width divider rules
+		if (w >= pageWidth * 0.7 && h <= 12) return false;
+		if (w >= pageWidth * 0.92 && h >= pageHeight * 0.92) return false;
+
+		// Filter out faint CMYK or light RGB watermark tint paths
+		if (p.color && p.color.length === 4 && p.color[3] < 0.35) return false;
+		if (
+			p.color &&
+			p.color.length === 3 &&
+			p.color[0] > 0.72 &&
+			p.color[1] > 0.72 &&
+			p.color[2] > 0.72
+		) {
+			return false;
+		}
+		return true;
+	});
+}
+
+/**
+ * Groups adjacent vector paths into clusters using anisotropic distance thresholds.
+ */
+export function clusterVectorPaths(paths: VectorPathRecord[]): BoundingBox[][] {
+	let clusters: BoundingBox[][] = paths.map((p) => [p.bounds]);
+	let merged = true;
+
+	while (merged) {
+		merged = false;
+		const newClusters: BoundingBox[][] = [];
+		const used = new Array(clusters.length).fill(false);
+
+		for (let i = 0; i < clusters.length; i++) {
+			if (used[i]) continue;
+			const currentCluster = [...clusters[i]];
+			let currentUnion = unionBoxes(currentCluster);
+
+			for (let j = i + 1; j < clusters.length; j++) {
+				if (used[j]) continue;
+				const otherUnion = unionBoxes(clusters[j]);
+				if (doBoxesOverlapOrNear(currentUnion, otherUnion, 20, 8)) {
+					currentCluster.push(...clusters[j]);
+					currentUnion = unionBoxes(currentCluster);
+					used[j] = true;
+					merged = true;
+				}
+			}
+			newClusters.push(currentCluster);
+		}
+		clusters = newClusters;
+	}
+
+	return clusters;
+}
+
+export interface ValidClusterResult {
+	box: BoundingBox;
+	w: number;
+	h: number;
+	pathCount: number;
+}
+
+/**
+ * Multi-Tier Geometric Diagram Classifier:
+ * Determines whether a cluster represents a true 2D diagram (complex, simple, or minimal)
+ * or if it is an inline math formula, fraction bar, or full-page document table grid.
+ */
+export function classifyDiagramClusters(
+	clusters: BoundingBox[][],
+	pageWidth: number,
+	pageHeight: number,
+	existingImageBoxes: Array<{ x: number; y: number; w: number; h: number }>
+): ValidClusterResult[] {
+	const validClusters: ValidClusterResult[] = [];
+	const pageArea = pageWidth * pageHeight;
+
+	for (const cluster of clusters) {
+		const box = unionBoxes(cluster);
+		const w = box[2] - box[0];
+		const h = box[3] - box[1];
+		const pathCount = cluster.length;
+		const area = w * h;
+		const aspectRatio = w / Math.max(1, h);
+
+		// EXCLUSION 0: Full-page layout frames, multi-question document tables, and page-level grids
+		// A question diagram never spans >75% of page width AND >40% of page height (or >35% of total page area)
+		if ((w >= pageWidth * 0.75 && h >= pageHeight * 0.4) || area >= pageArea * 0.35) {
+			continue;
+		}
+
+		// EXCLUSION A: Header/Footer separator lines (wide & paper-thin)
+		if (w > 200 && h <= 10) continue;
+
+		// EXCLUSION B: Single flat 1D equation lines (fractions, underlines)
+		if (h <= 4) continue;
+
+		// EXCLUSION C: Inline math formulas sitting in a flat single-text-line strip (h <= 20 pt and low area)
+		if (h <= 20 && area < 800 && pathCount <= 6) continue;
+
+		// Check if this cluster matches any diagram tier:
+		let isDiagram = false;
+
+		// TIER 1: Complex 2D Diagrams (Mechanics, Circuits, Multi-shape setups: >= 10 paths)
+		if (pathCount >= 10 && w >= 25 && h >= 25) {
+			isDiagram = true;
+		}
+		// TIER 2: Moderate/Simple 2D Diagrams (4-9 paths: e.g. Free-body diagrams, Pendulum, Box on floor)
+		else if (pathCount >= 4 && w >= 24 && h >= 24 && aspectRatio <= 6.0) {
+			isDiagram = true;
+		}
+		// TIER 3: Minimal 2D Geometric Setups (2-3 paths: e.g. 3-line Triangle, 2-axis Coordinate Graph)
+		else if (
+			pathCount >= 2 &&
+			w >= 30 &&
+			h >= 30 &&
+			aspectRatio >= 0.25 &&
+			aspectRatio <= 4.0 &&
+			area >= 900
+		) {
+			isDiagram = true;
+		}
+
+		if (!isDiagram) continue;
+
+		// Check if this cluster already overlaps with an extracted raster image
+		const centerX = box[0] + w / 2;
+		const centerY = box[1] + h / 2;
+		const overlapsRaster = existingImageBoxes.some((r) => isPointInside(centerX, centerY, r));
+		if (overlapsRaster) continue;
+
+		validClusters.push({ box, w, h, pathCount });
+	}
+
+	// Sort top-to-bottom
+	validClusters.sort((a, b) => a.box[1] - b.box[1]);
+	return validClusters;
+}
+
+/**
+ * Crops and renders each valid diagram cluster into a crisp PNG asset.
+ */
+export function cropVectorDiagrams(
+	page: mupdf.Page,
+	validClusters: ValidClusterResult[],
+	pageWidth: number,
+	pageHeight: number,
+	pageNumber: number,
+	startIndex: number,
+	renderScale = 2.0
+): ExtractedEmbeddedImage[] {
+	const diagrams: ExtractedEmbeddedImage[] = [];
+	let currentIdx = startIndex;
+
+	for (const cluster of validClusters) {
+		const pad = 6;
+		const x0 = Math.max(0, cluster.box[0] - pad);
+		const y0 = Math.max(0, cluster.box[1] - pad);
+		const x1 = Math.min(pageWidth, cluster.box[2] + pad);
+		const y1 = Math.min(pageHeight, cluster.box[3] + pad);
+		const cropW = x1 - x0;
+		const cropH = y1 - y0;
+
+		const pixelW = Math.round(cropW * renderScale);
+		const pixelH = Math.round(cropH * renderScale);
+
+		let cropPixmap: mupdf.Pixmap | null = null;
+		let drawDevice: mupdf.DrawDevice | null = null;
+
+		try {
+			cropPixmap = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, pixelW, pixelH], false);
+			cropPixmap.clear(0xffffff); // Crisp white background for exam diagrams
+
+			const matrix = mupdf.Matrix.concat(
+				mupdf.Matrix.translate(-x0, -y0),
+				mupdf.Matrix.scale(renderScale, renderScale)
+			);
+
+			drawDevice = new mupdf.DrawDevice(matrix, cropPixmap);
+			page.runPageContents(drawDevice, mupdf.Matrix.identity);
+			drawDevice.close();
+
+			const pngBytes = cropPixmap.asPNG();
+			const { dataUrl, blobUrl } = createPngUrls(pngBytes);
+
+			const posBox = {
+				x: Math.round(x0),
+				y: Math.round(y0),
+				width: Math.round(cropW),
+				height: Math.round(cropH),
+			};
+
+			currentIdx++;
+			diagrams.push({
+				id: `p${pageNumber}_vdiag_${currentIdx}`,
+				pageNumber,
+				imageIndex: currentIdx,
+				type: 'vector_diagram',
+				width: pixelW,
+				height: pixelH,
+				sizeBytes: pngBytes.byteLength,
+				mimeType: 'image/png',
+				dataUrl,
+				blobUrl,
+				position: posBox,
+			});
+		} catch (err) {
+			console.warn(`Error cropping vector diagram on page ${pageNumber}:`, err);
+		} finally {
+			drawDevice?.destroy();
+			cropPixmap?.destroy();
+		}
+	}
+
+	return diagrams;
+}

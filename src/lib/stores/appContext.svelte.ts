@@ -16,6 +16,9 @@ export class AppStore {
 	readonly theme = new ThemeStore();
 	readonly toast = new ToastStore();
 
+	// Global extraction scale preference (1.0x, 1.25x, 1.5x, 2.0x)
+	selectedScale = $state<number>(1.25);
+
 	// Composed Derived Reactive Queries
 	readonly filteredTests = $derived.by(() => {
 		return this.filter.apply(this.tests.tests);
@@ -29,6 +32,10 @@ export class AppStore {
 	// High-level Orchestration Methods
 	async handleAddTest(payload: TestUploadPayload): Promise<TestItem | undefined> {
 		try {
+			// Ensure scale is populated from app setting if not explicitly overridden
+			if (!payload.scale) {
+				payload.scale = this.selectedScale;
+			}
 			const newTest = await this.tests.createTest(payload);
 			this.toast.show(`Test "${newTest.title}" created successfully!`, 'success');
 			this.modals.closeUpload(true);

@@ -49,6 +49,16 @@ const app = getAppContext();
 
 		<!-- Action Controls -->
 		<div class="flex items-center gap-2 sm:gap-3">
+			<!-- MuPDF Test Page Link -->
+			<a
+				href="/pdftest"
+				class="neo-btn text-xs py-2 px-3 font-mono font-bold hover:bg-muted"
+				title="MuPDF page rasterization & embedded image extraction test tool"
+			>
+				<span class="text-amber-500 font-bold">⚡</span>
+				<span>/pdftest</span>
+			</a>
+
 			<!-- Quick Sample Loader Button -->
 			<button
 				type="button"

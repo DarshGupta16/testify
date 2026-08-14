@@ -10,7 +10,10 @@ let durationMinutes = $state(60);
 let questionCount = $state(25);
 
 let testFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+let testFileObj = $state<File | null>(null);
+
 let answerKeyFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
+let answerKeyFileObj = $state<File | null>(null);
 
 let testInputRef = $state<HTMLInputElement | null>(null);
 let answerKeyInputRef = $state<HTMLInputElement | null>(null);
@@ -27,6 +30,7 @@ function handleTestFileChange(event: Event) {
 	const input = event.target as HTMLInputElement;
 	if (input.files?.[0]) {
 		const file = input.files[0];
+		testFileObj = file;
 		testFile = {
 			name: file.name,
 			size: file.size,
@@ -42,6 +46,7 @@ function handleAnswerKeyFileChange(event: Event) {
 	const input = event.target as HTMLInputElement;
 	if (input.files?.[0]) {
 		const file = input.files[0];
+		answerKeyFileObj = file;
 		answerKeyFile = {
 			name: file.name,
 			size: file.size,
@@ -52,29 +57,34 @@ function handleAnswerKeyFileChange(event: Event) {
 
 function clearTestFile() {
 	testFile = null;
+	testFileObj = null;
 	if (testInputRef) testInputRef.value = '';
 }
 
 function clearAnswerKeyFile() {
 	answerKeyFile = null;
+	answerKeyFileObj = null;
 	if (answerKeyInputRef) answerKeyInputRef.value = '';
 }
 
 function fillDemoFile() {
 	testFile = {
-		name: 'Calculus_Integration_Assessment.pdf',
+		name: 'Physics_Assessment_Sample.pdf',
 		size: 2800000,
 		formattedSize: '2.7 MB',
 	};
+	testFileObj = null;
 	answerKeyFile = {
-		name: 'Calculus_Answers_Detailed.pdf',
+		name: 'Physics_Answers_Detailed.pdf',
 		size: 950000,
 		formattedSize: '928 KB',
 	};
-	title = 'Calculus II: Advanced Integration Techniques';
+	answerKeyFileObj = null;
+	title = 'Physics Mechanics & Newton Laws';
 	subject = 'STEM';
-	durationMinutes = 80;
-	questionCount = 28;
+	durationMinutes = 90;
+	questionCount = 30;
+	app.selectedScale = 1.25;
 }
 
 async function handleSubmit(e: SubmitEvent) {
@@ -85,19 +95,29 @@ async function handleSubmit(e: SubmitEvent) {
 		subject,
 		durationMinutes: Number(durationMinutes) || 60,
 		questionCount: Number(questionCount) || 20,
-		testFile: testFile || {
-			name: 'Test_Exam_Document.pdf',
-			size: 2100000,
-			formattedSize: '2.0 MB',
-		},
-		answerKeyFile: answerKeyFile,
+		scale: Number(app.selectedScale) || 1.25,
+		testFile: testFile
+			? {
+					...testFile,
+					rawFile: testFileObj || undefined,
+				}
+			: null,
+		answerKeyFile: answerKeyFile
+			? {
+					...answerKeyFile,
+					rawFile: answerKeyFileObj || undefined,
+				}
+			: null,
 	};
 
 	await app.handleAddTest(payload);
+
 	// Reset inputs
 	title = '';
 	testFile = null;
+	testFileObj = null;
 	answerKeyFile = null;
+	answerKeyFileObj = null;
 }
 
 function handleKeyDown(e: KeyboardEvent) {
@@ -132,7 +152,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<div class="flex items-center gap-2.5">
 					<div class="h-4 w-4 bg-accent-contrast"></div>
 					<h2 id="upload-modal-title" class="text-lg sm:text-xl font-extrabold uppercase tracking-wide">
-						Upload & Convert Test PDF
+						Upload & Ingest Test PDF
 					</h2>
 				</div>
 				<button
@@ -175,6 +195,7 @@ function handleKeyDown(e: KeyboardEvent) {
 								<button
 									type="button"
 									onclick={clearTestFile}
+									disabled={app.tests.isUploading}
 									class="neo-btn text-[10px] py-0.5 px-1.5"
 								>
 									✕
@@ -184,7 +205,8 @@ function handleKeyDown(e: KeyboardEvent) {
 							<button
 								type="button"
 								onclick={() => testInputRef?.click()}
-								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer"
+								disabled={app.tests.isUploading}
+								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer disabled:opacity-50"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -230,6 +252,7 @@ function handleKeyDown(e: KeyboardEvent) {
 								<button
 									type="button"
 									onclick={clearAnswerKeyFile}
+									disabled={app.tests.isUploading}
 									class="neo-btn text-[10px] py-0.5 px-1.5"
 								>
 									✕
@@ -239,7 +262,8 @@ function handleKeyDown(e: KeyboardEvent) {
 							<button
 								type="button"
 								onclick={() => answerKeyInputRef?.click()}
-								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer"
+								disabled={app.tests.isUploading}
+								class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-4 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer disabled:opacity-50"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -258,6 +282,35 @@ function handleKeyDown(e: KeyboardEvent) {
 					</div>
 				</div>
 
+				<!-- Extraction Engine Configuration Row (Scale Preset Selector) -->
+				<div class="p-3.5 bg-muted/30 border-2 border-border-color/60">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+						<div>
+							<div class="flex items-center gap-1.5">
+								<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full"></span>
+								<label for="modal-scale-select" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+									Extraction Resolution Scale
+								</label>
+							</div>
+							<p class="text-[11px] text-text-muted mt-0.5">
+								Controls full-page rendering fidelity and vector diagram crop clarity.
+							</p>
+						</div>
+
+						<select
+							id="modal-scale-select"
+							bind:value={app.selectedScale}
+							disabled={app.tests.isUploading}
+							class="neo-input text-xs font-mono py-1.5 px-2.5 bg-surface"
+						>
+							<option value={1.0}>1.0× (Standard - Compact)</option>
+							<option value={1.25}>1.25× (Recommended for AI Vision)</option>
+							<option value={1.5}>1.5× (High Resolution)</option>
+							<option value={2.0}>2.0× (Ultra Crisp)</option>
+						</select>
+					</div>
+				</div>
+
 				<!-- Metadata Fields -->
 				<div class="space-y-3 pt-2 border-t border-border-color/20">
 					<div>
@@ -268,7 +321,8 @@ function handleKeyDown(e: KeyboardEvent) {
 							id="modal-title"
 							type="text"
 							bind:value={title}
-							placeholder="e.g. Organic Chemistry Final Examination"
+							disabled={app.tests.isUploading}
+							placeholder="e.g. Physics Dynamics & Kinematics Paper"
 							class="neo-input w-full text-sm"
 						/>
 					</div>
@@ -278,7 +332,12 @@ function handleKeyDown(e: KeyboardEvent) {
 							<label for="modal-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
 								Subject
 							</label>
-							<select id="modal-subject" bind:value={subject} class="neo-input w-full text-sm font-sans">
+							<select
+								id="modal-subject"
+								bind:value={subject}
+								disabled={app.tests.isUploading}
+								class="neo-input w-full text-sm font-sans"
+							>
 								<option value="STEM">STEM</option>
 								<option value="Computer Science">Computer Science</option>
 								<option value="Humanities">Humanities</option>
@@ -297,6 +356,7 @@ function handleKeyDown(e: KeyboardEvent) {
 								min="5"
 								max="360"
 								bind:value={durationMinutes}
+								disabled={app.tests.isUploading}
 								class="neo-input w-full text-sm font-mono"
 							/>
 						</div>
@@ -311,23 +371,24 @@ function handleKeyDown(e: KeyboardEvent) {
 								min="1"
 								max="200"
 								bind:value={questionCount}
+								disabled={app.tests.isUploading}
 								class="neo-input w-full text-sm font-mono"
 							/>
 						</div>
 					</div>
 				</div>
 
-				<!-- Simulated Progress Bar -->
+				<!-- Live MuPDF Progress Indicator -->
 				{#if app.tests.isUploading}
-					<div class="neo-box p-3.5 bg-muted/40 animate-slide-down">
-						<div class="flex items-center justify-between text-xs font-mono font-bold mb-1.5">
-							<span class="flex items-center gap-1.5">
-								<span class="h-2 w-2 bg-accent-contrast animate-ping"></span>
-								{app.tests.uploadStatusText}
+					<div class="neo-box p-4 bg-muted/40 animate-slide-down border-2 border-border-color space-y-2">
+						<div class="flex items-center justify-between text-xs font-mono font-bold">
+							<span class="flex items-center gap-2 text-text-primary truncate">
+								<span class="h-2.5 w-2.5 bg-accent-contrast animate-pulse"></span>
+								<span class="truncate">{app.tests.uploadStatusText || 'Extracting pages & diagrams...'}</span>
 							</span>
-							<span>{app.tests.uploadProgress}%</span>
+							<span class="font-mono text-accent-contrast ml-2">{app.tests.uploadProgress}%</span>
 						</div>
-						<div class="h-2.5 w-full border border-border-color bg-surface overflow-hidden">
+						<div class="h-3 w-full border-2 border-border-color bg-surface overflow-hidden">
 							<div
 								class="h-full bg-accent-contrast transition-all duration-300 ease-out"
 								style={`width: ${app.tests.uploadProgress}%`}
@@ -341,7 +402,8 @@ function handleKeyDown(e: KeyboardEvent) {
 					<button
 						type="button"
 						onclick={fillDemoFile}
-						class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
+						disabled={app.tests.isUploading}
+						class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer disabled:opacity-40"
 					>
 						Fill Sample Data
 					</button>
@@ -351,19 +413,20 @@ function handleKeyDown(e: KeyboardEvent) {
 							type="button"
 							onclick={() => app.modals.closeUpload()}
 							disabled={app.tests.isUploading}
-							class="neo-btn text-xs py-2 px-3"
+							class="neo-btn text-xs py-2 px-3 disabled:opacity-40"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
 							disabled={app.tests.isUploading}
-							class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-50"
+							class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-50 flex items-center gap-1.5"
 						>
 							{#if app.tests.isUploading}
-								Processing...
+								<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent animate-spin"></span>
+								<span>Ingesting PDF...</span>
 							{:else}
-								Create Test &rarr;
+								<span>Ingest & Create Test &rarr;</span>
 							{/if}
 						</button>
 					</div>

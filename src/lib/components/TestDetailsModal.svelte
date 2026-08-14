@@ -3,6 +3,9 @@ import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
 
+let activeTab = $state<'questions' | 'diagrams' | 'pages'>('questions');
+let zoomedImage = $state<{ title: string; src: string; info: string } | null>(null);
+
 function handleStartSimulatedExam() {
 	if (app.modals.selectedTest) {
 		app.toast.show(
@@ -15,7 +18,11 @@ function handleStartSimulatedExam() {
 
 function handleKeyDown(e: KeyboardEvent) {
 	if (e.key === 'Escape') {
-		app.modals.closeDetails();
+		if (zoomedImage) {
+			zoomedImage = null;
+		} else {
+			app.modals.closeDetails();
+		}
 	}
 }
 </script>
@@ -24,11 +31,14 @@ function handleKeyDown(e: KeyboardEvent) {
 
 {#if app.modals.isDetailsModalOpen && app.modals.selectedTest}
 	{@const test = app.modals.selectedTest}
+	{@const allDiagrams = test.extractedData?.pages.flatMap((p) => p.embeddedImages) || []}
+	{@const allPages = test.extractedData?.pages || []}
+
 	<!-- Backdrop -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
-			if (e.target === e.currentTarget) {
+			if (e.target === e.currentTarget && !zoomedImage) {
 				app.modals.closeDetails();
 			}
 		}}
@@ -36,15 +46,15 @@ function handleKeyDown(e: KeyboardEvent) {
 	>
 		<!-- Modal Content -->
 		<div
-			class="neo-box-lg w-full max-w-3xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[90vh] overflow-y-auto"
+			class="neo-box-lg w-full max-w-4xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[92vh] overflow-y-auto"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="details-modal-title"
 		>
 			<!-- Modal Header -->
-			<div class="flex items-start justify-between border-b-2 border-border-color pb-4 mb-6">
+			<div class="flex items-start justify-between border-b-2 border-border-color pb-4 mb-5">
 				<div>
-					<div class="flex items-center gap-2 mb-1.5">
+					<div class="flex flex-wrap items-center gap-2 mb-1.5">
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 							{test.subject}
 						</span>
@@ -55,6 +65,11 @@ function handleKeyDown(e: KeyboardEvent) {
 						{:else}
 							<span class="neo-badge bg-muted text-text-muted">
 								Self-Review Mode
+							</span>
+						{/if}
+						{#if allDiagrams.length > 0}
+							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
+								🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Diagram' : 'Diagrams'}
 							</span>
 						{/if}
 					</div>
@@ -74,7 +89,7 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Specs Grid -->
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 border-2 border-border-color mb-6 font-mono">
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 border-2 border-border-color mb-6 font-mono text-xs">
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Total Duration</span>
 					<span class="text-base font-black text-text-primary">{test.durationMinutes} Minutes</span>
@@ -89,21 +104,38 @@ function handleKeyDown(e: KeyboardEvent) {
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">PDF Source</span>
-					<span class="text-xs font-bold text-text-primary truncate block">{test.testFileName}</span>
+					<span class="text-xs font-bold text-text-primary truncate block" title={test.testFileName}>{test.testFileName}</span>
 				</div>
 			</div>
 
-			<!-- Question Structure & Extracted Sample -->
-			<div class="mb-6">
-				<div class="flex items-center justify-between mb-3">
-					<h3 class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
-						<span class="h-2 w-2 bg-accent-contrast"></span>
-						Extracted Questions Preview ({test.questions?.length || 0} shown)
-					</h3>
-					<span class="font-mono text-[10px] text-text-muted">Parser Ready</span>
-				</div>
+			<!-- Tab Navigation -->
+			<div class="flex items-center gap-2 border-b-2 border-border-color mb-4 pb-2">
+				<button
+					type="button"
+					onclick={() => (activeTab = 'questions')}
+					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+				>
+					Questions ({test.questions?.length || 0})
+				</button>
+				<button
+					type="button"
+					onclick={() => (activeTab = 'diagrams')}
+					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+				>
+					Extracted Diagrams ({allDiagrams.length})
+				</button>
+				<button
+					type="button"
+					onclick={() => (activeTab = 'pages')}
+					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+				>
+					Rendered Pages ({allPages.length})
+				</button>
+			</div>
 
-				<div class="space-y-3 max-h-72 overflow-y-auto pr-1">
+			<!-- Tab 1: Questions Preview -->
+			{#if activeTab === 'questions'}
+				<div class="space-y-3 max-h-80 overflow-y-auto pr-1">
 					{#if test.questions && test.questions.length > 0}
 						{#each test.questions as q}
 							<div class="neo-box-sm p-3.5 bg-surface text-sm space-y-2">
@@ -129,15 +161,111 @@ function handleKeyDown(e: KeyboardEvent) {
 							</div>
 						{/each}
 					{:else}
-						<div class="p-4 border-2 border-dashed border-border-color text-center font-mono text-xs text-text-muted">
-							Full question set will render inside the interactive test runner.
+						<div class="p-6 border-2 border-dashed border-border-color text-center font-mono text-xs text-text-muted">
+							Questions will be rendered inside the interactive test session runner.
 						</div>
 					{/if}
 				</div>
-			</div>
+			{/if}
+
+			<!-- Tab 2: Extracted Diagrams & Figures Gallery -->
+			{#if activeTab === 'diagrams'}
+				<div class="max-h-80 overflow-y-auto pr-1">
+					{#if allDiagrams.length > 0}
+						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+							{#each allDiagrams as diag}
+								<div
+									class="neo-box-sm p-2 bg-surface flex flex-col justify-between group cursor-pointer hover:border-accent-contrast transition-colors"
+									onclick={() =>
+										(zoomedImage = {
+											title: `Page ${diag.pageNumber} - Figure #${diag.imageIndex} (${diag.type === 'vector_diagram' ? 'Vector Diagram' : 'Raster Image'})`,
+											src: diag.dataUrl,
+											info: `${diag.width} × ${diag.height} px • ${(diag.sizeBytes / 1024).toFixed(1)} KB`,
+										})}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => e.key === 'Enter' && (zoomedImage = {
+										title: `Page ${diag.pageNumber} - Figure #${diag.imageIndex}`,
+										src: diag.dataUrl,
+										info: `${diag.width} × ${diag.height} px • ${(diag.sizeBytes / 1024).toFixed(1)} KB`,
+									})}
+								>
+									<div class="aspect-square bg-white border border-border-color/40 flex items-center justify-center p-1.5 overflow-hidden">
+										<img
+											src={diag.dataUrl}
+											alt={`Diagram #${diag.imageIndex}`}
+											class="max-h-full max-w-full object-contain"
+											loading="lazy"
+										/>
+									</div>
+									<div class="mt-2 font-mono text-[10px] space-y-0.5">
+										<div class="flex items-center justify-between font-bold text-text-primary">
+											<span>P.{diag.pageNumber} #{diag.imageIndex}</span>
+											<span class={`uppercase text-[9px] px-1 py-0.2 border ${diag.type === 'vector_diagram' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'}`}>
+												{diag.type === 'vector_diagram' ? 'Vector' : 'Raster'}
+											</span>
+										</div>
+										<p class="text-text-muted truncate">{diag.width}×{diag.height} px</p>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="p-8 border-2 border-dashed border-border-color text-center font-mono text-xs text-text-muted space-y-1">
+							<p class="font-bold text-text-primary">No Embedded Diagrams Detected</p>
+							<p>This test document contains purely algebraic or textual content.</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<!-- Tab 3: Rendered Pages Preview -->
+			{#if activeTab === 'pages'}
+				<div class="max-h-80 overflow-y-auto pr-1">
+					{#if allPages.length > 0}
+						<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+							{#each allPages as pg}
+								<div
+									class="neo-box-sm p-2.5 bg-surface flex flex-col justify-between group cursor-pointer hover:border-accent-contrast transition-colors"
+									onclick={() =>
+										(zoomedImage = {
+											title: `Page ${pg.pageNumber} of ${allPages.length}`,
+											src: pg.rasterDataUrl,
+											info: `${pg.rasterWidth} × ${pg.rasterHeight} px • ${(pg.rasterSizeBytes / 1024).toFixed(1)} KB • ${pg.embeddedImages.length} Diagrams`,
+										})}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => e.key === 'Enter' && (zoomedImage = {
+										title: `Page ${pg.pageNumber} of ${allPages.length}`,
+										src: pg.rasterDataUrl,
+										info: `${pg.rasterWidth} × ${pg.rasterHeight} px`,
+									})}
+								>
+									<div class="aspect-[3/4] bg-white border border-border-color/40 flex items-center justify-center p-1 overflow-hidden">
+										<img
+											src={pg.rasterDataUrl}
+											alt={`Page ${pg.pageNumber}`}
+											class="max-h-full max-w-full object-contain"
+											loading="lazy"
+										/>
+									</div>
+									<div class="mt-2 font-mono text-xs flex items-center justify-between">
+										<span class="font-bold text-text-primary">Page {pg.pageNumber}</span>
+										<span class="text-[10px] text-text-muted">{pg.embeddedImages.length} figures</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="p-8 border-2 border-dashed border-border-color text-center font-mono text-xs text-text-muted">
+							Full page renders will be generated upon uploading a test PDF.
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Modal Footer Actions -->
-			<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-border-color">
+			<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 mt-4 border-t-2 border-border-color">
 				<button
 					type="button"
 					onclick={() => app.handleDeleteTest(test.id)}
@@ -162,6 +290,45 @@ function handleKeyDown(e: KeyboardEvent) {
 						Launch Test &rarr;
 					</button>
 				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Zoomed Asset Lightbox Modal -->
+{#if zoomedImage}
+	<div
+		class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+		onclick={() => (zoomedImage = null)}
+		role="presentation"
+	>
+		<div
+			class="neo-box-lg max-w-3xl max-h-[90vh] bg-surface p-4 flex flex-col space-y-3 animate-slide-down"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.key === 'Escape' && (zoomedImage = null)}
+			role="dialog"
+			aria-modal="true"
+			tabindex="-1"
+		>
+			<div class="flex items-center justify-between border-b-2 border-border-color pb-2 font-mono">
+				<div>
+					<h4 class="text-sm font-bold text-text-primary uppercase">{zoomedImage.title}</h4>
+					<p class="text-[11px] text-text-muted">{zoomedImage.info}</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => (zoomedImage = null)}
+					class="neo-btn text-xs py-1 px-2.5"
+				>
+					✕
+				</button>
+			</div>
+			<div class="flex-1 flex items-center justify-center bg-white p-2 border-2 border-border-color overflow-auto max-h-[70vh]">
+				<img
+					src={zoomedImage.src}
+					alt={zoomedImage.title}
+					class="max-w-full max-h-[65vh] object-contain"
+				/>
 			</div>
 		</div>
 	</div>
