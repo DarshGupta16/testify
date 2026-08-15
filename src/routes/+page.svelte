@@ -1,8 +1,8 @@
 <script lang="ts">
-import EmptyState from '$lib/components/EmptyState.svelte';
-import FilterBar from '$lib/components/FilterBar.svelte';
-import StatsBar from '$lib/components/StatsBar.svelte';
-import TestCard from '$lib/components/TestCard.svelte';
+import EmptyState from '$lib/components/dashboard/EmptyState.svelte';
+import FilterBar from '$lib/components/dashboard/FilterBar.svelte';
+import StatsBar from '$lib/components/dashboard/StatsBar.svelte';
+import TestCard from '$lib/components/dashboard/TestCard.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
@@ -14,7 +14,7 @@ const app = getAppContext();
 
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
 	{#if app.tests.totalTests === 0}
-		<!-- Zero Tests: Show Centered Empty State with Direct Upload Prompt -->
+		<!-- Zero Tests: Show Centered Empty State with Direct Upload Form -->
 		<EmptyState />
 	{:else}
 		<!-- Active Dashboard with Tests -->

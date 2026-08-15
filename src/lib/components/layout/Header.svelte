@@ -149,7 +149,6 @@ const app = getAppContext();
 				title={`Switch to ${app.theme.theme === 'dark' ? 'Light' : 'Dark'} Mode`}
 			>
 				{#if app.theme.theme === 'dark'}
-					<!-- Sun icon for light switch -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 24 24"
@@ -170,7 +169,6 @@ const app = getAppContext();
 						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
 					</svg>
 				{:else}
-					<!-- Moon icon for dark switch -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 24 24"

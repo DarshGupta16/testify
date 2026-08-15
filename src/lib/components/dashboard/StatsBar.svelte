@@ -1,13 +1,8 @@
 <script lang="ts">
 import { getAppContext } from '$lib/stores/appContext.svelte';
+import { formatDuration } from '$lib/utils';
 
 const app = getAppContext();
-
-function formatDuration(totalMins: number): string {
-	if (totalMins < 60) return `${totalMins}m`;
-	const hours = (totalMins / 60).toFixed(1);
-	return `${hours} hrs`;
-}
 </script>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">

@@ -1,24 +1,12 @@
 <script lang="ts">
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
+import { formatDate } from '$lib/utils';
 
 const { test }: { test: TestItem } = $props();
 const app = getAppContext();
 
 let isConfirmingDelete = $state(false);
-
-function formatDate(isoString: string): string {
-	try {
-		const date = new Date(isoString);
-		return date.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-		});
-	} catch {
-		return 'Recently';
-	}
-}
 
 function handleLaunchExam() {
 	app.toast.show(`[SIMULATOR] Launching test session for "${test.title}"...`, 'info');

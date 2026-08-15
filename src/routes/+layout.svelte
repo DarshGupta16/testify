@@ -1,12 +1,12 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import favicon from '$lib/assets/favicon.svg';
-import ApiKeysModal from '$lib/components/ApiKeysModal.svelte';
-import Header from '$lib/components/Header.svelte';
-import MasterPasswordModal from '$lib/components/MasterPasswordModal.svelte';
-import TestDetailsModal from '$lib/components/TestDetailsModal.svelte';
-import Toast from '$lib/components/Toast.svelte';
-import UploadModal from '$lib/components/UploadModal.svelte';
+import Toast from '$lib/components/common/Toast.svelte';
+import Header from '$lib/components/layout/Header.svelte';
+import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
+import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
+import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
+import UploadModal from '$lib/components/modals/UploadModal.svelte';
 import { AppStore, setAppContext } from '$lib/stores/appContext.svelte';
 import './layout.css';
 

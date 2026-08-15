@@ -1,5 +1,7 @@
 <script lang="ts">
+import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
+import { formatBytes } from '$lib/utils';
 
 const app = getAppContext();
 
@@ -17,12 +19,8 @@ function handleStartSimulatedExam() {
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-	if (e.key === 'Escape') {
-		if (zoomedImage) {
-			zoomedImage = null;
-		} else {
-			app.modals.closeDetails();
-		}
+	if (e.key === 'Escape' && !zoomedImage) {
+		app.modals.closeDetails();
 	}
 }
 </script>
@@ -180,14 +178,14 @@ function handleKeyDown(e: KeyboardEvent) {
 										(zoomedImage = {
 											title: `Page ${diag.pageNumber} - Figure #${diag.imageIndex} (${diag.type === 'vector_diagram' ? 'Vector Diagram' : 'Raster Image'})`,
 											src: diag.dataUrl,
-											info: `${diag.width} × ${diag.height} px • ${(diag.sizeBytes / 1024).toFixed(1)} KB`,
+											info: `${diag.width} × ${diag.height} px • ${formatBytes(diag.sizeBytes)}`,
 										})}
 									role="button"
 									tabindex="0"
 									onkeydown={(e) => e.key === 'Enter' && (zoomedImage = {
 										title: `Page ${diag.pageNumber} - Figure #${diag.imageIndex}`,
 										src: diag.dataUrl,
-										info: `${diag.width} × ${diag.height} px • ${(diag.sizeBytes / 1024).toFixed(1)} KB`,
+										info: `${diag.width} × ${diag.height} px • ${formatBytes(diag.sizeBytes)}`,
 									})}
 								>
 									<div class="aspect-square bg-white border border-border-color/40 flex items-center justify-center p-1.5 overflow-hidden">
@@ -231,7 +229,7 @@ function handleKeyDown(e: KeyboardEvent) {
 										(zoomedImage = {
 											title: `Page ${pg.pageNumber} of ${allPages.length}`,
 											src: pg.rasterDataUrl,
-											info: `${pg.rasterWidth} × ${pg.rasterHeight} px • ${(pg.rasterSizeBytes / 1024).toFixed(1)} KB • ${pg.embeddedImages.length} Diagrams`,
+											info: `${pg.rasterWidth} × ${pg.rasterHeight} px • ${formatBytes(pg.rasterSizeBytes)} • ${pg.embeddedImages.length} Diagrams`,
 										})}
 									role="button"
 									tabindex="0"
@@ -295,41 +293,8 @@ function handleKeyDown(e: KeyboardEvent) {
 	</div>
 {/if}
 
-<!-- Zoomed Asset Lightbox Modal -->
-{#if zoomedImage}
-	<div
-		class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-		onclick={() => (zoomedImage = null)}
-		role="presentation"
-	>
-		<div
-			class="neo-box-lg max-w-3xl max-h-[90vh] bg-surface p-4 flex flex-col space-y-3 animate-slide-down"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.key === 'Escape' && (zoomedImage = null)}
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
-		>
-			<div class="flex items-center justify-between border-b-2 border-border-color pb-2 font-mono">
-				<div>
-					<h4 class="text-sm font-bold text-text-primary uppercase">{zoomedImage.title}</h4>
-					<p class="text-[11px] text-text-muted">{zoomedImage.info}</p>
-				</div>
-				<button
-					type="button"
-					onclick={() => (zoomedImage = null)}
-					class="neo-btn text-xs py-1 px-2.5"
-				>
-					✕
-				</button>
-			</div>
-			<div class="flex-1 flex items-center justify-center bg-white p-2 border-2 border-border-color overflow-auto max-h-[70vh]">
-				<img
-					src={zoomedImage.src}
-					alt={zoomedImage.title}
-					class="max-w-full max-h-[65vh] object-contain"
-				/>
-			</div>
-		</div>
-	</div>
-{/if}
+<!-- Shared Zoom Lightbox -->
+<ImageLightboxModal
+	image={zoomedImage}
+	onclose={() => (zoomedImage = null)}
+/>

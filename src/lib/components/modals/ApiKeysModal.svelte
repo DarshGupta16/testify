@@ -263,7 +263,6 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 					<!-- Conditional Master Password Section in Strict Mode -->
 					{#if app.security.securityMode === 'strict'}
 						{#if !app.security.hasMasterPassword}
-							<!-- Master Password has NOT been set: Show setup banner, hide unlock input -->
 							<div class="pt-3 border-t border-border-color/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-surface/60 p-3">
 								<div class="space-y-0.5">
 									<p class="font-sans text-xs font-bold text-text-primary">
@@ -282,7 +281,6 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 								</button>
 							</div>
 						{:else if !app.security.isUnlocked}
-							<!-- Master Password HAS been set: Show password unlock input -->
 							<div class="pt-2 border-t border-border-color/30 space-y-2">
 								<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
 									<div class="relative flex-1">

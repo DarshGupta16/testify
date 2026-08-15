@@ -1,4 +1,5 @@
 import { argon2id } from 'hash-wasm';
+import { base64ToUint8Array, uint8ArrayToBase64 } from '$lib/utils/bytes';
 
 /**
  * Testify - Cryptographic Security Service
@@ -19,36 +20,14 @@ const AES_ALGORITHM = 'AES-GCM';
 const SALT_BYTE_LENGTH = 16; // 128-bit salt
 const IV_BYTE_LENGTH = 12; // 96-bit IV recommended for AES-GCM
 
+// Re-export byte converters for backward compatibility
+export { base64ToUint8Array, uint8ArrayToBase64 };
+
 /**
  * Helper to ensure a TypedArray's buffer is a strict ArrayBuffer for Web Crypto API
  */
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
 	return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
-}
-
-/**
- * Converts a Uint8Array to a Base64 string
- */
-export function uint8ArrayToBase64(bytes: Uint8Array): string {
-	let binary = '';
-	const len = bytes.byteLength;
-	for (let i = 0; i < len; i++) {
-		binary += String.fromCharCode(bytes[i]);
-	}
-	return btoa(binary);
-}
-
-/**
- * Converts a Base64 string to a Uint8Array
- */
-export function base64ToUint8Array(base64: string): Uint8Array {
-	const binaryString = atob(base64);
-	const len = binaryString.length;
-	const bytes = new Uint8Array(len);
-	for (let i = 0; i < len; i++) {
-		bytes[i] = binaryString.charCodeAt(i);
-	}
-	return bytes;
 }
 
 /**
