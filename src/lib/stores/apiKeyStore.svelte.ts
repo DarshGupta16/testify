@@ -113,7 +113,8 @@ export class ApiKeyStore {
 	}
 
 	/**
-	 * Decrypts all stored records into active memory cache using the master password.
+	 * Atomically decrypts all stored records into active memory cache using the master password.
+	 * Throws if the master password fails authentication for any encrypted key.
 	 */
 	async decryptAllKeys(password: string): Promise<void> {
 		const records = await this.database.getAllApiKeys();
@@ -135,6 +136,7 @@ export class ApiKeyStore {
 			}
 		}
 
+		// Atomic commit to memory
 		this.memoryKeys = unlockedMap;
 	}
 

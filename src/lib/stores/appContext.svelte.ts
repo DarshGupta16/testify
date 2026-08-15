@@ -1,5 +1,6 @@
 import { getContext, setContext } from 'svelte';
 import { db, fireAndForget } from '$lib/services/db';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
@@ -11,10 +12,9 @@ import { ThemeStore } from './themeStore.svelte';
 import { ToastStore } from './toastStore.svelte';
 
 const APP_CONTEXT_KEY = Symbol('TESTIFY_APP_CONTEXT');
-const SETTING_KEY_SCALE = 'testify_extraction_scale';
 
 export class AppStore {
-	// Specialized Sub-Stores
+	// Specialized Domain Sub-Stores
 	readonly tests = new TestStore();
 	readonly filter = new FilterStore();
 	readonly modals = new ModalStore();
@@ -32,19 +32,22 @@ export class AppStore {
 	});
 
 	async init() {
-		this.theme.init();
+		// 1. Initialize persistent UI preferences & local exam collections
+		await this.theme.init();
 		await this.tests.init();
 
+		// 2. Wire security session expiry hook to key purge
 		this.security.setOnSessionExpire(() => {
 			this.apiKeys.purgeMemory();
 		});
 
+		// 3. Initialize security authentication state and API key records
 		await this.security.init();
 		await this.apiKeys.init(this.security.securityMode);
 
-		// Load saved extraction scale from Dexie
+		// 4. Load saved extraction scale from Dexie
 		try {
-			const savedScale = await db.getSetting<number>(SETTING_KEY_SCALE, 1.25);
+			const savedScale = await db.getSetting<number>(SETTINGS_KEYS.EXTRACTION_SCALE, 1.25);
 			if (typeof savedScale === 'number' && savedScale > 0) {
 				this.selectedScale = savedScale;
 			}
@@ -56,57 +59,67 @@ export class AppStore {
 	setScale(scale: number) {
 		this.selectedScale = scale;
 		fireAndForget(
-			db.setSetting(SETTING_KEY_SCALE, scale),
+			db.setSetting(SETTINGS_KEYS.EXTRACTION_SCALE, scale),
 			`Persisting scale setting (${scale}) to Dexie`
 		);
 	}
 
-	// High-level Security & API Key Orchestration
+	// --- Linear Security & Authentication Orchestration ---
+
 	async handleUnlock(password: string): Promise<boolean> {
-		return await this.security.unlock(password, async (pwd) => {
-			await this.apiKeys.decryptAllKeys(pwd);
-		});
+		// 1. Atomically decrypt keys with provided password (throws if incorrect)
+		await this.apiKeys.decryptAllKeys(password);
+
+		// 2. Activate unlocked session in security store
+		this.security.unlock(password);
+		return true;
 	}
 
 	handleLock(reason?: string): void {
-		this.security.lock(reason, () => {
-			this.apiKeys.purgeMemory();
-		});
+		this.security.lock(reason);
+		this.apiKeys.purgeMemory();
 	}
 
 	async handleSetMasterPassword(password: string): Promise<void> {
-		await this.security.setMasterPassword(password, async (pwd) => {
-			await this.apiKeys.encryptAllKeys(pwd);
-		});
+		// 1. Encrypt existing in-memory keys with new master password
+		await this.apiKeys.encryptAllKeys(password);
+
+		// 2. Activate master password and switch to Strict mode
+		await this.security.setMasterPassword(password);
 	}
 
 	async handleResetMasterPassword(): Promise<void> {
-		await this.security.resetMasterPassword(async () => {
-			await this.apiKeys.clearAllKeys();
-		});
+		// 1. Purge all encrypted key records
+		await this.apiKeys.clearAllKeys();
+
+		// 2. Reset master password settings and return to Lax mode
+		await this.security.resetMasterPassword();
 	}
 
 	async handleSwitchSecurityMode(targetMode: SecurityMode, password?: string): Promise<void> {
-		await this.security.switchSecurityMode(
-			targetMode,
-			this.apiKeys.hasAnyConfigured,
-			password,
-			async (mode, pwd) => {
-				if (mode === 'strict' && pwd) {
-					await this.apiKeys.encryptAllKeys(pwd);
-				} else if (mode === 'lax') {
-					await this.apiKeys.makeAllKeysPlaintext();
-				}
+		if (this.security.securityMode === targetMode) return;
+
+		// 1. Migrate stored credentials format
+		if (targetMode === 'strict') {
+			if (!password) {
+				throw new Error('Master password is required to switch to Strict mode.');
 			}
-		);
+			await this.apiKeys.encryptAllKeys(password);
+		} else {
+			await this.apiKeys.makeAllKeysPlaintext();
+		}
+
+		// 2. Commit security mode state change
+		await this.security.switchSecurityMode(targetMode, password);
 	}
 
 	handleSaveKey(provider: AIProvider, key: string, password?: string): void {
-		const pwd = password || this.security.activeMasterPassword;
+		const pwd = password || this.security.getActiveMasterPassword();
 		this.apiKeys.setKey(provider, key, this.security.securityMode, pwd);
 	}
 
-	// High-level Test Orchestration Methods
+	// --- High-Level Test Orchestration Methods ---
+
 	async handleAddTest(payload: TestUploadPayload): Promise<TestItem | undefined> {
 		try {
 			if (!payload.scale) {
@@ -118,7 +131,7 @@ export class AppStore {
 			return newTest;
 		} catch (error) {
 			this.toast.show('Failed to process test PDF.', 'error');
-			console.error(error);
+			console.error('[AppStore] Upload error:', error);
 		}
 	}
 

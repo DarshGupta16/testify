@@ -19,6 +19,7 @@ export * from './data/sampleTests';
 export * from './services/crypto';
 export * from './services/db';
 export * from './services/pdf';
+export * from './services/settings';
 export * from './services/testUploader';
 
 // Stores

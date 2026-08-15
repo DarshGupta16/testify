@@ -1,18 +1,16 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { SecurityMode } from '$lib/types/apiKeys';
 
-const SETTING_KEY_SECURITY_MODE = 'testify_security_mode';
-const SETTING_KEY_HAS_MASTER_PWD = 'testify_has_master_password';
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
 
 export class SecurityStore {
 	private database: TestifyDatabase;
 
-	// Reactive State
+	// Reactive Public State
 	securityMode = $state<SecurityMode>('lax');
 	hasMasterPassword = $state<boolean>(false);
 	isUnlocked = $state<boolean>(true);
-	activeMasterPassword = $state<string>(''); // Ephemeral in-memory session cache
 
 	decryptedAt = $state<number | null>(null);
 	expiresAt = $state<number | null>(null);
@@ -20,11 +18,14 @@ export class SecurityStore {
 	isBusy = $state<boolean>(false);
 	busyMessage = $state<string>('');
 
+	// Private Ephemeral Credential Holder (Non-reactive to minimize UI leak surface)
+	private activeMasterPassword = '';
+
 	// Timers
 	private wipeTimer: ReturnType<typeof setTimeout> | null = null;
 	private intervalTicker: ReturnType<typeof setInterval> | null = null;
 
-	// Callback hook when session expires
+	// Callback hook when session expires naturally
 	private onSessionExpireHook: (() => void) | null = null;
 
 	// Derived Properties
@@ -57,21 +58,31 @@ export class SecurityStore {
 		this.database = customDb;
 	}
 
+	/**
+	 * Registers an expiry listener (e.g. to purge memory keys in ApiKeyStore).
+	 */
 	setOnSessionExpire(hook: () => void) {
 		this.onSessionExpireHook = hook;
+	}
+
+	/**
+	 * Safe accessor to retrieve active master password for in-session encryption operations.
+	 */
+	getActiveMasterPassword(): string {
+		return this.activeMasterPassword;
 	}
 
 	async init() {
 		// 1. Load saved security mode (default: lax)
 		const savedMode = await this.database.getSetting<SecurityMode>(
-			SETTING_KEY_SECURITY_MODE,
+			SETTINGS_KEYS.SECURITY_MODE,
 			'lax'
 		);
 		this.securityMode = savedMode === 'strict' ? 'strict' : 'lax';
 
 		// 2. Load master password configuration flag
 		const hasPwdSetting = await this.database.getSetting<boolean>(
-			SETTING_KEY_HAS_MASTER_PWD,
+			SETTINGS_KEYS.HAS_MASTER_PASSWORD,
 			false
 		);
 		const records = await this.database.getAllApiKeys();
@@ -105,14 +116,11 @@ export class SecurityStore {
 	}
 
 	/**
-	 * Sets or changes the master password and enables Strict mode.
+	 * Sets the master password and switches mode to Strict.
 	 */
-	async setMasterPassword(
-		password: string,
-		onEncryptCallback?: (pwd: string) => Promise<void>
-	): Promise<void> {
+	async setMasterPassword(password: string): Promise<void> {
 		this.isBusy = true;
-		this.busyMessage = 'Encrypting credentials with master password...';
+		this.busyMessage = 'Activating master password & Strict mode...';
 
 		try {
 			this.hasMasterPassword = true;
@@ -121,14 +129,10 @@ export class SecurityStore {
 			this.isUnlocked = true;
 			this.scheduleMemoryWipe();
 
-			if (onEncryptCallback) {
-				await onEncryptCallback(password);
-			}
-
 			fireAndForget(
 				(async () => {
-					await this.database.setSetting(SETTING_KEY_SECURITY_MODE, 'strict');
-					await this.database.setSetting(SETTING_KEY_HAS_MASTER_PWD, true);
+					await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+					await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
 				})(),
 				'Saving master password settings'
 			);
@@ -139,33 +143,19 @@ export class SecurityStore {
 	}
 
 	/**
-	 * Unlocks session with master password.
+	 * Unlocks session with verified master password.
 	 */
-	async unlock(
-		password: string,
-		onDecryptCallback: (pwd: string) => Promise<void>
-	): Promise<boolean> {
-		this.isBusy = true;
-		this.busyMessage = 'Deriving Argon2 key & decrypting credentials...';
-
-		try {
-			await onDecryptCallback(password);
-
-			this.activeMasterPassword = password;
-			this.hasMasterPassword = true;
-			this.isUnlocked = true;
-			this.scheduleMemoryWipe();
-			return true;
-		} finally {
-			this.isBusy = false;
-			this.busyMessage = '';
-		}
+	unlock(password: string): void {
+		this.activeMasterPassword = password;
+		this.hasMasterPassword = true;
+		this.isUnlocked = true;
+		this.scheduleMemoryWipe();
 	}
 
 	/**
-	 * Locks session and purges decrypted credentials from memory.
+	 * Locks session and purges active master password from memory.
 	 */
-	lock(reason?: string, onLockCallback?: () => void): void {
+	lock(reason?: string): void {
 		if (this.securityMode === 'lax') return;
 
 		this.isUnlocked = false;
@@ -178,9 +168,6 @@ export class SecurityStore {
 			this.wipeTimer = null;
 		}
 
-		if (onLockCallback) {
-			onLockCallback();
-		}
 		if (this.onSessionExpireHook) {
 			this.onSessionExpireHook();
 		}
@@ -191,9 +178,9 @@ export class SecurityStore {
 	}
 
 	/**
-	 * Resets master password and purges all credentials.
+	 * Resets master password and resets security mode to Lax.
 	 */
-	async resetMasterPassword(onResetCallback?: () => Promise<void>): Promise<void> {
+	async resetMasterPassword(): Promise<void> {
 		this.hasMasterPassword = false;
 		this.activeMasterPassword = '';
 		this.securityMode = 'lax';
@@ -206,14 +193,10 @@ export class SecurityStore {
 			this.wipeTimer = null;
 		}
 
-		if (onResetCallback) {
-			await onResetCallback();
-		}
-
 		fireAndForget(
 			(async () => {
-				await this.database.setSetting(SETTING_KEY_HAS_MASTER_PWD, false);
-				await this.database.setSetting(SETTING_KEY_SECURITY_MODE, 'lax');
+				await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, false);
+				await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax');
 			})(),
 			'Resetting master password setting'
 		);
@@ -222,37 +205,8 @@ export class SecurityStore {
 	/**
 	 * Switches security mode between Lax and Strict.
 	 */
-	async switchSecurityMode(
-		targetMode: SecurityMode,
-		hasKeys: boolean,
-		password?: string,
-		onMigrate?: (mode: SecurityMode, pwd?: string) => Promise<void>
-	): Promise<void> {
+	async switchSecurityMode(targetMode: SecurityMode, password?: string): Promise<void> {
 		if (this.securityMode === targetMode) return;
-
-		// If no keys exist, switch mode instantly
-		if (!hasKeys) {
-			this.securityMode = targetMode;
-			this.isUnlocked = targetMode === 'lax';
-			if (targetMode === 'strict' && password) {
-				this.hasMasterPassword = true;
-				this.activeMasterPassword = password;
-			}
-			if (this.wipeTimer) clearTimeout(this.wipeTimer);
-			this.decryptedAt = null;
-			this.expiresAt = null;
-
-			fireAndForget(
-				(async () => {
-					await this.database.setSetting(SETTING_KEY_SECURITY_MODE, targetMode);
-					if (targetMode === 'strict' && password) {
-						await this.database.setSetting(SETTING_KEY_HAS_MASTER_PWD, true);
-					}
-				})(),
-				`Updating security mode to ${targetMode}`
-			);
-			return;
-		}
 
 		this.isBusy = true;
 		this.busyMessage = `Converting security mode to ${targetMode.toUpperCase()}...`;
@@ -268,30 +222,23 @@ export class SecurityStore {
 				this.isUnlocked = true;
 				this.scheduleMemoryWipe();
 
-				if (onMigrate) {
-					await onMigrate('strict', password);
-				}
-
 				fireAndForget(
 					(async () => {
-						await this.database.setSetting(SETTING_KEY_SECURITY_MODE, 'strict');
-						await this.database.setSetting(SETTING_KEY_HAS_MASTER_PWD, true);
+						await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+						await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
 					})(),
 					'Migrating settings to Strict Mode'
 				);
 			} else {
 				this.securityMode = 'lax';
 				this.isUnlocked = true;
+				this.activeMasterPassword = '';
 				if (this.wipeTimer) clearTimeout(this.wipeTimer);
 				this.decryptedAt = null;
 				this.expiresAt = null;
 
-				if (onMigrate) {
-					await onMigrate('lax', password);
-				}
-
 				fireAndForget(
-					this.database.setSetting(SETTING_KEY_SECURITY_MODE, 'lax'),
+					this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax'),
 					'Migrating settings to Lax Mode'
 				);
 			}

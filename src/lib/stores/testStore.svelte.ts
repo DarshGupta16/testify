@@ -1,9 +1,8 @@
 import { SAMPLE_TESTS } from '$lib/data/sampleTests';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import { processTestUpload } from '$lib/services/testUploader';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
-
-const LEGACY_STORAGE_KEY_TESTS = 'testify_tests_data_v1';
 
 export class TestStore {
 	private database: TestifyDatabase;
@@ -43,7 +42,7 @@ export class TestStore {
 
 			// 2. Migration fallback: check legacy localStorage if Dexie is empty
 			if (typeof window !== 'undefined') {
-				const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY_TESTS);
+				const legacyData = localStorage.getItem(SETTINGS_KEYS.LEGACY_TESTS_V1);
 				if (legacyData) {
 					try {
 						const parsed = JSON.parse(legacyData);
@@ -55,7 +54,7 @@ export class TestStore {
 								'Migrating legacy localStorage tests to Dexie'
 							);
 							// Clean up legacy localStorage key
-							localStorage.removeItem(LEGACY_STORAGE_KEY_TESTS);
+							localStorage.removeItem(SETTINGS_KEYS.LEGACY_TESTS_V1);
 						}
 					} catch (e) {
 						console.error('[TestStore] Failed parsing legacy tests:', e);

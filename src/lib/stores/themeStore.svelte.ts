@@ -1,7 +1,6 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { ThemeMode } from '$lib/types/test';
-
-const SETTING_KEY_THEME = 'testify_theme';
 
 export class ThemeStore {
 	private database: TestifyDatabase;
@@ -17,13 +16,16 @@ export class ThemeStore {
 
 		try {
 			// 1. Try loading from Dexie settings
-			const savedTheme = await this.database.getSetting<ThemeMode | null>(SETTING_KEY_THEME, null);
+			const savedTheme = await this.database.getSetting<ThemeMode | null>(
+				SETTINGS_KEYS.THEME,
+				null
+			);
 
 			if (savedTheme === 'dark' || savedTheme === 'light') {
 				this.setTheme(savedTheme);
 			} else {
 				// Fallback to legacy localStorage or system preference
-				const legacyTheme = localStorage.getItem(SETTING_KEY_THEME) as ThemeMode | null;
+				const legacyTheme = localStorage.getItem(SETTINGS_KEYS.THEME) as ThemeMode | null;
 				if (legacyTheme === 'dark' || legacyTheme === 'light') {
 					this.setTheme(legacyTheme);
 				} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -45,11 +47,11 @@ export class ThemeStore {
 			} else {
 				document.documentElement.classList.remove('dark');
 			}
-			localStorage.setItem(SETTING_KEY_THEME, mode);
+			localStorage.setItem(SETTINGS_KEYS.THEME, mode);
 
 			// 2. Fire-and-forget async Dexie persistence
 			fireAndForget(
-				this.database.setSetting(SETTING_KEY_THEME, mode),
+				this.database.setSetting(SETTINGS_KEYS.THEME, mode),
 				`Persisting theme setting (${mode}) to Dexie`
 			);
 		}
