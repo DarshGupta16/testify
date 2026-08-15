@@ -16,6 +16,29 @@ marked.use({
 	breaks: true,
 });
 
+/**
+ * Sanitizes math content before sending to KaTeX:
+ * 1. Replaces illegal ampersands outside matrices with \text{\char38}
+ * 2. Normalizes multiple backslashes before LaTeX commands
+ */
+function sanitizeMathForKatex(rawMath: string): string {
+	let math = rawMath.trim();
+
+	// 1. If it has \\& or \& or bare & outside alignment environments, replace with \text{\char38}
+	const isAligned =
+		/\\begin\{(matrix|aligned|cases|array|tabular|split|gather|pmatrix|bmatrix|vmatrix)\}/i.test(
+			math
+		);
+	if (!isAligned) {
+		math = math.replace(/\\+&/g, ' \\text{\\char38} ').replace(/(?<!\\)&/g, ' \\text{\\char38} ');
+	}
+
+	// 2. Normalize multiple backslashes before LaTeX commands with a single backslash
+	math = math.replace(/\\\\+([a-zA-Z])/g, (_, g1) => `\\${g1}`);
+
+	return math;
+}
+
 const renderedHtml = $derived.by(() => {
 	if (!content) return '';
 
@@ -32,11 +55,23 @@ const renderedHtml = $derived.by(() => {
 			}
 		});
 
+		// Auto-wrap raw unwrapped LaTeX formulas (e.g. \text{H}^+ + \\& \text{H})
+		const hasDelimiters = /(\$\$|\\\[|\$|\\\()/.test(processed);
+		const looksLikeRawLatex =
+			/^\\+[a-zA-Z]/.test(processed.trim()) ||
+			/(\\+text\{|\\+frac\{|\\+sqrt\{|\\+rightarrow|\^[0-9+\-a-zA-Z]|_[0-9+\-a-zA-Z])/.test(
+				processed
+			);
+
+		if (!hasDelimiters && looksLikeRawLatex) {
+			processed = `$${processed.trim()}$`;
+		}
+
 		// 1. Extract block math $$...$$
 		processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
 			const id = `%%MATH_BLOCK_${placeholderCount++}%%`;
 			try {
-				const cleanMath = math.trim().replace(/\\\\([a-zA-Z])/g, '\\$1');
+				const cleanMath = sanitizeMathForKatex(math);
 				const html = katex.renderToString(cleanMath, {
 					displayMode: true,
 					throwOnError: false,
@@ -52,7 +87,7 @@ const renderedHtml = $derived.by(() => {
 		processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
 			const id = `%%MATH_BLOCK_${placeholderCount++}%%`;
 			try {
-				const cleanMath = math.trim().replace(/\\\\([a-zA-Z])/g, '\\$1');
+				const cleanMath = sanitizeMathForKatex(math);
 				const html = katex.renderToString(cleanMath, {
 					displayMode: true,
 					throwOnError: false,
@@ -68,7 +103,7 @@ const renderedHtml = $derived.by(() => {
 		processed = processed.replace(/(?<!\\)\$((?:\\\$|[^$])+?)\$/g, (_, math) => {
 			const id = `%%MATH_INLINE_${placeholderCount++}%%`;
 			try {
-				const cleanMath = math.trim().replace(/\\\\([a-zA-Z])/g, '\\$1');
+				const cleanMath = sanitizeMathForKatex(math);
 				const html = katex.renderToString(cleanMath, {
 					displayMode: false,
 					throwOnError: false,
@@ -84,7 +119,7 @@ const renderedHtml = $derived.by(() => {
 		processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
 			const id = `%%MATH_INLINE_${placeholderCount++}%%`;
 			try {
-				const cleanMath = math.trim().replace(/\\\\([a-zA-Z])/g, '\\$1');
+				const cleanMath = sanitizeMathForKatex(math);
 				const html = katex.renderToString(cleanMath, {
 					displayMode: false,
 					throwOnError: false,

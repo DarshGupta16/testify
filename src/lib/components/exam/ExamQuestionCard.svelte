@@ -80,7 +80,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 		<div class="flex items-center gap-1.5">
 			{#if isMulti}
 				<span class="neo-badge bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-[10px] uppercase font-bold">
-					☑ Multi-Choice (Multi-Correct)
+					☑ Single Choice
 				</span>
 			{:else if isSingle}
 				<span class="neo-badge bg-muted text-[10px] uppercase font-bold text-text-secondary">
@@ -141,7 +141,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 					<button
 						type="button"
 						onclick={ontogglehint}
-						class={`neo-btn text-xs py-1.5 px-3 font-mono ${
+						class={`neo-btn text-xs py-1.5 px-3 font-mono uppercase font-bold tracking-wider ${
 							showHint
 								? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500'
 								: 'bg-surface hover:bg-muted text-text-secondary'
@@ -154,7 +154,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 				<button
 					type="button"
 					onclick={ontogglesolution}
-					class={`neo-btn text-xs py-1.5 px-3 font-mono ${
+					class={`neo-btn text-xs py-1.5 px-3 font-mono uppercase font-bold tracking-wider ${
 						showPracticeSolution
 							? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500'
 							: 'bg-surface hover:bg-muted text-text-secondary'
@@ -251,7 +251,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 							>
 								{isMulti ? (isSelected ? '✓' : letter) : letter}
 							</span>
-							<div class="flex-1 text-xs sm:text-sm pt-0.5 overflow-x-auto">
+							<div class="flex-1 text-xs sm:text-sm pt-0.5 break-words">
 								<MathRenderer content={optText} inline={true} />
 							</div>
 						</button>
@@ -299,7 +299,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 				type="button"
 				onclick={onprevious}
 				disabled={questionIndex === 0}
-				class="neo-btn text-xs py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+				class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider"
 			>
 				&larr; Previous
 			</button>
@@ -307,7 +307,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 				type="button"
 				onclick={onclearresponse}
 				disabled={!hasAnswer}
-				class="neo-btn text-xs py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+				class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider"
 			>
 				Clear
 			</button>
@@ -317,7 +317,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 			<button
 				type="button"
 				onclick={onmarkandnext}
-				class={`neo-btn text-xs py-2 px-3.5 ${
+				class={`neo-btn text-xs py-2 px-3.5 uppercase font-bold tracking-wider ${
 					response?.isMarkedForReview
 						? 'bg-purple-600 text-white border-purple-700'
 						: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/40'
@@ -328,7 +328,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 			<button
 				type="button"
 				onclick={onnext}
-				class="neo-btn neo-btn-primary text-xs py-2 px-4"
+				class="neo-btn neo-btn-primary text-xs py-2 px-4 uppercase font-bold tracking-wider"
 			>
 				<span>{questionIndex === totalQuestions - 1 ? 'Save & Review' : 'Save & Next →'}</span>
 			</button>
