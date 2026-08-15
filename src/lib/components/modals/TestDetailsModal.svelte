@@ -1,5 +1,7 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import MathRenderer from '$lib/components/common/MathRenderer.svelte';
 import type { ExtractedPdfPage } from '$lib/services/pdf';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import { formatBytes } from '$lib/utils';
@@ -9,13 +11,19 @@ const app = getAppContext();
 let activeTab = $state<'questions' | 'diagrams' | 'pages'>('questions');
 let zoomedImage = $state<{ title: string; src: string; info: string } | null>(null);
 
-function handleStartSimulatedExam() {
+function handleStartPractice() {
 	if (app.modals.selectedTest) {
-		app.toast.show(
-			`Starting test session for "${app.modals.selectedTest.title}"... (Simulated)`,
-			'info'
-		);
+		const testId = app.modals.selectedTest.id;
 		app.modals.closeDetails();
+		goto(`/test/${testId}?start=true&mode=practice`);
+	}
+}
+
+function handleStartExam() {
+	if (app.modals.selectedTest) {
+		const testId = app.modals.selectedTest.id;
+		app.modals.closeDetails();
+		goto(`/test/${testId}?start=true&mode=exam`);
 	}
 }
 
@@ -145,7 +153,16 @@ function handleKeyDown(e: KeyboardEvent) {
 							<div class="neo-box-sm p-3.5 bg-surface text-sm space-y-2">
 								<div class="flex items-center justify-between font-mono text-xs">
 									<span class="font-bold text-text-primary">Question #{q.questionNumber}</span>
-									<span class="text-[11px] text-text-muted uppercase">[{q.type.replace('_', ' ')}] • {q.marks} Marks</span>
+									<span class="text-[11px] text-text-muted uppercase font-bold">
+										{#if q.type === 'multi_choice' || q.type === 'multiple_choice_multi'}
+											[Multi-Choice (Multi-Correct)]
+										{:else if q.type === 'single_choice' || q.type === 'multiple_choice'}
+											[Single Choice]
+										{:else}
+											[Numerical]
+										{/if}
+										• {q.marks} Marks
+									</span>
 								</div>
 
 								{#if q.associatedDiagramUrl}
@@ -172,24 +189,47 @@ function handleKeyDown(e: KeyboardEvent) {
 									</div>
 								{/if}
 
-								<p class="text-xs text-text-secondary">{q.text}</p>
-								{#if q.options}
-									<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-										{#each q.options as opt}
-											<div class="p-1.5 bg-muted/60 border border-border-color/30 text-xs font-mono">
-												{opt}
+								<div class="text-xs text-text-secondary">
+									<MathRenderer content={q.text} />
+								</div>
+
+								{#if q.options && q.options.length > 0}
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+										{#each q.options as opt, optIdx}
+											{@const optText = typeof opt === 'string' ? opt : opt.text}
+											<div class="p-2 bg-muted/60 border border-border-color/30 text-xs font-mono flex items-start gap-2">
+												<span class="font-bold text-accent-contrast shrink-0">
+													{String.fromCharCode(65 + optIdx)})
+												</span>
+												<div class="flex-1 overflow-x-auto">
+													<MathRenderer content={optText} inline={true} />
+												</div>
 											</div>
 										{/each}
 									</div>
 								{/if}
+
 								{#if q.correctAnswer && test.hasAnswerKey}
-									<div class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
-										✓ Linked Solution: {q.correctAnswer}
+									{@const matchingOpt = q.options?.find((o) => (typeof o === 'object' ? o.id === q.correctAnswer : o === q.correctAnswer))}
+									<div class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold pt-1 flex items-center gap-1.5 flex-wrap">
+										<span>✓ Linked Solution:</span>
+										{#if matchingOpt}
+											{@const matchText = typeof matchingOpt === 'string' ? matchingOpt : matchingOpt.text}
+											<span class="bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/30">
+												<MathRenderer content={matchText} inline={true} />
+											</span>
+										{:else}
+											<span class="bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/30">
+												<MathRenderer content={q.correctAnswer} inline={true} />
+											</span>
+										{/if}
 									</div>
 								{/if}
+
 								{#if q.explanation}
-									<div class="p-2 bg-muted/40 border-l-2 border-accent-contrast text-[11px] text-text-secondary font-mono mt-1">
-										<span class="font-bold text-accent-contrast">Explanation:</span> {q.explanation}
+									<div class="p-2.5 bg-muted/40 border-l-2 border-accent-contrast text-[11px] font-mono mt-1 space-y-1">
+										<span class="font-bold text-accent-contrast block">Explanation:</span>
+										<MathRenderer content={q.explanation} />
 									</div>
 								{/if}
 							</div>
@@ -308,20 +348,29 @@ function handleKeyDown(e: KeyboardEvent) {
 					Delete Assessment
 				</button>
 
-				<div class="flex items-center gap-2 w-full sm:w-auto">
+				<div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
 					<button
 						type="button"
 						onclick={() => app.modals.closeDetails()}
-						class="neo-btn text-xs py-2 px-4 flex-1 sm:flex-none"
+						class="neo-btn text-xs py-2 px-3 flex-1 sm:flex-none"
 					>
 						Close
 					</button>
 					<button
 						type="button"
-						onclick={handleStartSimulatedExam}
-						class="neo-btn neo-btn-primary text-xs py-2 px-5 flex-1 sm:flex-none"
+						onclick={handleStartPractice}
+						class="neo-btn text-xs py-2 px-4 flex-1 sm:flex-none border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+						title="Untimed practice mode with hints"
 					>
-						Launch Test &rarr;
+						🌿 Practice Mode
+					</button>
+					<button
+						type="button"
+						onclick={handleStartExam}
+						class="neo-btn neo-btn-primary text-xs py-2 px-4 flex-1 sm:flex-none"
+						title="Strict timed exam simulation"
+					>
+						🎯 Exam Simulation &rarr;
 					</button>
 				</div>
 			</div>

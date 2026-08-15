@@ -9,35 +9,45 @@ Your objective is to accurately read and analyze the provided test paper documen
 
 ### CRITICAL RULES & CONSTRAINTS:
 
-1. QUESTION TYPES:
-   - All questions MUST be strictly classified into either "multiple_choice" or "numerical".
+1. QUESTION TYPES & OPTIONS:
+   - Every question MUST be strictly categorized into ONE of the following three unambiguous types:
+     * "single_choice": Single-Choice Multiple Choice Question (where exactly ONE option is correct). The "correctAnswer" property MUST be the single correct option ID string (e.g. "opt_7x2k").
+     * "multi_choice": Multi-Choice Multi-Correct Question (where ONE OR MORE options can be correct). The "correctAnswers" property MUST be an array of all valid correct option IDs (e.g. ["opt_7x2k", "opt_9m1p"]).
+     * "numerical": Numerical or integer-type question. The "correctAnswer" property is the calculated number or numerical value as a string (e.g., "45.0").
+   - There MUST be NO ambiguity: every question MUST be classified as "single_choice", "multi_choice", or "numerical".
    - Under NO circumstances output a "subjective" or "open-ended essay" question type.
-   - If a question in the source PDF is open-ended/conceptual, convert it into a high-quality "multiple_choice" question by providing 4 plausible, distinct options (A, B, C, D) where exactly one is correct.
-   - If a question requires a numerical/exact computation and no options are listed, format it as "numerical" with the calculated number as "correctAnswer".
+   - For multiple choice options:
+     * Each option MUST have a random unique "id" (e.g., "opt_7x2k", "opt_3m9q") and "text".
+     * In matrix-matching, list-matching, or compound sub-items (such as "(A-Q), (B-P), (C-R), (D-S)"), PRESERVE all internal matching labels and letters.
 
-2. ANSWER KEYS & SOLUTIONS:
-   - If separate answer key pages are provided, use them as the primary source of truth for "correctAnswer" and "explanation".
+2. HINTS & STEP-BY-STEP EXPLANATIONS:
+   - Every single question MUST include a helpful conceptual or directional "hint" (e.g. key theorem, formula, or approach to consider) to guide students in practice mode without giving away the direct answer.
+   - Every single question MUST include a thorough, detailed "explanation". For single_choice and multi_choice questions, explain why each correct option is true and others are false. For numerical questions, you MUST include a complete, step-by-step mathematical derivation showing exactly how the final answer was calculated from the given parameters.
+
+3. ANSWER KEYS & SOLUTIONS:
+   - If separate answer key pages are provided, use them as the primary source of truth for "correctAnswer" / "correctAnswers" and "explanation".
    - If NO separate answer key is provided, carefully scan the entire test document (including end pages, margins, bottom solution tables, or answer grids) for an embedded answer key.
-   - If an embedded answer key is found in the document, use it to accurately populate "correctAnswer".
-   - If no answer key is found anywhere, solve the question accurately to determine "correctAnswer" and provide a brief step-by-step "explanation".
+   - If an embedded answer key is found in the document, use it to accurately populate "correctAnswer" / "correctAnswers".
+   - If no answer key is found anywhere, solve the question accurately to determine the correct answers.
 
-3. MATHEMATICS & FORMULAS (LaTeX):
+4. MATHEMATICS & FORMULAS (LaTeX & Newlines):
    - Preserve all mathematical notation, formulas, variables, and scientific expressions using standard LaTeX delimiters:
      * Inline math: $x^2 + y^2 = r^2$ or $\\int_0^1 f(x)dx$
      * Block math: $$E = mc^2$$
-   - Ensure all backslashes in LaTeX strings are properly escaped in JSON format (e.g., "\\\\frac{a}{b}").
+   - CRITICAL ESCAPING RULE: All LaTeX backslashes MUST be double-escaped in the JSON string (e.g., "\\\\rightarrow", "\\\\frac{a}{b}", "\\\\text{...}", "\\\\times", "\\\\theta", "\\\\beta"). NEVER output unescaped backslashes before letters in JSON strings!
+   - Format multi-line questions or column matches cleanly with actual newlines.
 
-4. DIAGRAM LINKING:
+5. DIAGRAM LINKING:
    - You are provided with a catalog of extracted diagram figures tagged with unique IDs (e.g. "diag_p1_0", "diag_p2_1").
    - When a question references a figure, chart, circuit, geometry sketch, or table from the document, set "associatedDiagramId" to the matching diagram ID.
    - If a question does not reference or require a diagram, set "associatedDiagramId" to null.
 
-5. ASSESSMENT METADATA:
+6. ASSESSMENT METADATA:
    - Detect or extract the exam title from the document headers (e.g., "Physics Midterm Exam 2026").
    - Suggest the academic subject (e.g., "STEM", "Computer Science", "Humanities", "Languages", "General").
    - If requested to estimate duration, calculate a realistic examination time in minutes (e.g. 45, 60, 90, 120, 180) based on the number and difficulty of questions.
 
-6. OUTPUT FORMAT:
+7. OUTPUT FORMAT:
    - You MUST output ONLY a valid, parseable JSON object matching the JSON schema below.
    - Do NOT wrap in conversational text or commentary. Output raw JSON only.
 
@@ -51,16 +61,17 @@ Your objective is to accurately read and analyze the provided test paper documen
   "questions": [
     {
       "questionNumber": 1,
-      "type": "multiple_choice",
-      "text": "Question statement with LaTeX preserved: What is the derivative of $f(x) = \\\\sin(x^2)$?",
+      "type": "single_choice",
+      "text": "What is the derivative of $f(x) = \\\\sin(x^2)$?",
       "options": [
-        "A) $2x\\\\cos(x^2)$",
-        "B) $\\\\cos(x^2)$",
-        "C) $-2x\\\\cos(x^2)$",
-        "D) $2\\\\cos(x)$"
+        { "id": "opt_a9b1", "text": "$2x\\\\cos(x^2)$" },
+        { "id": "opt_c4d2", "text": "$\\\\cos(x^2)$" },
+        { "id": "opt_e7f3", "text": "$-2x\\\\cos(x^2)$" },
+        { "id": "opt_g2h4", "text": "$2\\\\cos(x)$" }
       ],
-      "correctAnswer": "A) $2x\\\\cos(x^2)$",
-      "explanation": "Using chain rule: $\\\\frac{d}{dx}\\\\sin(x^2) = \\\\cos(x^2) \\\\cdot 2x = 2x\\\\cos(x^2)$.",
+      "correctAnswer": "opt_a9b1",
+      "hint": "Apply the chain rule: $\\\\frac{d}{dx}f(g(x)) = f'(g(x)) \\\\cdot g'(x)$ with $g(x) = x^2$.",
+      "explanation": "Using chain rule: let $u = x^2$, so $\\\\frac{d}{dx}\\\\sin(u) = \\\\cos(u) \\\\cdot 2x = 2x\\\\cos(x^2)$. Thus, opt_a9b1 is correct.",
       "marks": 4,
       "negativeMarks": 1,
       "associatedDiagramId": null,
@@ -68,17 +79,36 @@ Your objective is to accurately read and analyze the provided test paper documen
     },
     {
       "questionNumber": 2,
+      "type": "multi_choice",
+      "text": "Which of the following statements are TRUE regarding the Aufbau principle and electronic configurations?\\\\n(A) 4s orbital fills before 3d in potassium.\\\\n(B) Chromium has an exception due to half-filled subshell stability.\\\\n(C) 2d subshell exists in quantum mechanics.",
+      "options": [
+        { "id": "opt_m1", "text": "4s orbital fills before 3d in potassium" },
+        { "id": "opt_m2", "text": "Chromium has an exceptional configuration $[\\\\text{Ar}] 3d^5 4s^1$" },
+        { "id": "opt_m3", "text": "2d subshell exists in quantum mechanics" },
+        { "id": "opt_m4", "text": "In the 6th period, filling order is $6s \\\\rightarrow 4f \\\\rightarrow 5d \\\\rightarrow 6p$" }
+      ],
+      "correctAnswers": ["opt_m1", "opt_m2", "opt_m4"],
+      "hint": "Recall the $(n+l)$ rule and quantum numbers $n \\\\ge l+1$.",
+      "explanation": "Statements opt_m1, opt_m2, and opt_m4 are correct. Statement opt_m3 is false because for $n=2$, $l$ can only be 0 (s) or 1 (p); 2d does not exist.",
+      "marks": 4,
+      "negativeMarks": 2,
+      "associatedDiagramId": null,
+      "pageNumber": 1
+    },
+    {
+      "questionNumber": 3,
       "type": "numerical",
       "text": "Calculate the magnitude of the electric field at $r = 2\\\\text{ m}$ (in N/C) for the configuration shown in the diagram.",
       "correctAnswer": "45.0",
-      "explanation": "$E = \\\\frac{k Q}{r^2} = \\\\frac{8.99 \\\\times 10^9 \\\\cdot 2 \\\\times 10^{-8}}{4} \\\\approx 45.0\\\\text{ N/C}$.",
+      "hint": "Recall Coulomb's law for electric field: $E = \\\\frac{k |Q|}{r^2}$ where $k \\\\approx 8.99 \\\\times 10^9\\\\text{ N}\\\\cdot\\\\text{m}^2/\\\\text{C}^2$.",
+      "explanation": "Step 1: Identify given parameters: Charge $Q = 2.0 \\\\times 10^{-8}\\\\text{ C}$, distance $r = 2.0\\\\text{ m}$, Coulomb constant $k = 8.99 \\\\times 10^9\\\\text{ N}\\\\cdot\\\\text{m}^2/\\\\text{C}^2$.\\\\nStep 2: Substitute into formula:\\\\n$$E = \\\\frac{k Q}{r^2} = \\\\frac{(8.99 \\\\times 10^9)(2.0 \\\\times 10^{-8})}{2^2} = \\\\frac{179.8}{4} = 44.95 \\\\approx 45.0\\\\text{ N/C}$$.\\\\nTherefore, the calculated field magnitude is 45.0 N/C.",
       "marks": 4,
       "negativeMarks": 0,
       "associatedDiagramId": "diag_p1_0",
       "pageNumber": 1
     }
   ]
-}`;
+};`;
 
 /**
  * Builds the dynamic user prompt tailored to the specific upload metadata and diagram inventory.
@@ -110,7 +140,7 @@ export function buildUserPrompt(
 		);
 	} else {
 		sections.push(
-			'- Duration: Estimate a reasonable exam duration in minutes based on question complexity.'
+			'- Duration: Estimate a reasonable exam duration in minutes based on question complexity and count.'
 		);
 	}
 

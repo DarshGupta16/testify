@@ -1,6 +1,6 @@
 import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
-import type { TestItem } from '$lib/types/test';
+import type { TestAttempt, TestItem } from '$lib/types/test';
 
 export interface AppSettingRecord {
 	key: string;
@@ -15,11 +15,13 @@ export interface AppSettingRecord {
  * 1. Test Items (`tests`)
  * 2. Application Preferences & State (`settings`)
  * 3. AI Provider Credentials (`apiKeys`)
+ * 4. User Exam Session Attempts (`attempts`)
  */
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
 	settings!: EntityTable<AppSettingRecord, 'key'>;
 	apiKeys!: EntityTable<StoredApiKeyRecord, 'provider'>;
+	attempts!: EntityTable<TestAttempt, 'id'>;
 
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
@@ -29,6 +31,7 @@ export class TestifyDatabase extends Dexie {
 			tests: 'id, title, subject, createdAt, status',
 			settings: 'key, updatedAt',
 			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+			attempts: 'id, testId, status, startedAt, completedAt, score',
 		});
 	}
 
@@ -49,10 +52,61 @@ export class TestifyDatabase extends Dexie {
 
 	async deleteTest(id: string): Promise<void> {
 		await this.tests.delete(id);
+		// Cascade delete attempts for this test
+		await this.deleteAttemptsByTestId(id);
 	}
 
 	async clearAllTests(): Promise<void> {
 		await this.tests.clear();
+	}
+
+	// --- Attempts CRUD Operations ---
+
+	async getAllAttempts(): Promise<TestAttempt[]> {
+		try {
+			return await this.attempts.toArray();
+		} catch (err) {
+			console.error('[DB] Failed to get all attempts:', err);
+			return [];
+		}
+	}
+
+	async getAttemptsByTestId(testId: string): Promise<TestAttempt[]> {
+		try {
+			return await this.attempts.where('testId').equals(testId).toArray();
+		} catch (err) {
+			console.error(`[DB] Failed to get attempts for test "${testId}":`, err);
+			return [];
+		}
+	}
+
+	async getAttempt(id: string): Promise<TestAttempt | undefined> {
+		try {
+			return await this.attempts.get(id);
+		} catch (err) {
+			console.error(`[DB] Failed to get attempt "${id}":`, err);
+			return undefined;
+		}
+	}
+
+	async saveAttempt(attempt: TestAttempt): Promise<void> {
+		await this.attempts.put(attempt);
+	}
+
+	async deleteAttempt(id: string): Promise<void> {
+		await this.attempts.delete(id);
+	}
+
+	async deleteAttemptsByTestId(testId: string): Promise<void> {
+		try {
+			await this.attempts.where('testId').equals(testId).delete();
+		} catch (err) {
+			console.error(`[DB] Failed to delete attempts for test "${testId}":`, err);
+		}
+	}
+
+	async clearAllAttempts(): Promise<void> {
+		await this.attempts.clear();
 	}
 
 	// --- Settings CRUD Operations ---

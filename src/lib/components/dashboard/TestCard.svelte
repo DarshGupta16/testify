@@ -96,10 +96,10 @@ function handleDelete() {
 
 	<!-- Action Footer Buttons -->
 	<div class="pt-2 border-t border-border-color/20 flex flex-col gap-2">
-		<!-- Primary Launch Exam Button -->
+		<!-- Primary Start Test Button (Opens Structure Preview Modal) -->
 		<button
 			type="button"
-			onclick={handleLaunchExam}
+			onclick={() => app.modals.openDetails(test)}
 			class="neo-btn neo-btn-primary w-full text-xs py-2.5"
 		>
 			<svg
@@ -118,13 +118,12 @@ function handleDelete() {
 
 		<!-- Sub Actions: Details & Delete -->
 		<div class="flex items-center justify-between gap-2">
-			<button
-				type="button"
-				onclick={() => app.modals.openDetails(test)}
-				class="neo-btn text-xs py-1.5 px-3 flex-1"
+			<a
+				href={`/test/${test.id}`}
+				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
 			>
-				View Structure
-			</button>
+				View Details
+			</a>
 
 			{#if isConfirmingDelete}
 				<div class="flex items-center gap-1 flex-1">

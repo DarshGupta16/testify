@@ -20,7 +20,7 @@ const app = getAppContext();
 let autoTitle = $state(false);
 let title = $state('');
 let subject = $state('STEM');
-let durationMode = $state<'custom' | 'auto' | 'untimed'>('custom');
+let autoDuration = $state(false);
 let durationMinutes = $state(60);
 let formError = $state<string | null>(null);
 
@@ -119,18 +119,14 @@ async function handleSubmit(e: SubmitEvent) {
 		return;
 	}
 
-	const isUntimed = durationMode === 'untimed';
-	const isAutoDuration = durationMode === 'auto';
-
 	const payload: TestUploadPayload = {
 		title: autoTitle
 			? undefined
 			: title.trim() || testFile.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
 		autoTitle,
 		subject,
-		durationMinutes: isUntimed ? null : isAutoDuration ? null : Number(durationMinutes) || 60,
-		autoDuration: isAutoDuration,
-		isUntimed,
+		durationMinutes: autoDuration ? null : Number(durationMinutes) || 60,
+		autoDuration,
 		scale: Number(app.selectedScale) || 1.25,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
@@ -398,78 +394,42 @@ async function handleSubmit(e: SubmitEvent) {
 			</select>
 		</div>
 
-		<!-- Duration Controls: Custom / Auto / Untimed -->
+		<!-- Exam Duration Controls -->
 		<div class="space-y-1.5">
 			<div class="flex items-center justify-between h-5">
-				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary truncate">
-					Duration
+				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Exam Duration
 				</label>
-				<div class="inline-flex items-center border border-border-color bg-surface overflow-hidden shrink-0">
-					<button
-						type="button"
-						onclick={() => (durationMode = 'custom')}
+				<label class="flex items-center gap-1.5 cursor-pointer select-none">
+					<input
+						type="checkbox"
+						bind:checked={autoDuration}
 						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-2 py-0.5 transition-colors cursor-pointer ${
-							durationMode === 'custom'
-								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'hover:bg-muted text-text-muted'
-						}`}
-					>
-						Set Mins
-					</button>
-					<button
-						type="button"
-						onclick={() => (durationMode = 'auto')}
-						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-2 py-0.5 border-x border-border-color transition-colors cursor-pointer ${
-							durationMode === 'auto'
-								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'hover:bg-muted text-text-muted'
-						}`}
-					>
-						✨ Auto
-					</button>
-					<button
-						type="button"
-						onclick={() => (durationMode = 'untimed')}
-						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-2 py-0.5 transition-colors cursor-pointer ${
-							durationMode === 'untimed'
-								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'hover:bg-muted text-text-muted'
-						}`}
-					>
-						Untimed
-					</button>
-				</div>
+						class="accent-accent-contrast h-3.5 w-3.5"
+					/>
+					<span class="font-mono text-[11px] font-bold text-accent-contrast">
+						✨ Let AI Decide (Auto)
+					</span>
+				</label>
 			</div>
 
-			{#if durationMode === 'custom'}
-				<div class="relative h-10">
-					<input
-						id="form-duration"
-						type="number"
-						min="5"
-						max="360"
-						bind:value={durationMinutes}
-						disabled={app.tests.isUploading}
-						class="neo-input w-full h-10 text-sm font-mono pr-14 bg-surface"
-					/>
-					<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none">
-						mins
-					</span>
-				</div>
-			{:else if durationMode === 'auto'}
-				<div class="h-10 px-3 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
-					<span class="text-accent-contrast font-bold">✨</span>
-					<span class="truncate">Estimated automatically by AI model.</span>
-				</div>
-			{:else}
-				<div class="h-10 px-3 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
-					<span class="text-accent-contrast font-bold">♾️</span>
-					<span>Untimed. No countdown timer.</span>
-				</div>
-			{/if}
+			<div class="relative h-10">
+				<input
+					id="form-duration"
+					type="number"
+					min="5"
+					max="360"
+					bind:value={durationMinutes}
+					disabled={app.tests.isUploading || autoDuration}
+					placeholder={autoDuration ? 'Auto-estimated by AI model...' : '60'}
+					class={`neo-input w-full h-10 text-sm font-mono pr-14 ${
+						autoDuration ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
+					}`}
+				/>
+				<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none">
+					mins
+				</span>
+			</div>
 		</div>
 	</div>
 

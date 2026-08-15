@@ -1,5 +1,6 @@
 // Components
 export { default as ImageLightboxModal } from './components/common/ImageLightboxModal.svelte';
+export { default as MathRenderer } from './components/common/MathRenderer.svelte';
 export { default as Toast } from './components/common/Toast.svelte';
 export { default as EmptyState } from './components/dashboard/EmptyState.svelte';
 export { default as FilterBar } from './components/dashboard/FilterBar.svelte';
@@ -25,6 +26,7 @@ export * from './services/testUploader';
 // Stores
 export * from './stores/apiKeyStore.svelte';
 export * from './stores/appContext.svelte';
+export * from './stores/attemptStore.svelte';
 export * from './stores/filterStore.svelte';
 export * from './stores/modalStore.svelte';
 export * from './stores/securityStore.svelte';

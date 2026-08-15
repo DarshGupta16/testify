@@ -39,12 +39,24 @@ export interface AIGenerationPayload {
 	onProgress?: (statusText: string, progressPercent?: number) => void;
 }
 
+export interface RawAIOption {
+	id: string; // e.g. "opt_a1b2"
+	text: string; // Purely option text without "A)" or "B." prefix
+}
+
 export interface RawAIQuestion {
 	questionNumber: number;
-	type: 'multiple_choice' | 'numerical';
+	type:
+		| 'single_choice'
+		| 'multi_choice'
+		| 'numerical'
+		| 'multiple_choice'
+		| 'multiple_choice_multi';
 	text: string;
-	options?: string[]; // Expected for multiple_choice, e.g. ["A) ...", "B) ..."]
-	correctAnswer?: string;
+	options?: Array<RawAIOption | string>; // Array of option objects with random ID, or fallback string
+	correctAnswer?: string | string[]; // option ID or array of IDs, or calculated value if numerical
+	correctAnswers?: string[]; // array of option IDs for multi-correct questions
+	hint?: string;
 	explanation?: string;
 	marks?: number;
 	negativeMarks?: number;

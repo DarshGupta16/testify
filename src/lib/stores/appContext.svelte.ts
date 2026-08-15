@@ -4,6 +4,7 @@ import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
+import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
 import { ModalStore } from './modalStore.svelte';
 import { SecurityStore } from './securityStore.svelte';
@@ -16,6 +17,7 @@ const APP_CONTEXT_KEY = Symbol('TESTIFY_APP_CONTEXT');
 export class AppStore {
 	// Specialized Domain Sub-Stores
 	readonly tests = new TestStore();
+	readonly attempts = new AttemptStore();
 	readonly filter = new FilterStore();
 	readonly modals = new ModalStore();
 	readonly theme = new ThemeStore();
@@ -32,9 +34,10 @@ export class AppStore {
 	});
 
 	async init() {
-		// 1. Initialize persistent UI preferences & local exam collections
+		// 1. Initialize persistent UI preferences, attempts, & local exam collections
 		await this.theme.init();
 		await this.tests.init();
+		await this.attempts.init();
 
 		// 2. Wire security session expiry hook to key purge
 		this.security.setOnSessionExpire(() => {
@@ -140,6 +143,7 @@ export class AppStore {
 
 	handleDeleteTest(id: string) {
 		const deleted = this.tests.deleteTest(id);
+		this.attempts.deleteAttemptsForTest(id);
 		if (this.modals.selectedTest?.id === id) {
 			this.modals.closeDetails();
 		}
@@ -150,6 +154,7 @@ export class AppStore {
 
 	handleClearAllTests() {
 		this.tests.clearAll();
+		this.attempts.clearAll();
 		this.modals.closeDetails();
 		this.toast.show('All tests cleared.', 'warning');
 	}
