@@ -1,5 +1,5 @@
 import * as mupdf from 'mupdf';
-import { createPngUrls } from './imageUtils';
+import { createPngUrls } from '$lib/utils/bytes';
 import { processRasterImage, type RasterExtractContext } from './rasterExtractor';
 import type {
 	ExtractedEmbeddedImage,

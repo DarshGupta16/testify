@@ -1,6 +1,6 @@
 import * as mupdf from 'mupdf';
+import { createPngUrls } from '$lib/utils/bytes';
 import { doBoxesOverlapOrNear, isPointInside, unionBoxes } from './geometry';
-import { createPngUrls } from './imageUtils';
 import type { BoundingBox, ExtractedEmbeddedImage, VectorPathRecord } from './types';
 
 /**

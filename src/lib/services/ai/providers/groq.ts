@@ -3,9 +3,9 @@
  */
 
 import Groq from 'groq-sdk';
-import { normalizeQuestions, parseAIResponse } from '../parsers';
+import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
+import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
-import type { AIGenerationPayload, AIGenerationResult } from '../types';
 
 export async function generateGroqQuestions(
 	payload: AIGenerationPayload
@@ -87,13 +87,6 @@ export async function generateGroqQuestions(
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
 	const rawText = response.choices[0]?.message?.content || '';
-	const parsedSchema = parseAIResponse(rawText);
-	const questions = normalizeQuestions(
-		parsedSchema.questions,
-		payload.diagrams,
-		payload.metadata?.defaultMarksPerQuestion || 4
-	);
-
 	const tokenUsage = response.usage
 		? {
 				promptTokens: response.usage.prompt_tokens,
@@ -102,25 +95,5 @@ export async function generateGroqQuestions(
 			}
 		: undefined;
 
-	let durationMinutes: number | null | undefined;
-	if (payload.metadata?.isUntimed) {
-		durationMinutes = null;
-	} else if (payload.metadata?.defaultDurationMinutes && !payload.metadata?.autoDuration) {
-		durationMinutes = payload.metadata.defaultDurationMinutes;
-	} else {
-		durationMinutes = parsedSchema.estimatedDurationMinutes || 60;
-	}
-
-	return {
-		provider: 'groq',
-		model: modelName,
-		title: parsedSchema.title || payload.metadata?.titleHint,
-		subject: parsedSchema.subject || payload.metadata?.subjectHint,
-		instructions: parsedSchema.instructions,
-		durationMinutes,
-		totalMarks: parsedSchema.totalMarks || questions.reduce((acc, q) => acc + q.marks, 0),
-		questions,
-		rawResponse: rawText,
-		tokenUsage,
-	};
+	return synthesizeAiResult('groq', modelName, rawText, payload, tokenUsage);
 }

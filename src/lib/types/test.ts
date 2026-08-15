@@ -1,5 +1,5 @@
-import type { PdfExtractionResult } from '$lib/services/pdf';
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 
 export type QuestionType =
 	| 'single_choice'

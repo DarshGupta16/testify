@@ -2,8 +2,15 @@
  * Testify - AI Response Parsing & Normalization Service
  */
 
-import type { QuestionPreview } from '$lib/types/test';
-import type { AIDiagramAsset, RawAIQuestion, RawAIResponseSchema } from './types';
+import type {
+	AIDiagramAsset,
+	AIGenerationPayload,
+	AIGenerationResult,
+	RawAIQuestion,
+	RawAIResponseSchema,
+} from '$lib/types/ai';
+import type { AIProvider } from '$lib/types/apiKeys';
+import type { QuestionPreview, TokenUsageStats } from '$lib/types/test';
 
 /**
  * Strips markdown code fences, trailing commas, and formatting noise from raw model output.
@@ -169,9 +176,18 @@ export function normalizeQuestions(
 			} else {
 				// Fallback synthesis if options were omitted
 				options = [
-					{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'Statement 1 satisfies conditions' },
-					{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'Statement 2 satisfies conditions' },
-					{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'Statement 3 satisfies conditions' },
+					{
+						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+						text: 'Statement 1 satisfies conditions',
+					},
+					{
+						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+						text: 'Statement 2 satisfies conditions',
+					},
+					{
+						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+						text: 'Statement 3 satisfies conditions',
+					},
 					{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'None of the above' },
 				];
 			}
@@ -194,7 +210,9 @@ export function normalizeQuestions(
 
 				// 3. Exact or fuzzy text match
 				const textMatch = options.find(
-					(o) => o.text.toLowerCase() === trimmed.toLowerCase() || o.text.toLowerCase().includes(trimmed.toLowerCase())
+					(o) =>
+						o.text.toLowerCase() === trimmed.toLowerCase() ||
+						o.text.toLowerCase().includes(trimmed.toLowerCase())
 				);
 				if (textMatch) return textMatch.id;
 
@@ -210,7 +228,9 @@ export function normalizeQuestions(
 					rawAnswerList.push(...q.correctAnswer.map(String));
 				} else if (q.correctAnswer) {
 					// Comma or space separated letters/IDs (e.g. "A, B, D" or "opt_1 opt_2")
-					const tokens = String(q.correctAnswer).split(/[,\s]+/).filter(Boolean);
+					const tokens = String(q.correctAnswer)
+						.split(/[,\s]+/)
+						.filter(Boolean);
 					rawAnswerList.push(...tokens);
 				}
 
@@ -233,7 +253,9 @@ export function normalizeQuestions(
 			} else {
 				// Single choice
 				if (q.correctAnswer) {
-					const singleAnswer = Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer;
+					const singleAnswer = Array.isArray(q.correctAnswer)
+						? q.correctAnswer[0]
+						: q.correctAnswer;
 					correctAnswer = resolveOptionId(String(singleAnswer)) || options[0]?.id;
 				} else if (options && options.length > 0) {
 					correctAnswer = options[0].id;
@@ -356,4 +378,45 @@ export function formatAiProviderError(provider: string, err: unknown): string {
 	}
 
 	return `${providerUpper} Error: ${rawMessage}. If this issue persists, please contact the developer.`;
+}
+
+/**
+ * Standardizes AI provider raw model responses into a validated, normalized AIGenerationResult.
+ * Centralizes duration computation, marks fallback calculation, and metadata hints handling.
+ */
+export function synthesizeAiResult(
+	provider: AIProvider,
+	modelName: string,
+	rawText: string,
+	payload: AIGenerationPayload,
+	tokenUsage?: TokenUsageStats
+): AIGenerationResult {
+	const parsedSchema = parseAIResponse(rawText);
+	const questions = normalizeQuestions(
+		parsedSchema.questions,
+		payload.diagrams,
+		payload.metadata?.defaultMarksPerQuestion || 4
+	);
+
+	let durationMinutes: number | null | undefined;
+	if (payload.metadata?.isUntimed) {
+		durationMinutes = null;
+	} else if (payload.metadata?.defaultDurationMinutes && !payload.metadata?.autoDuration) {
+		durationMinutes = payload.metadata.defaultDurationMinutes;
+	} else {
+		durationMinutes = parsedSchema.estimatedDurationMinutes || 60;
+	}
+
+	return {
+		provider,
+		model: modelName,
+		title: parsedSchema.title || payload.metadata?.titleHint,
+		subject: parsedSchema.subject || payload.metadata?.subjectHint,
+		instructions: parsedSchema.instructions,
+		durationMinutes,
+		totalMarks: parsedSchema.totalMarks || questions.reduce((acc, q) => acc + q.marks, 0),
+		questions,
+		rawResponse: rawText,
+		tokenUsage,
+	};
 }

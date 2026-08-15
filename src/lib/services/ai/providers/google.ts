@@ -3,9 +3,9 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { normalizeQuestions, parseAIResponse } from '../parsers';
+import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
+import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
-import type { AIGenerationPayload, AIGenerationResult } from '../types';
 
 export async function generateGoogleQuestions(
 	payload: AIGenerationPayload
@@ -24,7 +24,6 @@ export async function generateGoogleQuestions(
 	payload.onProgress?.(`Sending ${payload.pages.length} document pages to ${modelName}...`, 30);
 
 	const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
-
 	parts.push({ text: userPromptText });
 
 	// 1. Attach Document Pages
@@ -83,13 +82,6 @@ export async function generateGoogleQuestions(
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
 	const rawText = response.text || '';
-	const parsedSchema = parseAIResponse(rawText);
-	const questions = normalizeQuestions(
-		parsedSchema.questions,
-		payload.diagrams,
-		payload.metadata?.defaultMarksPerQuestion || 4
-	);
-
 	const tokenUsage = response.usageMetadata
 		? {
 				promptTokens: response.usageMetadata.promptTokenCount,
@@ -98,25 +90,5 @@ export async function generateGoogleQuestions(
 			}
 		: undefined;
 
-	let durationMinutes: number | null | undefined;
-	if (payload.metadata?.isUntimed) {
-		durationMinutes = null;
-	} else if (payload.metadata?.defaultDurationMinutes && !payload.metadata?.autoDuration) {
-		durationMinutes = payload.metadata.defaultDurationMinutes;
-	} else {
-		durationMinutes = parsedSchema.estimatedDurationMinutes || 60;
-	}
-
-	return {
-		provider: 'google',
-		model: modelName,
-		title: parsedSchema.title || payload.metadata?.titleHint,
-		subject: parsedSchema.subject || payload.metadata?.subjectHint,
-		instructions: parsedSchema.instructions,
-		durationMinutes,
-		totalMarks: parsedSchema.totalMarks || questions.reduce((acc, q) => acc + q.marks, 0),
-		questions,
-		rawResponse: rawText,
-		tokenUsage,
-	};
+	return synthesizeAiResult('google', modelName, rawText, payload, tokenUsage);
 }

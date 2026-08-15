@@ -5,7 +5,6 @@
 
 export * from './extractor';
 export * from './geometry';
-export * from './imageUtils';
 export * from './rasterExtractor';
 export * from './types';
 export * from './vectorClassifier';

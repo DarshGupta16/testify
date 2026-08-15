@@ -42,7 +42,10 @@ export class AttemptStore {
 		}
 	}
 
-	getAttemptsForTest(testId: string, filterMode: 'all' | 'exam' | 'practice' = 'all'): TestAttempt[] {
+	getAttemptsForTest(
+		testId: string,
+		filterMode: 'all' | 'exam' | 'practice' = 'all'
+	): TestAttempt[] {
 		return this.attempts
 			.filter((a) => a.testId === testId && (filterMode === 'all' || a.mode === filterMode))
 			.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
@@ -95,8 +98,10 @@ export class AttemptStore {
 
 		if (bestScore === -Infinity) bestScore = 0;
 		const avgScore = Math.round((totalScore / testAttempts.length) * 10) / 10;
-		const bestPercentage = maxPossibleScore > 0 ? Math.round((Math.max(0, bestScore) / maxPossibleScore) * 100) : 0;
-		const avgPercentage = maxPossibleScore > 0 ? Math.round((Math.max(0, avgScore) / maxPossibleScore) * 100) : 0;
+		const bestPercentage =
+			maxPossibleScore > 0 ? Math.round((Math.max(0, bestScore) / maxPossibleScore) * 100) : 0;
+		const avgPercentage =
+			maxPossibleScore > 0 ? Math.round((Math.max(0, avgScore) / maxPossibleScore) * 100) : 0;
 
 		return {
 			attemptCount: testAttempts.length,
@@ -132,10 +137,7 @@ export class AttemptStore {
 
 	deleteAttempt(id: string): void {
 		this.attempts = this.attempts.filter((a) => a.id !== id);
-		fireAndForget(
-			this.database.deleteAttempt(id),
-			`Deleting Exam Attempt "${id}" from Dexie`
-		);
+		fireAndForget(this.database.deleteAttempt(id), `Deleting Exam Attempt "${id}" from Dexie`);
 	}
 
 	deleteAttemptsForTest(testId: string): void {
@@ -148,9 +150,6 @@ export class AttemptStore {
 
 	clearAll(): void {
 		this.attempts = [];
-		fireAndForget(
-			this.database.clearAllAttempts(),
-			'Clearing all attempts from Dexie'
-		);
+		fireAndForget(this.database.clearAllAttempts(), 'Clearing all attempts from Dexie');
 	}
 }
