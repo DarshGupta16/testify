@@ -32,73 +32,76 @@ function handleKeyDown(e: KeyboardEvent) {
 
 {#if isOpen}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) oncancel();
 		}}
 		role="presentation"
 	>
 		<div
-			class="neo-box-lg w-full max-w-md bg-surface p-6 sm:p-7 animate-slide-down space-y-4"
+			class="neo-box-lg w-full max-w-lg bg-surface p-6 sm:p-7 space-y-5 animate-slide-down"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="submit-modal-title"
 		>
-			<!-- Header -->
-			<div class="flex items-center justify-between border-b-2 border-border-color pb-3">
-				<div class="flex items-center gap-2">
-					<div class="h-3.5 w-3.5 bg-accent-contrast"></div>
-					<h3 id="submit-modal-title" class="text-base sm:text-lg font-black uppercase text-text-primary">
-						{mode === 'practice' ? 'Finish Practice Session?' : 'Submit Examination?'}
-					</h3>
+			<div class="border-b-2 border-border-color pb-3">
+				<div class="flex items-center gap-2 mb-1">
+					{#if mode === 'practice'}
+						<span class="neo-badge bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px]">
+							🌿 Practice Mode
+						</span>
+					{:else}
+						<span class="neo-badge bg-accent-contrast text-accent-contrast-text text-[10px]">
+							🎯 Exam Simulation
+						</span>
+					{/if}
 				</div>
-				<button
-					type="button"
-					onclick={oncancel}
-					class="neo-btn text-xs py-1 px-2"
-					aria-label="Close dialog"
-				>
-					✕
-				</button>
+				<h3 id="submit-modal-title" class="text-xl font-black uppercase tracking-tight text-text-primary">
+					{mode === 'practice' ? 'End Practice Session?' : 'Submit Examination?'}
+				</h3>
+				<p class="text-xs text-text-secondary mt-0.5">
+					Review your question status breakdown before finalizing:
+				</p>
 			</div>
 
-			<!-- Notice text -->
-			<p class="text-xs text-text-secondary">
-				{mode === 'practice'
-					? 'Are you ready to conclude this practice session and view your complete scorecard with detailed solutions?'
-					: 'Are you sure you want to end and submit your exam? Your final score and step-by-step solutions will be generated.'}
-			</p>
-
-			<!-- Summary Stats Grid -->
-			<div class="grid grid-cols-3 gap-2 p-3 bg-muted/40 border-2 border-border-color font-mono text-center">
-				<div>
-					<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase block">Answered</span>
-					<span class="text-lg font-black text-emerald-600 dark:text-emerald-400">{answeredCount}</span>
+			<!-- Status Overview Grid -->
+			<div class="grid grid-cols-3 gap-3 bg-muted/40 p-4 border-2 border-border-color font-mono text-center text-xs">
+				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+					<span class="text-[10px] text-text-muted uppercase font-bold">Attempted</span>
+					<span class="text-xl font-black text-emerald-600 dark:text-emerald-400 my-0.5">
+						{answeredCount}
+					</span>
+					<span class="text-[10px] text-text-muted">Questions</span>
 				</div>
-				<div>
-					<span class="text-[10px] text-rose-500 font-bold uppercase block">Unanswered</span>
-					<span class="text-lg font-black text-rose-500">{unansweredCount}</span>
+				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+					<span class="text-[10px] text-text-muted uppercase font-bold">Unattempted</span>
+					<span class="text-xl font-black text-rose-500 my-0.5">
+						{unansweredCount}
+					</span>
+					<span class="text-[10px] text-text-muted">Remaining</span>
 				</div>
-				<div>
-					<span class="text-[10px] text-amber-500 font-bold uppercase block">Marked</span>
-					<span class="text-lg font-black text-amber-500">{markedCount}</span>
+				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+					<span class="text-[10px] text-text-muted uppercase font-bold">Marked</span>
+					<span class="text-xl font-black text-purple-600 dark:text-purple-400 my-0.5">
+						{markedCount}
+					</span>
+					<span class="text-[10px] text-text-muted">For Review</span>
 				</div>
 			</div>
 
-			{#if unansweredCount > 0 && mode === 'exam'}
-				<div class="p-2.5 bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-600 dark:text-rose-400 font-mono">
-					⚠️ Notice: You still have {unansweredCount} unattempted questions out of {totalCount}.
+			{#if unansweredCount > 0}
+				<div class="p-3 bg-amber-500/10 border-2 border-amber-500/50 text-xs font-mono text-amber-700 dark:text-amber-300">
+					⚠️ You have {unansweredCount} unattempted questions that will receive 0 marks.
 				</div>
 			{/if}
 
-			<!-- Action Buttons -->
-			<div class="flex items-center justify-end gap-2 pt-2 border-t border-border-color/20">
+			<div class="flex items-center justify-end gap-2 pt-3 border-t-2 border-border-color">
 				<button
 					type="button"
 					onclick={oncancel}
 					class="neo-btn text-xs py-2 px-4"
 				>
-					Continue Test
+					Return to Questions
 				</button>
 				<button
 					type="button"

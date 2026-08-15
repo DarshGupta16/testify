@@ -1,5 +1,6 @@
 <script lang="ts">
 import MathRenderer from '$lib/components/common/MathRenderer.svelte';
+import { hasResponseAnswer } from '$lib/services/assessmentEvaluator';
 import type { QuestionPreview, TestMode, UserQuestionResponse } from '$lib/types/test';
 import { formatSecondsToText } from '$lib/utils';
 
@@ -34,7 +35,7 @@ const {
 	ontogglemulti: (optId: string) => void;
 	oninputnumerical: (val: string) => void;
 	onclearresponse: () => void;
-	ontogglereview: () => void;
+	ontogglereview?: () => void;
 	ontogglehint: () => void;
 	ontogglesolution: () => void;
 	onnext: () => void;
@@ -43,9 +44,19 @@ const {
 	onzoom: (item: { title: string; src: string; info?: string }) => void;
 } = $props();
 
+const isMulti = $derived(
+	question.type === 'multi_choice' || question.type === 'multiple_choice_multi'
+);
+
+const isSingle = $derived(question.type === 'single_choice' || question.type === 'multiple_choice');
+
+const isNumerical = $derived(question.type === 'numerical');
+
 const selectedMultiList = $derived(
 	response?.selectedOptionIds || (response?.selectedOptionId ? [response.selectedOptionId] : [])
 );
+
+const hasAnswer = $derived(hasResponseAnswer(response));
 </script>
 
 <div class="neo-box p-5 sm:p-7 bg-surface space-y-6 animate-fade-in">
@@ -58,6 +69,7 @@ const selectedMultiList = $derived(
 			<span class="font-mono text-xs text-text-muted">
 				of {totalQuestions}
 			</span>
+			<!-- Current Question Time Badge -->
 			{#if response?.timeSpentSeconds && response.timeSpentSeconds > 0}
 				<span class="font-mono text-[11px] text-text-muted bg-muted px-2 py-0.5 border border-border-color/30">
 					⏱️ {formatSecondsToText(response.timeSpentSeconds)}
@@ -66,11 +78,11 @@ const selectedMultiList = $derived(
 		</div>
 
 		<div class="flex items-center gap-1.5">
-			{#if question.type === 'multi_choice' || question.type === 'multiple_choice_multi'}
+			{#if isMulti}
 				<span class="neo-badge bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-[10px] uppercase font-bold">
 					☑ Multi-Choice (Multi-Correct)
 				</span>
-			{:else if question.type === 'single_choice' || question.type === 'multiple_choice'}
+			{:else if isSingle}
 				<span class="neo-badge bg-muted text-[10px] uppercase font-bold text-text-secondary">
 					◉ Single Choice
 				</span>
@@ -106,7 +118,7 @@ const selectedMultiList = $derived(
 			>
 				<img
 					src={question.associatedDiagramUrl}
-					alt="Figure for Question {question.questionNumber}"
+					alt={`Figure for Question ${question.questionNumber}`}
 					class="max-h-56 max-w-full object-contain bg-white border border-border-color/30 group-hover:scale-[1.01] transition-transform"
 				/>
 				<span class="font-mono text-[10px] text-accent-contrast underline">
@@ -116,167 +128,84 @@ const selectedMultiList = $derived(
 		</div>
 	{/if}
 
-	<!-- Question Text -->
-	<div class="text-base sm:text-lg font-medium text-text-primary leading-relaxed">
+	<!-- Question Statement (KaTeX + Markdown with preserved linebreaks) -->
+	<div class="text-sm sm:text-base font-normal leading-relaxed text-text-primary">
 		<MathRenderer content={question.text} />
 	</div>
 
-	<!-- Answer Options / Input Area -->
-	<div class="space-y-3 pt-2">
-		{#if question.type === 'single_choice' || question.type === 'multiple_choice'}
-			<!-- 1. Single Choice Options -->
-			<div class="grid grid-cols-1 gap-2.5">
-				{#each question.options || [] as opt, optIdx}
-					{@const isSelected = response?.selectedOptionId === opt.id}
-					<button
-						type="button"
-						onclick={() => onselectsingle(opt.id)}
-						class={`w-full p-4 border-2 flex items-start gap-3.5 text-left transition-all cursor-pointer ${
-							isSelected
-								? 'bg-accent-contrast text-accent-contrast-text border-border-color shadow-[3px_3px_0px_var(--shadow-color)]'
-								: 'bg-surface hover:bg-muted/40 border-border-color/60'
-						}`}
-					>
-						<span
-							class={`flex h-6 w-6 shrink-0 items-center justify-center border-2 font-mono text-xs font-bold rounded-full ${
-								isSelected
-									? 'border-accent-contrast-text bg-accent-contrast-text text-accent-contrast'
-									: 'border-border-color bg-muted text-text-secondary'
-							}`}
-						>
-							{String.fromCharCode(65 + optIdx)}
-						</span>
-						<div class="text-sm font-medium flex-1 pt-0.5 break-words">
-							<MathRenderer content={opt.text} inline={true} />
-						</div>
-					</button>
-				{/each}
-			</div>
-
-		{:else if question.type === 'multi_choice' || question.type === 'multiple_choice_multi'}
-			<!-- 2. Multi Choice (Multiple Correct) Options -->
-			<div class="grid grid-cols-1 gap-2.5">
-				<p class="font-mono text-xs text-text-muted italic mb-1">
-					Select all correct options (partial marks awarded if only correct ones chosen):
-				</p>
-				{#each question.options || [] as opt, optIdx}
-					{@const isSelected = selectedMultiList.includes(opt.id)}
-					<button
-						type="button"
-						onclick={() => ontogglemulti(opt.id)}
-						class={`w-full p-4 border-2 flex items-start gap-3.5 text-left transition-all cursor-pointer ${
-							isSelected
-								? 'bg-accent-contrast text-accent-contrast-text border-border-color shadow-[3px_3px_0px_var(--shadow-color)]'
-								: 'bg-surface hover:bg-muted/40 border-border-color/60'
-						}`}
-					>
-						<span
-							class={`flex h-6 w-6 shrink-0 items-center justify-center border-2 font-mono text-xs font-bold ${
-								isSelected
-									? 'border-accent-contrast-text bg-accent-contrast-text text-accent-contrast'
-									: 'border-border-color bg-muted text-text-secondary'
-							}`}
-						>
-							{isSelected ? '✓' : String.fromCharCode(65 + optIdx)}
-						</span>
-						<div class="text-sm font-medium flex-1 pt-0.5 break-words">
-							<MathRenderer content={opt.text} inline={true} />
-						</div>
-					</button>
-				{/each}
-			</div>
-
-		{:else if question.type === 'numerical'}
-			<!-- 3. Numerical Input -->
-			<div class="max-w-md space-y-2">
-				<label for="numerical-input" class="block font-mono text-xs font-bold uppercase text-text-muted">
-					Enter Numerical Answer:
-				</label>
-				<div class="flex items-center gap-2">
-					<input
-						id="numerical-input"
-						type="number"
-						step="any"
-						value={response?.numericalAnswer || ''}
-						oninput={(e) => oninputnumerical((e.target as HTMLInputElement).value)}
-						placeholder="e.g. 45.0"
-						class="neo-input w-full text-base font-mono py-2.5"
-					/>
-					{#if response?.numericalAnswer}
-						<button
-							type="button"
-							onclick={onclearresponse}
-							class="neo-btn text-xs py-2.5 px-3"
-						>
-							Clear
-						</button>
-					{/if}
-				</div>
-			</div>
-		{/if}
-	</div>
-
-	<!-- Practice Mode: Hint & Instant Derivation Box -->
+	<!-- Practice Mode: Hint & Solution Helpers -->
 	{#if mode === 'practice'}
-		<div class="pt-2 border-t border-border-color/20 space-y-3">
+		<div class="space-y-3 pt-1 border-t border-border-color/20">
 			<div class="flex flex-wrap items-center gap-2">
 				{#if question.hint}
 					<button
 						type="button"
 						onclick={ontogglehint}
-						class="neo-btn text-xs py-1.5 px-3 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40"
+						class={`neo-btn text-xs py-1.5 px-3 font-mono ${
+							showHint
+								? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500'
+								: 'bg-surface hover:bg-muted text-text-secondary'
+						}`}
 					>
 						💡 {showHint ? 'Hide Hint' : 'Show Hint'}
 					</button>
 				{/if}
 
-				{#if question.explanation || question.correctAnswer || question.correctAnswers}
-					<button
-						type="button"
-						onclick={ontogglesolution}
-						class="neo-btn text-xs py-1.5 px-3 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
-					>
-						📖 {showPracticeSolution ? 'Hide Solution' : 'Check Correct Answer & Solution'}
-					</button>
-				{/if}
+				<button
+					type="button"
+					onclick={ontogglesolution}
+					class={`neo-btn text-xs py-1.5 px-3 font-mono ${
+						showPracticeSolution
+							? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500'
+							: 'bg-surface hover:bg-muted text-text-secondary'
+					}`}
+				>
+					👁️ {showPracticeSolution ? 'Hide Solution' : 'Check Solution'}
+				</button>
 			</div>
 
-			<!-- Hint Dropdown -->
+			<!-- Expandable Hint Card -->
 			{#if showHint && question.hint}
-				<div class="p-3.5 bg-indigo-500/10 border-2 border-indigo-500/30 text-xs animate-fade-in space-y-1">
-					<span class="font-mono font-bold text-indigo-700 dark:text-indigo-300 uppercase block text-[11px]">
-						Directional Practice Hint:
+				<div class="p-3.5 bg-amber-500/10 border-2 border-amber-500/60 text-xs font-mono space-y-1 animate-slide-down">
+					<span class="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+						💡 Practice Hint:
 					</span>
-					<div class="text-text-primary leading-relaxed">
+					<div class="text-text-primary pl-4 border-l-2 border-amber-500/40">
 						<MathRenderer content={question.hint} />
 					</div>
 				</div>
 			{/if}
 
-			<!-- Solution Dropdown -->
+			<!-- Expandable Practice Solution Card -->
 			{#if showPracticeSolution}
-				<div class="p-4 bg-emerald-500/10 border-2 border-emerald-500/40 text-xs animate-fade-in space-y-2">
-					<div class="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase flex items-center gap-2">
-						<span>✓ Correct Answer:</span>
-						{#if question.type === 'multi_choice' || question.type === 'multiple_choice_multi'}
-							<span class="bg-emerald-500/20 px-2 py-0.5 border border-emerald-500/40">
-								{(question.correctAnswers || []).join(', ')}
-							</span>
-						{:else}
-							<span class="bg-emerald-500/20 px-2 py-0.5 border border-emerald-500/40">
-								{question.correctAnswer || 'N/A'}
-							</span>
-						{/if}
-					</div>
+				<div class="p-4 bg-indigo-500/10 border-2 border-indigo-500/60 text-xs font-mono space-y-2 animate-slide-down">
+					<span class="font-bold text-indigo-700 dark:text-indigo-300 block">
+						✓ Solution & Step-by-Step Explanation:
+					</span>
+
+					{#if isMulti}
+						{@const correctIds = question.correctAnswers || (question.correctAnswer ? [question.correctAnswer] : [])}
+						<div class="font-bold text-emerald-600 dark:text-emerald-400 space-y-1">
+							<span>Correct Options ({correctIds.length}):</span>
+							<div class="flex flex-wrap gap-1.5 pt-1">
+								{#each correctIds as cId}
+									{@const optObj = question.options?.find((o) => o.id === cId)}
+									<span class="px-2 py-0.5 border border-emerald-500/40 bg-emerald-500/10 text-xs">
+										<MathRenderer content={optObj ? optObj.text : cId} inline={true} />
+									</span>
+								{/each}
+							</div>
+						</div>
+					{:else if question.correctAnswer}
+						{@const matchingOpt = question.options?.find((o) => o.id === question.correctAnswer)}
+						<div class="font-bold text-emerald-600 dark:text-emerald-400">
+							Correct Answer: {matchingOpt ? matchingOpt.text : question.correctAnswer}
+						</div>
+					{/if}
 
 					{#if question.explanation}
-						<div class="pt-2 border-t border-emerald-500/30">
-							<span class="font-mono font-bold text-emerald-700 dark:text-emerald-300 uppercase block text-[11px] mb-1">
-								Step-by-Step Derivation:
-							</span>
-							<div class="text-text-primary leading-relaxed">
-								<MathRenderer content={question.explanation} />
-							</div>
+						<div class="text-text-primary pl-3 border-l-2 border-indigo-500/40 pt-1">
+							<MathRenderer content={question.explanation} />
 						</div>
 					{/if}
 				</div>
@@ -284,69 +213,125 @@ const selectedMultiList = $derived(
 		</div>
 	{/if}
 
-	<!-- Question Action Bar -->
-	<div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t-2 border-border-color">
-		<!-- Left Sub-actions -->
-		<div class="flex items-center gap-2">
-			<button
-				type="button"
-				onclick={ontogglereview}
-				class={`neo-btn text-xs py-2 px-3.5 flex items-center gap-1.5 ${
-					response?.isMarkedForReview
-						? 'bg-amber-500 text-white border-amber-600 font-bold'
-						: 'bg-surface'
-				}`}
-			>
-				<span>{response?.isMarkedForReview ? '★ Marked for Review' : '☆ Mark for Review'}</span>
-			</button>
+	<!-- Input / Options Section -->
+	<div class="pt-2">
+		{#if isSingle || isMulti}
+			<div class="space-y-3">
+				{#if isMulti}
+					<div class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 p-2 border border-indigo-500/30 flex items-center gap-1.5">
+						<span>☑</span>
+						<span>Multiple options may be correct. Select all that apply.</span>
+					</div>
+				{/if}
 
-			<button
-				type="button"
-				onclick={onclearresponse}
-				class="neo-btn text-xs py-2 px-3 text-text-muted hover:text-text-primary"
-			>
-				Clear Response
-			</button>
-		</div>
+				{#if question.options && question.options.length > 0}
+					{#each question.options as opt, optIdx}
+						{@const optText = typeof opt === 'string' ? opt : opt.text}
+						{@const optId = typeof opt === 'string' ? opt : opt.id}
+						{@const isSelected = isMulti
+							? selectedMultiList.includes(optId)
+							: response?.selectedOptionId === optId}
+						{@const letter = String.fromCharCode(65 + optIdx)}
 
-		<!-- Right Navigation Buttons -->
+						<button
+							type="button"
+							onclick={() => (isMulti ? ontogglemulti(optId) : onselectsingle(optId))}
+							class={`w-full p-3.5 sm:p-4 text-left border-2 flex items-start gap-3.5 transition-all cursor-pointer ${
+								isSelected
+									? 'bg-accent-contrast text-accent-contrast-text border-accent-contrast shadow-[3px_3px_0px_var(--shadow-color)] -translate-y-0.5'
+									: 'bg-surface hover:bg-muted/50 border-border-color'
+							}`}
+						>
+							<span
+								class={`flex h-7 w-7 shrink-0 items-center justify-center font-mono text-xs font-bold border-2 ${
+									isSelected
+										? 'bg-accent-contrast-text text-accent-contrast border-accent-contrast-text'
+										: 'bg-muted border-border-color text-text-primary'
+								}`}
+							>
+								{isMulti ? (isSelected ? '✓' : letter) : letter}
+							</span>
+							<div class="flex-1 text-xs sm:text-sm pt-0.5 overflow-x-auto">
+								<MathRenderer content={optText} inline={true} />
+							</div>
+						</button>
+					{/each}
+				{:else}
+					<div class="p-4 border-2 border-dashed border-border-color text-center text-xs font-mono text-text-muted">
+						No options provided for this question.
+					</div>
+				{/if}
+			</div>
+		{:else if isNumerical}
+			<!-- Numerical Answer Input -->
+			<div class="max-w-md space-y-2">
+				<label for="num-input" class="block font-mono text-xs font-bold uppercase text-text-muted">
+					Enter Numerical Answer:
+				</label>
+				<div class="flex items-center gap-2">
+					<input
+						id="num-input"
+						type="text"
+						value={response?.numericalAnswer || ''}
+						oninput={(e) => oninputnumerical(e.currentTarget.value)}
+						placeholder="e.g. 45.0"
+						class="neo-input flex-1 font-mono text-base"
+					/>
+					{#if response?.numericalAnswer}
+						<button
+							type="button"
+							onclick={onclearresponse}
+							class="neo-btn text-xs py-2 px-3"
+							title="Clear answer"
+						>
+							✕
+						</button>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Action Toolbar -->
+	<div class="flex flex-wrap items-center justify-between gap-3 pt-6 border-t-2 border-border-color/20">
 		<div class="flex items-center gap-2">
 			<button
 				type="button"
 				onclick={onprevious}
 				disabled={questionIndex === 0}
-				class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40"
+				class="neo-btn text-xs py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
 			>
 				&larr; Previous
 			</button>
+			<button
+				type="button"
+				onclick={onclearresponse}
+				disabled={!hasAnswer}
+				class="neo-btn text-xs py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+			>
+				Clear
+			</button>
+		</div>
 
-			{#if mode === 'exam' && questionIndex < totalQuestions - 1}
-				<button
-					type="button"
-					onclick={onmarkandnext}
-					class="neo-btn text-xs py-2 px-3 bg-muted hidden sm:inline-flex"
-				>
-					Mark & Next &rarr;
-				</button>
-			{/if}
-
-			{#if questionIndex < totalQuestions - 1}
-				<button
-					type="button"
-					onclick={onnext}
-					class="neo-btn neo-btn-primary text-xs py-2 px-4"
-				>
-					Save & Next &rarr;
-				</button>
-			{:else}
-				<button
-					type="button"
-					onclick={onnext}
-					class="neo-btn neo-btn-primary text-xs py-2 px-4"
-				>
-					Review Last &rarr;
-				</button>
-			{/if}
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				onclick={onmarkandnext}
+				class={`neo-btn text-xs py-2 px-3.5 ${
+					response?.isMarkedForReview
+						? 'bg-purple-600 text-white border-purple-700'
+						: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/40'
+				}`}
+			>
+				{response?.isMarkedForReview ? '★ Marked for Review' : '☆ Mark & Next'}
+			</button>
+			<button
+				type="button"
+				onclick={onnext}
+				class="neo-btn neo-btn-primary text-xs py-2 px-4"
+			>
+				<span>{questionIndex === totalQuestions - 1 ? 'Save & Review' : 'Save & Next →'}</span>
+			</button>
 		</div>
 	</div>
 </div>

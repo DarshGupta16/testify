@@ -24,150 +24,134 @@ const {
 	onopensubmit: () => void;
 } = $props();
 
-const filterCounts = $derived.by(() => {
-	let attempted = 0;
+const examMetrics = $derived.by(() => {
+	let answered = 0;
 	let marked = 0;
 
 	for (const q of questions) {
 		const resp = userResponses[q.id];
-		if (hasResponseAnswer(resp)) attempted++;
+		if (hasResponseAnswer(resp)) answered++;
 		if (resp?.isMarkedForReview) marked++;
 	}
 
 	return {
-		all: questions.length,
-		attempted,
-		unattempted: questions.length - attempted,
+		answered,
+		unanswered: questions.length - answered,
 		marked,
+		total: questions.length,
 	};
 });
 </script>
 
-<div class="neo-box p-4 sm:p-5 bg-surface space-y-4 sticky top-20">
-	<!-- Palette Header -->
-	<div class="flex items-center justify-between border-b-2 border-border-color pb-2.5">
-		<h3 class="font-sans text-xs sm:text-sm font-black uppercase tracking-tight text-text-primary">
-			Question Palette
-		</h3>
-		<span class="font-mono text-[11px] font-bold text-text-muted">
-			{filterCounts.attempted}/{questions.length} Solved
+<div class="neo-box p-5 bg-surface space-y-4">
+	<!-- At-A-Glance Status Filter Pills -->
+	<div class="space-y-2 border-b-2 border-border-color/20 pb-3">
+		<span class="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted block">
+			At-A-Glance Question Status
 		</span>
-	</div>
-
-	<!-- Filter Tabs -->
-	<div class="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
-		<button
-			type="button"
-			onclick={() => onsetpalettefilter('all')}
-			class={`p-1.5 border text-center font-bold transition-all ${
-				paletteFilter === 'all'
-					? 'bg-accent-contrast text-accent-contrast-text border-accent-contrast'
-					: 'bg-muted/40 border-border-color/40 text-text-secondary hover:bg-muted'
-			}`}
-		>
-			All ({filterCounts.all})
-		</button>
-		<button
-			type="button"
-			onclick={() => onsetpalettefilter('attempted')}
-			class={`p-1.5 border text-center font-bold transition-all ${
-				paletteFilter === 'attempted'
-					? 'bg-emerald-600 text-white border-emerald-700'
-					: 'bg-muted/40 border-border-color/40 text-text-secondary hover:bg-muted'
-			}`}
-		>
-			Solved ({filterCounts.attempted})
-		</button>
-		<button
-			type="button"
-			onclick={() => onsetpalettefilter('unattempted')}
-			class={`p-1.5 border text-center font-bold transition-all ${
-				paletteFilter === 'unattempted'
-					? 'bg-rose-600 text-white border-rose-700'
-					: 'bg-muted/40 border-border-color/40 text-text-secondary hover:bg-muted'
-			}`}
-		>
-			Unsolved ({filterCounts.unattempted})
-		</button>
-		<button
-			type="button"
-			onclick={() => onsetpalettefilter('marked')}
-			class={`p-1.5 border text-center font-bold transition-all ${
-				paletteFilter === 'marked'
-					? 'bg-amber-500 text-white border-amber-600'
-					: 'bg-muted/40 border-border-color/40 text-text-secondary hover:bg-muted'
-			}`}
-		>
-			Marked ({filterCounts.marked})
-		</button>
-	</div>
-
-	<!-- Question Badges Grid -->
-	<div class="grid grid-cols-5 gap-1.5 max-h-64 overflow-y-auto pr-1 py-1">
-		{#each filteredIndices as qIdx}
-			{@const q = questions[qIdx]}
-			{@const resp = userResponses[q.id]}
-			{@const hasAnswer = hasResponseAnswer(resp)}
-			{@const isMarked = Boolean(resp?.isMarkedForReview)}
-			{@const isCurrent = qIdx === currentIndex}
-			{@const isVisited = Boolean(resp?.visited)}
+		<div class="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+			<button
+				type="button"
+				onclick={() => onsetpalettefilter('all')}
+				class={`p-2 border text-left transition-colors flex items-center justify-between cursor-pointer ${
+					paletteFilter === 'all'
+						? 'bg-accent-contrast text-accent-contrast-text border-accent-contrast font-bold'
+						: 'bg-surface hover:bg-muted text-text-secondary border-border-color/40'
+				}`}
+			>
+				<span>All Qs</span>
+				<span class="font-bold">{questions.length}</span>
+			</button>
 
 			<button
 				type="button"
-				onclick={() => onselectquestion(qIdx)}
-				class={`h-9 border-2 font-mono text-xs font-bold relative flex items-center justify-center transition-all cursor-pointer ${
-					isCurrent
-						? 'ring-2 ring-accent-contrast ring-offset-1 border-border-color'
-						: 'border-border-color/70'
-				} ${
-					hasAnswer
-						? isMarked
-							? 'bg-amber-500 text-white border-amber-600'
-							: 'bg-emerald-600 text-white border-emerald-700'
-						: isMarked
-							? 'bg-amber-500 text-white border-amber-600'
-							: isVisited
-								? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40'
-								: 'bg-muted text-text-muted'
+				onclick={() => onsetpalettefilter('attempted')}
+				class={`p-2 border text-left transition-colors flex items-center justify-between cursor-pointer ${
+					paletteFilter === 'attempted'
+						? 'bg-emerald-600 text-white border-emerald-800 font-bold'
+						: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
 				}`}
-				title={`Jump to Question ${qIdx + 1}`}
 			>
-				<span>{qIdx + 1}</span>
-				{#if isMarked}
-					<span class="absolute top-0.5 right-0.5 text-[8px] leading-none">★</span>
-				{/if}
+				<span>Attempted</span>
+				<span class="font-bold">{examMetrics.answered}</span>
 			</button>
-		{/each}
+
+			<button
+				type="button"
+				onclick={() => onsetpalettefilter('unattempted')}
+				class={`p-2 border text-left transition-colors flex items-center justify-between cursor-pointer ${
+					paletteFilter === 'unattempted'
+						? 'bg-rose-600 text-white border-rose-800 font-bold'
+						: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'
+				}`}
+			>
+				<span>Unattempted</span>
+				<span class="font-bold">{examMetrics.unanswered}</span>
+			</button>
+
+			<button
+				type="button"
+				onclick={() => onsetpalettefilter('marked')}
+				class={`p-2 border text-left transition-colors flex items-center justify-between cursor-pointer ${
+					paletteFilter === 'marked'
+						? 'bg-purple-600 text-white border-purple-800 font-bold'
+						: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30'
+				}`}
+			>
+				<span>Marked</span>
+				<span class="font-bold">{examMetrics.marked}</span>
+			</button>
+		</div>
 	</div>
 
-	<!-- Status Legend -->
-	<div class="grid grid-cols-2 gap-2 pt-2 border-t border-border-color/20 font-mono text-[10px] text-text-muted">
-		<div class="flex items-center gap-1.5">
-			<span class="h-3 w-3 bg-emerald-600 border border-emerald-700 inline-block"></span>
-			<span>Answered</span>
+	<!-- Palette Grid -->
+	<div class="space-y-2">
+		<div class="flex items-center justify-between font-mono text-[10px] text-text-muted">
+			<span>Jump to Question</span>
+			<span>Showing {filteredIndices.length} of {questions.length}</span>
 		</div>
-		<div class="flex items-center gap-1.5">
-			<span class="h-3 w-3 bg-rose-500/20 border border-rose-500/50 inline-block"></span>
-			<span>Not Answered</span>
-		</div>
-		<div class="flex items-center gap-1.5">
-			<span class="h-3 w-3 bg-amber-500 border border-amber-600 inline-block"></span>
-			<span>Marked Review</span>
-		</div>
-		<div class="flex items-center gap-1.5">
-			<span class="h-3 w-3 bg-muted border border-border-color/50 inline-block"></span>
-			<span>Not Visited</span>
+
+		<div class="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+			{#each questions as q, idx}
+				{@const isVisible = filteredIndices.includes(idx)}
+				{@const resp = userResponses[q.id]}
+				{@const hasAnswer = hasResponseAnswer(resp)}
+				{@const isMarked = resp?.isMarkedForReview}
+				{@const isCurrent = idx === currentIndex}
+				{@const isVisited = resp?.visited}
+
+				{@const badgeColorClass = hasAnswer && isMarked
+					? 'bg-indigo-600 text-white border-indigo-800'
+					: isMarked
+						? 'bg-purple-600 text-white border-purple-800'
+						: hasAnswer
+							? 'bg-emerald-600 text-white border-emerald-800'
+							: isVisited
+								? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500'
+								: 'bg-surface text-text-muted border-border-color/60'}
+
+				{#if isVisible}
+					<button
+						type="button"
+						onclick={() => onselectquestion(idx)}
+						class={`h-9 text-xs font-mono font-bold border-2 flex items-center justify-center transition-all cursor-pointer ${badgeColorClass} ${
+							isCurrent ? 'ring-2 ring-accent-contrast ring-offset-2 scale-105 shadow-sm' : 'hover:scale-102'
+						}`}
+						title={`Question ${idx + 1} (${hasAnswer ? 'Attempted' : 'Unattempted'})`}
+					>
+						{idx + 1}
+					</button>
+				{/if}
+			{/each}
 		</div>
 	</div>
 
-	<!-- Submit CTA Button -->
-	<div class="pt-2 border-t border-border-color/20">
-		<button
-			type="button"
-			onclick={onopensubmit}
-			class="neo-btn neo-btn-primary w-full text-xs py-2.5"
-		>
-			{mode === 'practice' ? 'End Practice Session' : 'Submit Examination'}
-		</button>
-	</div>
+	<!-- Palette Submit Button -->
+	<button
+		type="button"
+		onclick={onopensubmit}
+		class="neo-btn neo-btn-primary w-full text-xs py-2.5 mt-2"
+	>
+		{mode === 'practice' ? 'Complete Practice Session' : 'Final Exam Submission'}
+	</button>
 </div>
