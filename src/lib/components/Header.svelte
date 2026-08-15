@@ -59,11 +59,46 @@ const app = getAppContext();
 				<span>/pdftest</span>
 			</a>
 
+			<!-- API Keys / Provider Credentials CTA -->
+			<button
+				type="button"
+				onclick={() => app.modals.openApiKeys()}
+				class={`neo-btn text-xs py-2 px-3 flex items-center gap-2 ${
+					app.apiKeys.hasAnyConfigured ? 'bg-surface' : 'bg-muted/40'
+				}`}
+				aria-label="Manage AI API Keys"
+				title="Manage API keys for OpenAI, Anthropic, Google Gemini, and Groq"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="square"
+					class="h-3.5 w-3.5 text-text-primary"
+				>
+					<path d="M21 2l-2 2m-1.5 1.5L10 13l-4 4-2-2-4 4 3 3 4-4-2-2 7.5-7.5" />
+					<circle cx="16.5" cy="7.5" r="2.5" />
+				</svg>
+				<span class="hidden sm:inline">API Keys</span>
+
+				{#if app.apiKeys.hasAnyConfigured}
+					<span class="neo-badge text-[10px] py-0 px-1.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50">
+						{app.apiKeys.configuredCount}/4
+					</span>
+				{:else}
+					<span class="neo-badge text-[10px] py-0 px-1.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50">
+						Set Keys
+					</span>
+				{/if}
+			</button>
+
 			<!-- Quick Sample Loader Button -->
 			<button
 				type="button"
 				onclick={() => app.handleLoadSamples()}
-				class="neo-btn text-xs py-2 px-3 hidden sm:inline-flex"
+				class="neo-btn text-xs py-2 px-3 hidden md:inline-flex"
 				title="Load sample tests to preview dashboard"
 			>
 				<svg

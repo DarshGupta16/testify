@@ -1,7 +1,9 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import favicon from '$lib/assets/favicon.svg';
+import ApiKeysModal from '$lib/components/ApiKeysModal.svelte';
 import Header from '$lib/components/Header.svelte';
+import MasterPasswordModal from '$lib/components/MasterPasswordModal.svelte';
 import TestDetailsModal from '$lib/components/TestDetailsModal.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import UploadModal from '$lib/components/UploadModal.svelte';
@@ -38,5 +40,7 @@ onMount(() => {
 	<!-- Global Modals & Notifications -->
 	<UploadModal />
 	<TestDetailsModal />
+	<ApiKeysModal />
+	<MasterPasswordModal />
 	<Toast />
 </div>
