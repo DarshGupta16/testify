@@ -171,7 +171,6 @@ export async function processTestUpload(
 		durationMinutes: finalDuration,
 		questionCount: count,
 		totalMarks: finalTotalMarks,
-		hasAnswerKey: Boolean(payload.answerKeyFile || answerKeyExtractionResult),
 		testFileName: docName,
 		testFileSizeFormatted: payload.testFile?.formattedSize || '2.4 MB',
 		answerKeyFileName: payload.answerKeyFile?.name,

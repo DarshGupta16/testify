@@ -19,11 +19,6 @@ export class TestStore {
 	totalDurationMinutes = $derived(
 		this.tests.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0)
 	);
-	answerKeyCoverage = $derived.by(() => {
-		if (this.tests.length === 0) return 0;
-		const withKeys = this.tests.filter((t) => t.hasAnswerKey).length;
-		return Math.round((withKeys / this.tests.length) * 100);
-	});
 
 	constructor(customDb: TestifyDatabase = db) {
 		this.database = customDb;

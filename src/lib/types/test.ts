@@ -84,7 +84,6 @@ export interface TestItem {
 	durationMinutes: number | null; // null or 0 indicates untimed
 	questionCount: number;
 	totalMarks: number;
-	hasAnswerKey: boolean;
 	testFileName: string;
 	testFileSizeFormatted: string;
 	answerKeyFileName?: string;

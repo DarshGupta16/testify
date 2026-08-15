@@ -56,15 +56,6 @@ const filteredAttempts = $derived(
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 						{test.subject}
 					</span>
-					{#if test.hasAnswerKey}
-						<span class="neo-badge bg-emerald-600 dark:bg-emerald-700 text-white">
-							✓ Answer Key Linked
-						</span>
-					{:else}
-						<span class="neo-badge bg-muted text-text-muted">
-							Self-Review
-						</span>
-					{/if}
 					{#if allDiagrams.length > 0}
 						<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 							🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Figure' : 'Figures'}

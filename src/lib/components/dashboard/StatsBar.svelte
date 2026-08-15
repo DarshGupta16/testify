@@ -5,7 +5,7 @@ import { formatDuration } from '$lib/utils';
 const app = getAppContext();
 </script>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
 	<!-- Stat 1: Total Tests -->
 	<div class="neo-box p-4 sm:p-5 flex flex-col justify-between">
 		<div class="flex items-center justify-between text-text-muted mb-2">
@@ -48,20 +48,5 @@ const app = getAppContext();
 			</span>
 		</div>
 		<span class="font-mono text-[10px] text-text-secondary mt-1">Total timed test time</span>
-	</div>
-
-	<!-- Stat 4: Answer Key Coverage -->
-	<div class="neo-box p-4 sm:p-5 flex flex-col justify-between">
-		<div class="flex items-center justify-between text-text-muted mb-2">
-			<span class="font-mono text-xs uppercase font-bold tracking-wider">Auto-Graded</span>
-			<div class="h-2.5 w-2.5 bg-emerald-500"></div>
-		</div>
-		<div class="flex items-baseline gap-2">
-			<span class="font-sans text-2xl sm:text-4xl font-black text-text-primary">
-				{app.tests.answerKeyCoverage}%
-			</span>
-			<span class="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-bold">Key Linked</span>
-		</div>
-		<span class="font-mono text-[10px] text-text-secondary mt-1">Instant scoring enabled</span>
 	</div>
 </div>
