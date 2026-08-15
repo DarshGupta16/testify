@@ -32,18 +32,13 @@ function handleDelete() {
 			</span>
 
 			<div class="flex flex-wrap items-center gap-1.5">
-				{#if test.extractedDiagramsCount !== undefined && test.extractedDiagramsCount > 0}
-					<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px]" title="Extracted diagrams and figures">
-						🎨 {test.extractedDiagramsCount} {test.extractedDiagramsCount === 1 ? 'Diagram' : 'Diagrams'}
-					</span>
-				{/if}
 				{#if test.hasAnswerKey}
-					<span class="neo-badge bg-emerald-600 dark:bg-emerald-700 text-white" title="Auto-grading key linked">
-						✓ Key Linked
+					<span class="neo-badge bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[10px] font-bold" title="Answer Key Linked and Ready">
+						🔑 Key Available
 					</span>
 				{:else}
-					<span class="neo-badge bg-muted text-text-muted text-[10px]" title="No answer key provided">
-						Practice Only
+					<span class="neo-badge bg-muted text-text-muted border border-border-color/40 text-[10px]" title="No Answer Key Linked">
+						🚫 No Key
 					</span>
 				{/if}
 				<span class="font-mono text-[11px] text-text-muted">
@@ -80,18 +75,22 @@ function handleDelete() {
 		</div>
 
 		<!-- Attached PDF Files Info -->
-		<div class="space-y-1 font-mono text-[11px] text-text-muted mb-5">
+		<div class="space-y-1.5 font-mono text-[11px] text-text-muted mb-5">
 			<div class="flex items-center gap-1.5 truncate">
 				<span class="text-text-primary font-bold">PDF:</span>
 				<span class="truncate text-text-secondary">{test.testFileName}</span>
 				<span class="text-[10px]">({test.testFileSizeFormatted})</span>
 			</div>
-			{#if test.hasAnswerKey && test.answerKeyFileName}
-				<div class="flex items-center gap-1.5 truncate">
-					<span class="text-emerald-600 dark:text-emerald-400 font-bold">KEY:</span>
-					<span class="truncate text-text-secondary">{test.answerKeyFileName}</span>
-				</div>
-			{/if}
+			<div class="flex items-center gap-1.5 truncate">
+				<span class="font-bold {test.hasAnswerKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-text-muted'}">KEY:</span>
+				{#if test.hasAnswerKey}
+					<span class="truncate text-emerald-600 dark:text-emerald-400 font-semibold">
+						{test.answerKeyFileName || 'Embedded in Question Paper'}
+					</span>
+				{:else}
+					<span class="text-text-muted italic">Not Provided</span>
+				{/if}
+			</div>
 		</div>
 	</div>
 

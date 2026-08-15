@@ -3,12 +3,7 @@
  */
 
 import { aiService, formatAiProviderError } from '$lib/services/ai';
-import {
-	type ExtractedEmbeddedImage,
-	extractPdfPagesAndImages,
-	generateSamplePdfWithImages,
-	type PdfExtractionResult,
-} from '$lib/services/pdf';
+import { extractPdfPagesAndImages, type PdfExtractionResult } from '$lib/services/pdf';
 import type { QuestionPreview, TestItem, TestUploadPayload } from '$lib/types/test';
 
 export type UploadProgressCallback = (progress: number, statusText: string) => void;
@@ -16,46 +11,6 @@ export type UploadProgressCallback = (progress: number, statusText: string) => v
 export interface ProcessUploadOptions {
 	apiKey?: string;
 	onProgress?: UploadProgressCallback;
-}
-
-/**
- * Synthesizes structured fallback question previews and associates them with extracted diagrams.
- */
-export function generateMockQuestions(
-	count: number,
-	fileName: string,
-	diagrams: ExtractedEmbeddedImage[]
-): QuestionPreview[] {
-	const totalToGenerate = Math.max(1, Math.min(count, 30));
-	const previews: QuestionPreview[] = [];
-
-	for (let i = 0; i < totalToGenerate; i++) {
-		const associatedDiagram = diagrams.length > 0 ? diagrams[i % diagrams.length] : undefined;
-		const isNumerical = i % 3 === 0;
-
-		previews.push({
-			id: `q_${i + 1}_${Math.random().toString(36).substring(2, 6)}`,
-			questionNumber: i + 1,
-			type: isNumerical ? 'numerical' : 'multiple_choice',
-			text: `Question #${i + 1}: Analyze the conditions in ${fileName} and evaluate the response.`,
-			options: isNumerical
-				? undefined
-				: [
-						'A) First theoretical condition holds',
-						'B) Parameter satisfies constraint equations',
-						'C) Relative deviation within tolerance',
-						'D) None of the above',
-					],
-			correctAnswer: isNumerical ? '42.5' : 'B) Parameter satisfies constraint equations',
-			explanation: 'Derived from document constraints and standard problem parameters.',
-			marks: 4,
-			negativeMarks: isNumerical ? 0 : 1,
-			associatedDiagramId: associatedDiagram?.id,
-			associatedDiagramUrl: associatedDiagram?.dataUrl,
-		});
-	}
-
-	return previews;
 }
 
 /**
@@ -70,24 +25,27 @@ export async function processTestUpload(
 		typeof options === 'function' ? options : options?.onProgress;
 	const apiKey: string | undefined = typeof options === 'object' ? options.apiKey : undefined;
 
+	const rawTestFile = payload.testFile?.rawFile;
+	if (!rawTestFile) {
+		throw new Error('No test PDF file provided. Please upload a question paper PDF.');
+	}
+
+	const targetProvider = payload.aiProvider;
+	if (!targetProvider || !apiKey?.trim()) {
+		throw new Error(
+			`Please configure and unlock your ${targetProvider ? targetProvider.toUpperCase() : 'AI'} API key before creating a test.`
+		);
+	}
+
 	const scale = payload.scale ?? 1.25;
 	let extractionResult: PdfExtractionResult | null = null;
 	let answerKeyExtractionResult: PdfExtractionResult | null = null;
 
-	// Stage 1: Load input source
-	onProgress?.(5, 'Reading and initializing PDF document...');
+	// Stage 1 & 2: Extract pages, bitmap images, and vector diagrams via MuPDF
+	onProgress?.(5, 'Reading and rasterizing question paper PDF...');
 
-	let inputData: File | Blob | Uint8Array;
-	if (payload.testFile?.rawFile) {
-		inputData = payload.testFile.rawFile;
-	} else {
-		// Fallback sample PDF with diagrams if demo
-		inputData = generateSamplePdfWithImages();
-	}
-
-	// Stage 2: Extract pages, bitmap images, and vector diagrams via MuPDF
 	try {
-		extractionResult = await extractPdfPagesAndImages(inputData, {
+		extractionResult = await extractPdfPagesAndImages(rawTestFile, {
 			scale,
 			onProgress: (p) => {
 				const pct = Math.min(40, Math.round(5 + (p.currentPage / Math.max(1, p.totalPages)) * 35));
@@ -95,7 +53,12 @@ export async function processTestUpload(
 			},
 		});
 	} catch (err) {
-		console.warn('[TestUploader] PDF extraction encountered error:', err);
+		console.error('[TestUploader] PDF extraction error:', err);
+		throw new Error(`Failed to parse question paper PDF: ${(err as Error).message}`);
+	}
+
+	if (!extractionResult || extractionResult.pages.length === 0) {
+		throw new Error('Could not render any pages from the question paper PDF.');
 	}
 
 	// Stage 3: Extract separate Answer Key PDF if supplied
@@ -115,9 +78,7 @@ export async function processTestUpload(
 
 	// Stage 4: AI Testification Execution
 	const docName = payload.testFile?.name || 'test.pdf';
-	const allDiagrams = extractionResult
-		? extractionResult.pages.flatMap((p) => p.embeddedImages)
-		: [];
+	const allDiagrams = extractionResult.pages.flatMap((p) => p.embeddedImages);
 
 	let finalQuestions: QuestionPreview[] = [];
 	let finalTitle = payload.title?.trim();
@@ -125,59 +86,52 @@ export async function processTestUpload(
 	let finalTotalMarks = payload.totalMarks || 0;
 	let tokenUsage: TestItem['tokenUsage'];
 
-	const targetProvider = payload.aiProvider;
-	if (targetProvider && apiKey && extractionResult && extractionResult.pages.length > 0) {
-		try {
-			onProgress?.(
-				50,
-				`Submitting document to ${targetProvider.toUpperCase()} (${payload.aiModel || 'default'})...`
-			);
+	try {
+		onProgress?.(
+			50,
+			`Submitting document to ${targetProvider.toUpperCase()} (${payload.aiModel || 'default'})...`
+		);
 
-			const aiResult = await aiService.testify({
-				provider: targetProvider,
-				apiKey,
-				model: payload.aiModel || 'default',
-				extractionResult,
-				answerKeyExtractionResult,
-				metadata: {
-					titleHint: payload.title,
-					subjectHint: payload.subject,
-					questionCountHint: payload.questionCount,
-					autoTitle: payload.autoTitle,
-					autoDuration: payload.autoDuration,
-					isUntimed: payload.isUntimed,
-					defaultDurationMinutes: payload.durationMinutes,
-					defaultMarksPerQuestion: 4,
-				},
-				onProgress: (statusText, pct) => {
-					const mappedPct = pct ? Math.round(50 + (pct / 100) * 45) : 70;
-					onProgress?.(mappedPct, statusText);
-				},
-			});
+		const aiResult = await aiService.testify({
+			provider: targetProvider,
+			apiKey,
+			model: payload.aiModel || 'default',
+			extractionResult,
+			answerKeyExtractionResult,
+			metadata: {
+				titleHint: payload.title,
+				subjectHint: payload.subject,
+				questionCountHint: payload.questionCount,
+				autoTitle: payload.autoTitle,
+				autoDuration: payload.autoDuration,
+				isUntimed: payload.isUntimed,
+				defaultDurationMinutes: payload.durationMinutes,
+				defaultMarksPerQuestion: 4,
+			},
+			onProgress: (statusText, pct) => {
+				const mappedPct = pct ? Math.round(50 + (pct / 100) * 45) : 70;
+				onProgress?.(mappedPct, statusText);
+			},
+		});
 
-			finalQuestions = aiResult.questions;
-			tokenUsage = aiResult.tokenUsage;
+		finalQuestions = aiResult.questions;
+		tokenUsage = aiResult.tokenUsage;
 
-			if (payload.autoTitle && aiResult.title) {
-				finalTitle = aiResult.title;
-			}
-			if (payload.isUntimed) {
-				finalDuration = null;
-			} else if (payload.autoDuration && typeof aiResult.durationMinutes === 'number') {
-				finalDuration = aiResult.durationMinutes;
-			}
-			if (typeof aiResult.totalMarks === 'number' && aiResult.totalMarks > 0) {
-				finalTotalMarks = aiResult.totalMarks;
-			}
-		} catch (aiErr) {
-			console.error('[TestUploader] AI generation failed:', aiErr);
-			const formattedError = formatAiProviderError(targetProvider, aiErr);
-			throw new Error(formattedError);
+		if (payload.autoTitle && aiResult.title) {
+			finalTitle = aiResult.title;
 		}
-	} else {
-		// Mock / Offline generation fallback (only when no AI provider key is configured)
-		onProgress?.(75, 'Synthesizing assessment structure & linking diagrams...');
-		finalQuestions = generateMockQuestions(payload.questionCount || 20, docName, allDiagrams);
+		if (payload.isUntimed) {
+			finalDuration = null;
+		} else if (payload.autoDuration && typeof aiResult.durationMinutes === 'number') {
+			finalDuration = aiResult.durationMinutes;
+		}
+		if (typeof aiResult.totalMarks === 'number' && aiResult.totalMarks > 0) {
+			finalTotalMarks = aiResult.totalMarks;
+		}
+	} catch (aiErr) {
+		console.error('[TestUploader] AI generation failed:', aiErr);
+		const formattedError = formatAiProviderError(targetProvider, aiErr);
+		throw new Error(formattedError);
 	}
 
 	// Finalize fields
@@ -200,7 +154,7 @@ export async function processTestUpload(
 		payload.subject || 'General',
 		finalDuration ? `${finalDuration}m` : 'Untimed',
 		`${count} Qs`,
-		`${extractionResult?.totalPages ?? 1} ${extractionResult?.totalPages === 1 ? 'Page' : 'Pages'}`,
+		`${extractionResult.totalPages} ${extractionResult.totalPages === 1 ? 'Page' : 'Pages'}`,
 	];
 
 	if (allDiagrams.length > 0) {
@@ -212,7 +166,7 @@ export async function processTestUpload(
 		title: finalTitle,
 		description:
 			payload.description ||
-			`Generated from ${docName} (${extractionResult?.totalPages ?? 1} pages, ${allDiagrams.length} extracted figures).`,
+			`Generated from ${docName} (${extractionResult.totalPages} pages, ${allDiagrams.length} extracted figures).`,
 		subject: payload.subject || 'General',
 		durationMinutes: finalDuration,
 		questionCount: count,
@@ -226,8 +180,8 @@ export async function processTestUpload(
 		status: 'ready',
 		tags,
 		questions: finalQuestions,
-		extractedData: extractionResult ?? undefined,
-		extractedPagesCount: extractionResult?.totalPages,
+		extractedData: extractionResult,
+		extractedPagesCount: extractionResult.totalPages,
 		extractedDiagramsCount: allDiagrams.length,
 		renderScale: scale,
 		aiProvider: payload.aiProvider,

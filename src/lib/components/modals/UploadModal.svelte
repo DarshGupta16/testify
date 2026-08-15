@@ -26,7 +26,7 @@ function handleKeyDown(e: KeyboardEvent) {
 	>
 		<!-- Modal Content -->
 		<div
-			class="neo-box-lg w-full max-w-2xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[90vh] overflow-y-auto"
+			class="neo-box-lg w-full max-w-3xl bg-surface p-6 sm:p-7 animate-slide-down max-h-[90vh] overflow-y-auto"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="upload-modal-title"

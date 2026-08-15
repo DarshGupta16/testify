@@ -1,4 +1,3 @@
-import { SAMPLE_TESTS } from '$lib/data/sampleTests';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import { processTestUpload } from '$lib/services/testUploader';
@@ -111,16 +110,5 @@ export class TestStore {
 
 		// 2. Fire-and-forget async Dexie clear
 		fireAndForget(this.database.clearAllTests(), 'Clearing all tests from Dexie');
-	}
-
-	loadSamples() {
-		// 1. In-memory update synchronously
-		this.tests = SAMPLE_TESTS;
-
-		// 2. Fire-and-forget async Dexie persistence
-		fireAndForget(
-			Promise.all(SAMPLE_TESTS.map((t) => this.database.saveTest(t))),
-			'Persisting sample tests to Dexie'
-		);
 	}
 }

@@ -201,6 +201,20 @@ export class ApiKeyStore {
 	}
 
 	/**
+	 * Checks if a provider has an API key configured.
+	 */
+	isConfigured(provider: AIProvider): boolean {
+		return Boolean(this.configuredProviders[provider]);
+	}
+
+	/**
+	 * Checks if a provider has an active, decrypted API key available in memory.
+	 */
+	hasKey(provider: AIProvider): boolean {
+		return Boolean(this.memoryKeys[provider]);
+	}
+
+	/**
 	 * Retrieves an active API key from memory if available.
 	 */
 	getKey(provider: AIProvider): string | undefined {

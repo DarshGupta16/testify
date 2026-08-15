@@ -153,11 +153,6 @@ export class AppStore {
 		this.modals.closeDetails();
 		this.toast.show('All tests cleared.', 'warning');
 	}
-
-	handleLoadSamples() {
-		this.tests.loadSamples();
-		this.toast.show('Loaded sample practice tests.', 'info');
-	}
 }
 
 /**

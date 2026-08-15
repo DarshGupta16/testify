@@ -23,11 +23,8 @@ const app = getAppContext();
 			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border-color pb-5">
 				<div>
 					<div class="flex items-center gap-2 mb-1">
-						<span class="neo-badge">
-							<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full"></span>
-							ENGINE ACTIVE
-						</span>
-						<span class="font-mono text-xs text-text-muted">
+						<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
+						<span class="font-mono text-xs font-bold text-text-muted">
 							{app.tests.totalTests} {app.tests.totalTests === 1 ? 'Exam' : 'Exams'} Available
 						</span>
 					</div>
@@ -37,30 +34,6 @@ const app = getAppContext();
 				</div>
 
 				<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-					<!-- Scale Preset Selector -->
-					<div class="flex items-center gap-1.5 border-2 border-border-color bg-surface px-2.5 py-1.5 text-xs font-mono shadow-[2px_2px_0px_var(--shadow-color)]">
-						<span class="text-text-muted font-bold uppercase text-[10px] hidden md:inline">Scale:</span>
-						<select
-							bind:value={app.selectedScale}
-							class="bg-transparent font-bold text-text-primary focus:outline-none cursor-pointer text-xs"
-							title="Default PDF extraction resolution scale"
-						>
-							<option value={1.0}>1.0× (Standard)</option>
-							<option value={1.25}>1.25× (AI Vision)</option>
-							<option value={1.5}>1.5× (Crisp)</option>
-							<option value={2.0}>2.0× (Hi-Res)</option>
-						</select>
-					</div>
-
-					<button
-						type="button"
-						onclick={() => app.handleClearAllTests()}
-						class="neo-btn text-xs py-2 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
-						title="Remove all tests"
-					>
-						Clear All
-					</button>
-
 					<button
 						type="button"
 						onclick={() => app.modals.openUpload()}

@@ -15,7 +15,7 @@ export { default as ExtractionMetricsBar } from './components/pdf/ExtractionMetr
 export { default as PageExtractionCard } from './components/pdf/PageExtractionCard.svelte';
 
 // Data & Services
-export * from './data/sampleTests';
+export * from './services/ai';
 export * from './services/crypto';
 export * from './services/db';
 export * from './services/pdf';

@@ -106,38 +106,17 @@ function clearAnswerKeyFile() {
 	if (answerKeyInputRef) answerKeyInputRef.value = '';
 }
 
-function fillDemoFile() {
-	testFile = {
-		name: 'Physics_Assessment_Sample.pdf',
-		size: 2800000,
-		formattedSize: '2.7 MB',
-	};
-	testFileObj = null;
-	answerKeyFile = {
-		name: 'Physics_Answers_Detailed.pdf',
-		size: 950000,
-		formattedSize: '928 KB',
-	};
-	answerKeyFileObj = null;
-	title = 'Physics Mechanics & Dynamics';
-	autoTitle = false;
-	subject = 'STEM';
-	durationMode = 'custom';
-	durationMinutes = 90;
-	app.selectedScale = 1.25;
-	selectedProvider = 'google';
-	modelName = 'gemini-3.7-flash';
-}
-
 async function handleSubmit(e: SubmitEvent) {
 	e.preventDefault();
 
-	if (!testFile && !title && !autoTitle) {
-		testFile = {
-			name: 'Practice_Midterm_Paper.pdf',
-			size: 2450000,
-			formattedSize: '2.3 MB',
-		};
+	if (!testFile || !testFileObj) {
+		formError = 'Please choose a question paper PDF file to upload.';
+		return;
+	}
+
+	if (!app.apiKeys.hasKey(selectedProvider)) {
+		formError = `Please configure and save your ${selectedProvider.toUpperCase()} API key in settings before generating a test.`;
+		return;
 	}
 
 	const isUntimed = durationMode === 'untimed';
@@ -146,7 +125,7 @@ async function handleSubmit(e: SubmitEvent) {
 	const payload: TestUploadPayload = {
 		title: autoTitle
 			? undefined
-			: title.trim() || testFile?.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
+			: title.trim() || testFile.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
 		autoTitle,
 		subject,
 		durationMinutes: isUntimed ? null : isAutoDuration ? null : Number(durationMinutes) || 60,
@@ -155,12 +134,10 @@ async function handleSubmit(e: SubmitEvent) {
 		scale: Number(app.selectedScale) || 1.25,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
-		testFile: testFile
-			? {
-					...testFile,
-					rawFile: testFileObj || undefined,
-				}
-			: null,
+		testFile: {
+			...testFile,
+			rawFile: testFileObj,
+		},
 		answerKeyFile: answerKeyFile
 			? {
 					...answerKeyFile,
@@ -189,19 +166,11 @@ async function handleSubmit(e: SubmitEvent) {
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-5">
-	<!-- Top Row: Demo Auto-Fill Action -->
-	<div class="flex items-center justify-between pb-1">
+	<!-- PDF Documents Header -->
+	<div class="pb-1">
 		<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-muted">
 			PDF Documents
 		</span>
-		<button
-			type="button"
-			onclick={fillDemoFile}
-			disabled={app.tests.isUploading}
-			class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer disabled:opacity-40"
-		>
-			Auto-fill Sample Data
-		</button>
 	</div>
 
 	<!-- Dual File Pickers Grid -->
@@ -350,10 +319,10 @@ async function handleSubmit(e: SubmitEvent) {
 
 	<!-- Scale Preset Selector -->
 	<div class="p-3.5 bg-muted/30 border-2 border-border-color/60">
-		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-			<div>
+		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-1.5">
-					<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full"></span>
+					<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full shrink-0"></span>
 					<label for="form-scale-select" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 						Extraction Resolution Scale
 					</label>
@@ -367,12 +336,12 @@ async function handleSubmit(e: SubmitEvent) {
 				id="form-scale-select"
 				bind:value={app.selectedScale}
 				disabled={app.tests.isUploading}
-				class="neo-input text-xs font-mono py-1.5 px-2.5 bg-surface"
+				class="neo-input text-xs font-mono py-1.5 px-3 bg-surface shrink-0 self-start sm:self-center"
 			>
-				<option value={1.0}>1.0× (Standard - Compact)</option>
+				<option value={1.0}>1.00× (Standard - Fast)</option>
 				<option value={1.25}>1.25× (Recommended for AI Vision)</option>
-				<option value={1.5}>1.5× (High Resolution)</option>
-				<option value={2.0}>2.0× (Ultra Crisp)</option>
+				<option value={1.5}>1.50× (High Resolution)</option>
+				<option value={2.0}>2.00× (Ultra Crisp)</option>
 			</select>
 		</div>
 	</div>
@@ -381,7 +350,7 @@ async function handleSubmit(e: SubmitEvent) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t-2 border-border-color/20">
 		<!-- Assessment Title with AI Detection Toggle -->
 		<div class="sm:col-span-2 space-y-1.5">
-			<div class="flex items-center justify-between">
+			<div class="flex items-center justify-between h-5">
 				<label for="form-title" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 					Assessment Title
 				</label>
@@ -404,20 +373,22 @@ async function handleSubmit(e: SubmitEvent) {
 				bind:value={title}
 				disabled={app.tests.isUploading || autoTitle}
 				placeholder={autoTitle ? 'Auto-detected from document headers by AI...' : 'e.g. Physics Midterm Examination 2026'}
-				class={`neo-input w-full text-sm ${autoTitle ? 'bg-muted/40 italic text-text-muted border-dashed' : ''}`}
+				class={`neo-input w-full h-10 text-sm ${autoTitle ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'}`}
 			/>
 		</div>
 
 		<!-- Subject / Domain -->
-		<div>
-			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1.5 text-text-primary">
-				Subject / Field
-			</label>
+		<div class="space-y-1.5">
+			<div class="flex items-center justify-between h-5">
+				<label for="form-subject" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Subject / Field
+				</label>
+			</div>
 			<select
 				id="form-subject"
 				bind:value={subject}
 				disabled={app.tests.isUploading}
-				class="neo-input w-full text-sm font-sans"
+				class="neo-input w-full h-10 text-sm font-sans bg-surface"
 			>
 				<option value="STEM">STEM & Sciences</option>
 				<option value="Computer Science">Computer Science</option>
@@ -429,19 +400,19 @@ async function handleSubmit(e: SubmitEvent) {
 
 		<!-- Duration Controls: Custom / Auto / Untimed -->
 		<div class="space-y-1.5">
-			<div class="flex items-center justify-between">
-				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-					Assessment Duration
+			<div class="flex items-center justify-between h-5">
+				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary truncate">
+					Duration
 				</label>
-				<div class="flex items-center gap-1">
+				<div class="inline-flex items-center border border-border-color bg-surface overflow-hidden shrink-0">
 					<button
 						type="button"
 						onclick={() => (durationMode = 'custom')}
 						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+						class={`font-mono text-[10px] px-2 py-0.5 transition-colors cursor-pointer ${
 							durationMode === 'custom'
 								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'bg-surface hover:bg-muted text-text-muted'
+								: 'hover:bg-muted text-text-muted'
 						}`}
 					>
 						Set Mins
@@ -450,22 +421,22 @@ async function handleSubmit(e: SubmitEvent) {
 						type="button"
 						onclick={() => (durationMode = 'auto')}
 						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+						class={`font-mono text-[10px] px-2 py-0.5 border-x border-border-color transition-colors cursor-pointer ${
 							durationMode === 'auto'
 								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'bg-surface hover:bg-muted text-text-muted'
+								: 'hover:bg-muted text-text-muted'
 						}`}
 					>
-						✨ AI Estimate
+						✨ Auto
 					</button>
 					<button
 						type="button"
 						onclick={() => (durationMode = 'untimed')}
 						disabled={app.tests.isUploading}
-						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+						class={`font-mono text-[10px] px-2 py-0.5 transition-colors cursor-pointer ${
 							durationMode === 'untimed'
 								? 'bg-accent-contrast text-accent-contrast-text font-bold'
-								: 'bg-surface hover:bg-muted text-text-muted'
+								: 'hover:bg-muted text-text-muted'
 						}`}
 					>
 						Untimed
@@ -474,7 +445,7 @@ async function handleSubmit(e: SubmitEvent) {
 			</div>
 
 			{#if durationMode === 'custom'}
-				<div class="relative">
+				<div class="relative h-10">
 					<input
 						id="form-duration"
 						type="number"
@@ -482,21 +453,21 @@ async function handleSubmit(e: SubmitEvent) {
 						max="360"
 						bind:value={durationMinutes}
 						disabled={app.tests.isUploading}
-						class="neo-input w-full text-sm font-mono pr-14"
+						class="neo-input w-full h-10 text-sm font-mono pr-14 bg-surface"
 					/>
 					<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none">
 						mins
 					</span>
 				</div>
 			{:else if durationMode === 'auto'}
-				<div class="p-2.5 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
+				<div class="h-10 px-3 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
 					<span class="text-accent-contrast font-bold">✨</span>
-					<span>AI will estimate realistic time based on questions.</span>
+					<span class="truncate">Estimated automatically by AI model.</span>
 				</div>
 			{:else}
-				<div class="p-2.5 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
+				<div class="h-10 px-3 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
 					<span class="text-accent-contrast font-bold">♾️</span>
-					<span>No time limit. Assessment will be untimed.</span>
+					<span>Untimed. No countdown timer.</span>
 				</div>
 			{/if}
 		</div>
@@ -579,8 +550,8 @@ async function handleSubmit(e: SubmitEvent) {
 		<!-- Side-by-Side: Provider Dropdown & Model Name Input -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 			<!-- 1. AI Provider Selection Dropdown -->
-			<div>
-				<div class="flex items-center justify-between mb-1.5">
+			<div class="space-y-1.5">
+				<div class="flex items-center justify-between h-5">
 					<label for="form-ai-provider" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 						Provider
 					</label>
@@ -617,7 +588,7 @@ async function handleSubmit(e: SubmitEvent) {
 					value={selectedProvider}
 					onchange={handleProviderChange}
 					disabled={app.tests.isUploading}
-					class="neo-input w-full text-xs font-bold bg-surface"
+					class="neo-input w-full h-10 text-xs font-bold bg-surface"
 				>
 					{#each AI_PROVIDERS as provider (provider.id)}
 						{@const isConfigured = app.apiKeys.configuredProviders[provider.id]}
@@ -630,8 +601,8 @@ async function handleSubmit(e: SubmitEvent) {
 			</div>
 
 			<!-- 2. Target Model Name Exact Input -->
-			<div>
-				<div class="flex items-center justify-between mb-1.5">
+			<div class="space-y-1.5">
+				<div class="flex items-center justify-between h-5">
 					<label for="form-ai-model" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 						Model Name
 					</label>
@@ -647,7 +618,7 @@ async function handleSubmit(e: SubmitEvent) {
 					bind:value={modelName}
 					disabled={app.tests.isUploading}
 					placeholder={currentProviderMeta.defaultModel}
-					class="neo-input w-full text-xs font-mono bg-surface"
+					class="neo-input w-full h-10 text-xs font-mono bg-surface"
 				/>
 
 				<datalist id="provider-model-suggestions">
@@ -726,24 +697,24 @@ async function handleSubmit(e: SubmitEvent) {
 	{/if}
 
 	<!-- Form Action Buttons -->
-	<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border-color/20">
+	<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-border-color/20 mt-2">
 		{#if isModal}
-			<div class="flex items-center justify-end gap-2 w-full">
+			<div class="flex items-center justify-end gap-2.5 w-full">
 				<button
 					type="button"
 					onclick={oncancel}
 					disabled={app.tests.isUploading}
-					class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40"
+					class="neo-btn text-xs h-9 px-4 disabled:opacity-40"
 				>
 					Cancel
 				</button>
 				<button
 					type="submit"
 					disabled={app.tests.isUploading}
-					class="neo-btn neo-btn-primary text-xs py-2 px-5 disabled:opacity-50 flex items-center gap-1.5"
+					class="neo-btn neo-btn-primary text-xs h-9 px-5 disabled:opacity-50 inline-flex items-center gap-1.5 font-bold"
 				>
 					{#if app.tests.isUploading}
-						<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent animate-spin"></span>
+						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
 						<span>Ingesting PDF...</span>
 					{:else}
 						<span>Ingest & Create Test &rarr;</span>
@@ -751,27 +722,20 @@ async function handleSubmit(e: SubmitEvent) {
 				</button>
 			</div>
 		{:else}
-			<button
-				type="button"
-				onclick={() => app.handleLoadSamples()}
-				disabled={app.tests.isUploading}
-				class="neo-btn text-xs w-full sm:w-auto disabled:opacity-40"
-			>
-				&rarr; Or Populate Demo Tests
-			</button>
-
-			<button
-				type="submit"
-				disabled={app.tests.isUploading}
-				class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-			>
-				{#if app.tests.isUploading}
-					<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent animate-spin"></span>
-					<span>Ingesting PDF...</span>
-				{:else}
-					<span>Generate Test &rarr;</span>
-				{/if}
-			</button>
+			<div class="flex items-center justify-end w-full">
+				<button
+					type="submit"
+					disabled={app.tests.isUploading}
+					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-bold"
+				>
+					{#if app.tests.isUploading}
+						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
+						<span>Ingesting PDF...</span>
+					{:else}
+						<span>Generate Test &rarr;</span>
+					{/if}
+				</button>
+			</div>
 		{/if}
 	</div>
 </form>
