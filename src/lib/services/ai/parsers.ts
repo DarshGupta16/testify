@@ -13,29 +13,80 @@ import type { AIProvider } from '$lib/types/apiKeys';
 import type { QuestionPreview, TokenUsageStats } from '$lib/types/test';
 
 /**
- * Strips markdown code fences, trailing commas, and formatting noise from raw model output.
+ * Strips markdown code fences, trailing commas, and formatting noise from raw model output,
+ * and repairs unclosed JSON structures (unclosed strings, brackets, and braces) caused by
+ * model truncation or omission of the final root closing brace.
  */
 export function cleanRawJsonText(rawText: string): string {
-	let cleaned = rawText.trim();
+	let text = rawText.trim();
 
 	// 1. Strip markdown code block wrappers (```json ... ``` or ``` ...)
 	const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
-	const match = cleaned.match(codeBlockRegex);
+	const match = text.match(codeBlockRegex);
 	if (match?.[1]) {
-		cleaned = match[1].trim();
+		text = match[1].trim();
 	}
 
-	// 2. Locate first '{' and last '}' in case the model prefixed or suffixed prose
-	const firstBrace = cleaned.indexOf('{');
-	const lastBrace = cleaned.lastIndexOf('}');
-	if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-		cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+	// 2. Strip any preamble before the first '{'
+	const firstBrace = text.indexOf('{');
+	if (firstBrace !== -1) {
+		text = text.substring(firstBrace);
 	}
 
 	// 3. Remove trailing commas before object or array close braces
-	cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+	text = text.replace(/,\s*([}\]])/g, '$1');
 
-	return cleaned;
+	// 4. Count unclosed brackets and braces using a LIFO stack
+	const openStack: Array<'{' | '['> = [];
+	let inString = false;
+	let isEscaped = false;
+
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (isEscaped) {
+			isEscaped = false;
+			continue;
+		}
+		if (ch === '\\') {
+			isEscaped = true;
+			continue;
+		}
+		if (ch === '"') {
+			inString = !inString;
+			continue;
+		}
+		if (!inString) {
+			if (ch === '{' || ch === '[') {
+				openStack.push(ch);
+			} else if (ch === '}' && openStack[openStack.length - 1] === '{') {
+				openStack.pop();
+			} else if (ch === ']' && openStack[openStack.length - 1] === '[') {
+				openStack.pop();
+			}
+		}
+	}
+
+	if (inString) {
+		text += '"';
+	}
+
+	// Remove trailing commas before closing
+	text = text.trim().replace(/,\s*$/, '');
+
+	// Close open structures in exact reverse LIFO order
+	while (openStack.length > 0) {
+		const lastOpen = openStack.pop();
+		if (lastOpen === '{') {
+			text += '\n}';
+		} else if (lastOpen === '[') {
+			text += '\n]';
+		}
+	}
+
+	// Final sweep for trailing commas before closing braces/brackets
+	text = text.replace(/,\s*([}\]])/g, '$1');
+
+	return text;
 }
 
 /**
@@ -127,183 +178,187 @@ export function normalizeQuestions(
 		}
 	}
 
-	return rawQuestions.map((q, index) => {
-		const qNum = typeof q.questionNumber === 'number' ? q.questionNumber : index + 1;
-		const id = `q_${qNum}_${Math.random().toString(36).substring(2, 6)}`;
+	return rawQuestions
+		.filter(
+			(q) => q && typeof q === 'object' && typeof q.text === 'string' && q.text.trim().length > 0
+		)
+		.map((q, index) => {
+			const qNum = typeof q.questionNumber === 'number' ? q.questionNumber : index + 1;
+			const id = `q_${qNum}_${Math.random().toString(36).substring(2, 6)}`;
 
-		// Strict unambiguous question type classification
-		const rawType = String(q.type || '').toLowerCase();
-		let type: 'single_choice' | 'multi_choice' | 'numerical' = 'single_choice';
+			// Strict unambiguous question type classification
+			const rawType = String(q.type || '').toLowerCase();
+			let type: 'single_choice' | 'multi_choice' | 'numerical' = 'single_choice';
 
-		const hasMultiAnswers =
-			Array.isArray(q.correctAnswers) ||
-			(Array.isArray(q.correctAnswer) && q.correctAnswer.length > 1) ||
-			rawType.includes('multi');
+			const hasMultiAnswers =
+				Array.isArray(q.correctAnswers) ||
+				(Array.isArray(q.correctAnswer) && q.correctAnswer.length > 1) ||
+				rawType.includes('multi');
 
-		if (
-			rawType.includes('num') ||
-			(!q.options && q.correctAnswer && !Number.isNaN(Number(q.correctAnswer)))
-		) {
-			type = 'numerical';
-		} else if (hasMultiAnswers) {
-			type = 'multi_choice';
-		} else {
-			type = 'single_choice';
-		}
+			if (
+				rawType.includes('num') ||
+				(!q.options && q.correctAnswer && !Number.isNaN(Number(q.correctAnswer)))
+			) {
+				type = 'numerical';
+			} else if (hasMultiAnswers) {
+				type = 'multi_choice';
+			} else {
+				type = 'single_choice';
+			}
 
-		// Ensure options are structured as QuestionOption[] if single_choice or multi_choice
-		let options: Array<{ id: string; text: string }> | undefined;
-		let correctAnswer: string | undefined;
-		let correctAnswers: string[] | undefined;
+			// Ensure options are structured as QuestionOption[] if single_choice or multi_choice
+			let options: Array<{ id: string; text: string }> | undefined;
+			let correctAnswer: string | undefined;
+			let correctAnswers: string[] | undefined;
 
-		if (type === 'single_choice' || type === 'multi_choice') {
-			if (Array.isArray(q.options) && q.options.length > 0) {
-				options = q.options.map((opt) => {
-					if (typeof opt === 'object' && opt !== null && 'text' in opt) {
-						const optId = opt.id?.trim() || `opt_${Math.random().toString(36).substring(2, 8)}`;
+			if (type === 'single_choice' || type === 'multi_choice') {
+				if (Array.isArray(q.options) && q.options.length > 0) {
+					options = q.options.map((opt) => {
+						if (typeof opt === 'object' && opt !== null && 'text' in opt) {
+							const optId = opt.id?.trim() || `opt_${Math.random().toString(36).substring(2, 8)}`;
+							return {
+								id: optId,
+								// PRESERVE option text and decode unicode escapes
+								text: decodeUnicodeEscapes(String(opt.text || '')),
+							};
+						}
+						const optStr = String(opt);
 						return {
-							id: optId,
-							// PRESERVE option text and decode unicode escapes
-							text: decodeUnicodeEscapes(String(opt.text || '')),
+							id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+							text: decodeUnicodeEscapes(optStr),
 						};
-					}
-					const optStr = String(opt);
-					return {
-						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
-						text: decodeUnicodeEscapes(optStr),
-					};
-				});
-			} else {
-				// Fallback synthesis if options were omitted
-				options = [
-					{
-						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
-						text: 'Statement 1 satisfies conditions',
-					},
-					{
-						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
-						text: 'Statement 2 satisfies conditions',
-					},
-					{
-						id: `opt_${Math.random().toString(36).substring(2, 8)}`,
-						text: 'Statement 3 satisfies conditions',
-					},
-					{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'None of the above' },
-				];
-			}
-
-			// Helper to resolve an answer token (ID, letter A/B/C/D, or text) to option ID
-			const resolveOptionId = (token: string): string | undefined => {
-				const trimmed = String(token).trim();
-				if (!trimmed || !options) return undefined;
-
-				// 1. Direct ID match
-				const direct = options.find((o) => o.id === trimmed);
-				if (direct) return direct.id;
-
-				// 2. Letter match (e.g. "A", "B", "C", "D", "(A)", "A)")
-				const letterMatch = trimmed.match(/^[([]?([A-Da-d])[)\]\s.:]?$/);
-				if (letterMatch) {
-					const idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
-					if (idx >= 0 && idx < options.length) return options[idx].id;
+					});
+				} else {
+					// Fallback synthesis if options were omitted
+					options = [
+						{
+							id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+							text: 'Statement 1 satisfies conditions',
+						},
+						{
+							id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+							text: 'Statement 2 satisfies conditions',
+						},
+						{
+							id: `opt_${Math.random().toString(36).substring(2, 8)}`,
+							text: 'Statement 3 satisfies conditions',
+						},
+						{ id: `opt_${Math.random().toString(36).substring(2, 8)}`, text: 'None of the above' },
+					];
 				}
 
-				// 3. Exact or fuzzy text match
-				const textMatch = options.find(
-					(o) =>
-						o.text.toLowerCase() === trimmed.toLowerCase() ||
-						o.text.toLowerCase().includes(trimmed.toLowerCase())
-				);
-				if (textMatch) return textMatch.id;
+				// Helper to resolve an answer token (ID, letter A/B/C/D, or text) to option ID
+				const resolveOptionId = (token: string): string | undefined => {
+					const trimmed = String(token).trim();
+					if (!trimmed || !options) return undefined;
 
-				return undefined;
+					// 1. Direct ID match
+					const direct = options.find((o) => o.id === trimmed);
+					if (direct) return direct.id;
+
+					// 2. Letter match (e.g. "A", "B", "C", "D", "(A)", "A)")
+					const letterMatch = trimmed.match(/^[([]?([A-Da-d])[)\]\s.:]?$/);
+					if (letterMatch) {
+						const idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+						if (idx >= 0 && idx < options.length) return options[idx].id;
+					}
+
+					// 3. Exact or fuzzy text match
+					const textMatch = options.find(
+						(o) =>
+							o.text.toLowerCase() === trimmed.toLowerCase() ||
+							o.text.toLowerCase().includes(trimmed.toLowerCase())
+					);
+					if (textMatch) return textMatch.id;
+
+					return undefined;
+				};
+
+				// Resolve correct answers
+				if (type === 'multi_choice') {
+					const rawAnswerList: string[] = [];
+					if (Array.isArray(q.correctAnswers)) {
+						rawAnswerList.push(...q.correctAnswers.map(String));
+					} else if (Array.isArray(q.correctAnswer)) {
+						rawAnswerList.push(...q.correctAnswer.map(String));
+					} else if (q.correctAnswer) {
+						// Comma or space separated letters/IDs (e.g. "A, B, D" or "opt_1 opt_2")
+						const tokens = String(q.correctAnswer)
+							.split(/[,\s]+/)
+							.filter(Boolean);
+						rawAnswerList.push(...tokens);
+					}
+
+					const mappedIds: string[] = [];
+					for (const item of rawAnswerList) {
+						const optId = resolveOptionId(item);
+						if (optId && !mappedIds.includes(optId)) {
+							mappedIds.push(optId);
+						}
+					}
+
+					// If mapping produced matches, set correctAnswers
+					if (mappedIds.length > 0) {
+						correctAnswers = mappedIds;
+						correctAnswer = mappedIds[0];
+					} else if (options && options.length > 0) {
+						correctAnswers = [options[0].id];
+						correctAnswer = options[0].id;
+					}
+				} else {
+					// Single choice
+					if (q.correctAnswer) {
+						const singleAnswer = Array.isArray(q.correctAnswer)
+							? q.correctAnswer[0]
+							: q.correctAnswer;
+						correctAnswer = resolveOptionId(String(singleAnswer)) || options[0]?.id;
+					} else if (options && options.length > 0) {
+						correctAnswer = options[0].id;
+					}
+				}
+			} else if (type === 'numerical') {
+				correctAnswer = q.correctAnswer ? String(q.correctAnswer).trim() : '0.0';
+			}
+
+			// Resolve diagram URL from catalog
+			let associatedDiagramId = q.associatedDiagramId?.trim() || undefined;
+			let associatedDiagramUrl: string | undefined;
+
+			if (associatedDiagramId) {
+				associatedDiagramUrl = diagramMap.get(associatedDiagramId);
+				if (!associatedDiagramUrl) {
+					// If ID was mismatched, attempt fuzzy match
+					const queryId = associatedDiagramId.toLowerCase();
+					const matchedKey = Array.from(diagramMap.keys()).find((k) =>
+						k.toLowerCase().includes(queryId)
+					);
+					if (matchedKey) {
+						associatedDiagramId = matchedKey;
+						associatedDiagramUrl = diagramMap.get(matchedKey);
+					}
+				}
+			}
+
+			const marks = typeof q.marks === 'number' && q.marks > 0 ? q.marks : defaultMarks;
+			const negativeMarks = typeof q.negativeMarks === 'number' ? q.negativeMarks : 0;
+
+			return {
+				id,
+				questionNumber: qNum,
+				type,
+				text: decodeUnicodeEscapes(String(q.text || `Question ${qNum}`).trim()),
+				options,
+				correctAnswer,
+				correctAnswers,
+				hint: q.hint ? decodeUnicodeEscapes(String(q.hint).trim()) : undefined,
+				explanation: q.explanation ? decodeUnicodeEscapes(String(q.explanation).trim()) : undefined,
+				marks,
+				negativeMarks,
+				associatedDiagramId,
+				associatedDiagramUrl,
+				pageNumber: typeof q.pageNumber === 'number' ? q.pageNumber : undefined,
 			};
-
-			// Resolve correct answers
-			if (type === 'multi_choice') {
-				const rawAnswerList: string[] = [];
-				if (Array.isArray(q.correctAnswers)) {
-					rawAnswerList.push(...q.correctAnswers.map(String));
-				} else if (Array.isArray(q.correctAnswer)) {
-					rawAnswerList.push(...q.correctAnswer.map(String));
-				} else if (q.correctAnswer) {
-					// Comma or space separated letters/IDs (e.g. "A, B, D" or "opt_1 opt_2")
-					const tokens = String(q.correctAnswer)
-						.split(/[,\s]+/)
-						.filter(Boolean);
-					rawAnswerList.push(...tokens);
-				}
-
-				const mappedIds: string[] = [];
-				for (const item of rawAnswerList) {
-					const optId = resolveOptionId(item);
-					if (optId && !mappedIds.includes(optId)) {
-						mappedIds.push(optId);
-					}
-				}
-
-				// If mapping produced matches, set correctAnswers
-				if (mappedIds.length > 0) {
-					correctAnswers = mappedIds;
-					correctAnswer = mappedIds[0];
-				} else if (options && options.length > 0) {
-					correctAnswers = [options[0].id];
-					correctAnswer = options[0].id;
-				}
-			} else {
-				// Single choice
-				if (q.correctAnswer) {
-					const singleAnswer = Array.isArray(q.correctAnswer)
-						? q.correctAnswer[0]
-						: q.correctAnswer;
-					correctAnswer = resolveOptionId(String(singleAnswer)) || options[0]?.id;
-				} else if (options && options.length > 0) {
-					correctAnswer = options[0].id;
-				}
-			}
-		} else if (type === 'numerical') {
-			correctAnswer = q.correctAnswer ? String(q.correctAnswer).trim() : '0.0';
-		}
-
-		// Resolve diagram URL from catalog
-		let associatedDiagramId = q.associatedDiagramId?.trim() || undefined;
-		let associatedDiagramUrl: string | undefined;
-
-		if (associatedDiagramId) {
-			associatedDiagramUrl = diagramMap.get(associatedDiagramId);
-			if (!associatedDiagramUrl) {
-				// If ID was mismatched, attempt fuzzy match
-				const queryId = associatedDiagramId.toLowerCase();
-				const matchedKey = Array.from(diagramMap.keys()).find((k) =>
-					k.toLowerCase().includes(queryId)
-				);
-				if (matchedKey) {
-					associatedDiagramId = matchedKey;
-					associatedDiagramUrl = diagramMap.get(matchedKey);
-				}
-			}
-		}
-
-		const marks = typeof q.marks === 'number' && q.marks > 0 ? q.marks : defaultMarks;
-		const negativeMarks = typeof q.negativeMarks === 'number' ? q.negativeMarks : 0;
-
-		return {
-			id,
-			questionNumber: qNum,
-			type,
-			text: decodeUnicodeEscapes(String(q.text || `Question ${qNum}`).trim()),
-			options,
-			correctAnswer,
-			correctAnswers,
-			hint: q.hint ? decodeUnicodeEscapes(String(q.hint).trim()) : undefined,
-			explanation: q.explanation ? decodeUnicodeEscapes(String(q.explanation).trim()) : undefined,
-			marks,
-			negativeMarks,
-			associatedDiagramId,
-			associatedDiagramUrl,
-			pageNumber: typeof q.pageNumber === 'number' ? q.pageNumber : undefined,
-		};
-	});
+		});
 }
 
 /**
