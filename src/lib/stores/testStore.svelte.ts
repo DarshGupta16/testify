@@ -66,15 +66,18 @@ export class TestStore {
 		}
 	}
 
-	async createTest(payload: TestUploadPayload): Promise<TestItem> {
+	async createTest(payload: TestUploadPayload, apiKey?: string): Promise<TestItem> {
 		this.isUploading = true;
 		this.uploadProgress = 0;
 		this.uploadStatusText = 'Initiating upload...';
 
 		try {
-			const newTest = await processTestUpload(payload, (progress, statusText) => {
-				this.uploadProgress = progress;
-				this.uploadStatusText = statusText;
+			const newTest = await processTestUpload(payload, {
+				apiKey,
+				onProgress: (progress, statusText) => {
+					this.uploadProgress = progress;
+					this.uploadStatusText = statusText;
+				},
 			});
 
 			// 1. In-memory update synchronously

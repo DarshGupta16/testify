@@ -101,7 +101,7 @@ export const AI_PROVIDERS: ProviderMetadata[] = [
 		placeholder: 'gsk_...',
 		defaultModel: 'qwen/qwen3.6-27b',
 		visionNotice:
-			'Notice: qwen/qwen3.6-27b is the only model on Groq that supports this app\'s functionality (multimodal vision processing for PDF page renders, diagrams, and figures).',
+			"Notice: qwen/qwen3.6-27b is the only model on Groq that supports this app's functionality (multimodal vision processing for PDF page renders, diagrams, and figures).",
 		suggestedModels: ['qwen/qwen3.6-27b'],
 	},
 ];

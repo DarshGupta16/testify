@@ -96,7 +96,7 @@ function handleKeyDown(e: KeyboardEvent) {
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 border-2 border-border-color mb-6 font-mono text-xs">
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Total Duration</span>
-					<span class="text-base font-black text-text-primary">{test.durationMinutes} Minutes</span>
+					<span class="text-base font-black text-text-primary">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Questions</span>
@@ -147,6 +147,31 @@ function handleKeyDown(e: KeyboardEvent) {
 									<span class="font-bold text-text-primary">Question #{q.questionNumber}</span>
 									<span class="text-[11px] text-text-muted uppercase">[{q.type.replace('_', ' ')}] • {q.marks} Marks</span>
 								</div>
+
+								{#if q.associatedDiagramUrl}
+									<div class="p-2 bg-muted/30 border border-border-color/60 inline-block">
+										<button
+											type="button"
+											onclick={() =>
+												(zoomedImage = {
+													title: `Question #${q.questionNumber} - Associated Diagram`,
+													src: q.associatedDiagramUrl!,
+													info: `Linked figure ${q.associatedDiagramId || ''}`,
+												})}
+											class="cursor-pointer group flex flex-col items-start gap-1"
+										>
+											<img
+												src={q.associatedDiagramUrl}
+												alt={`Figure for question ${q.questionNumber}`}
+												class="max-h-36 max-w-full object-contain border border-border-color/30 group-hover:scale-[1.02] transition-transform"
+											/>
+											<span class="font-mono text-[10px] text-accent-contrast underline">
+												🔍 Click to enlarge diagram
+											</span>
+										</button>
+									</div>
+								{/if}
+
 								<p class="text-xs text-text-secondary">{q.text}</p>
 								{#if q.options}
 									<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
@@ -160,6 +185,11 @@ function handleKeyDown(e: KeyboardEvent) {
 								{#if q.correctAnswer && test.hasAnswerKey}
 									<div class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
 										✓ Linked Solution: {q.correctAnswer}
+									</div>
+								{/if}
+								{#if q.explanation}
+									<div class="p-2 bg-muted/40 border-l-2 border-accent-contrast text-[11px] text-text-secondary font-mono mt-1">
+										<span class="font-bold text-accent-contrast">Explanation:</span> {q.explanation}
 									</div>
 								{/if}
 							</div>

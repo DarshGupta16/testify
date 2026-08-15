@@ -17,10 +17,12 @@ const {
 const app = getAppContext();
 
 // Form State
+let autoTitle = $state(false);
 let title = $state('');
 let subject = $state('STEM');
+let durationMode = $state<'custom' | 'auto' | 'untimed'>('custom');
 let durationMinutes = $state(60);
-let questionCount = $state(25);
+let formError = $state<string | null>(null);
 
 // AI Provider & Model Configuration
 let selectedProvider = $state<AIProvider>('google');
@@ -73,7 +75,7 @@ function handleTestFileChange(event: Event) {
 			size: file.size,
 			formattedSize: formatBytes(file.size),
 		};
-		if (!title) {
+		if (!title && !autoTitle) {
 			title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 		}
 	}
@@ -118,9 +120,10 @@ function fillDemoFile() {
 	};
 	answerKeyFileObj = null;
 	title = 'Physics Mechanics & Dynamics';
+	autoTitle = false;
 	subject = 'STEM';
+	durationMode = 'custom';
 	durationMinutes = 90;
-	questionCount = 30;
 	app.selectedScale = 1.25;
 	selectedProvider = 'google';
 	modelName = 'gemini-3.7-flash';
@@ -129,7 +132,7 @@ function fillDemoFile() {
 async function handleSubmit(e: SubmitEvent) {
 	e.preventDefault();
 
-	if (!testFile && !title) {
+	if (!testFile && !title && !autoTitle) {
 		testFile = {
 			name: 'Practice_Midterm_Paper.pdf',
 			size: 2450000,
@@ -137,11 +140,18 @@ async function handleSubmit(e: SubmitEvent) {
 		};
 	}
 
+	const isUntimed = durationMode === 'untimed';
+	const isAutoDuration = durationMode === 'auto';
+
 	const payload: TestUploadPayload = {
-		title: title.trim() || testFile?.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
+		title: autoTitle
+			? undefined
+			: title.trim() || testFile?.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
+		autoTitle,
 		subject,
-		durationMinutes: Number(durationMinutes) || 60,
-		questionCount: Number(questionCount) || 20,
+		durationMinutes: isUntimed ? null : isAutoDuration ? null : Number(durationMinutes) || 60,
+		autoDuration: isAutoDuration,
+		isUntimed,
 		scale: Number(app.selectedScale) || 1.25,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
@@ -159,14 +169,22 @@ async function handleSubmit(e: SubmitEvent) {
 			: null,
 	};
 
-	const createdTest = await app.handleAddTest(payload);
+	formError = null;
 
-	// Reset form fields
-	title = '';
-	clearTestFile();
-	clearAnswerKeyFile();
-
-	onsuccess?.(createdTest);
+	try {
+		const createdTest = await app.handleAddTest(payload);
+		if (createdTest) {
+			// Reset form fields
+			title = '';
+			autoTitle = false;
+			clearTestFile();
+			clearAnswerKeyFile();
+			onsuccess?.(createdTest);
+		}
+	} catch (err) {
+		formError = err instanceof Error ? err.message : String(err);
+		console.error('[TestUploadForm] Assessment creation error:', err);
+	}
 }
 </script>
 
@@ -323,7 +341,7 @@ async function handleSubmit(e: SubmitEvent) {
 						Select Answer Key PDF
 					</span>
 					<span class="font-mono text-[10px] text-text-muted mt-0.5">
-						Enables instant auto-scoring
+						Optional (AI will scan test PDF if omitted)
 					</span>
 				</button>
 			{/if}
@@ -360,23 +378,39 @@ async function handleSubmit(e: SubmitEvent) {
 	</div>
 
 	<!-- Assessment Metadata Fields -->
-	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t-2 border-border-color/20">
-		<div class="sm:col-span-3">
-			<label for="form-title" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
-				Assessment Title
-			</label>
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t-2 border-border-color/20">
+		<!-- Assessment Title with AI Detection Toggle -->
+		<div class="sm:col-span-2 space-y-1.5">
+			<div class="flex items-center justify-between">
+				<label for="form-title" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Assessment Title
+				</label>
+				<label class="flex items-center gap-1.5 cursor-pointer select-none">
+					<input
+						type="checkbox"
+						bind:checked={autoTitle}
+						disabled={app.tests.isUploading}
+						class="accent-accent-contrast h-3.5 w-3.5"
+					/>
+					<span class="font-mono text-[11px] font-bold text-accent-contrast">
+						✨ Let AI Decide (Auto-detect)
+					</span>
+				</label>
+			</div>
+
 			<input
 				id="form-title"
 				type="text"
 				bind:value={title}
-				disabled={app.tests.isUploading}
-				placeholder="e.g. Physics Midterm Examination 2026"
-				class="neo-input w-full text-sm"
+				disabled={app.tests.isUploading || autoTitle}
+				placeholder={autoTitle ? 'Auto-detected from document headers by AI...' : 'e.g. Physics Midterm Examination 2026'}
+				class={`neo-input w-full text-sm ${autoTitle ? 'bg-muted/40 italic text-text-muted border-dashed' : ''}`}
 			/>
 		</div>
 
+		<!-- Subject / Domain -->
 		<div>
-			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
+			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1.5 text-text-primary">
 				Subject / Field
 			</label>
 			<select
@@ -393,34 +427,78 @@ async function handleSubmit(e: SubmitEvent) {
 			</select>
 		</div>
 
-		<div>
-			<label for="form-duration" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
-				Duration (Mins)
-			</label>
-			<input
-				id="form-duration"
-				type="number"
-				min="5"
-				max="360"
-				bind:value={durationMinutes}
-				disabled={app.tests.isUploading}
-				class="neo-input w-full text-sm font-mono"
-			/>
-		</div>
+		<!-- Duration Controls: Custom / Auto / Untimed -->
+		<div class="space-y-1.5">
+			<div class="flex items-center justify-between">
+				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Assessment Duration
+				</label>
+				<div class="flex items-center gap-1">
+					<button
+						type="button"
+						onclick={() => (durationMode = 'custom')}
+						disabled={app.tests.isUploading}
+						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+							durationMode === 'custom'
+								? 'bg-accent-contrast text-accent-contrast-text font-bold'
+								: 'bg-surface hover:bg-muted text-text-muted'
+						}`}
+					>
+						Set Mins
+					</button>
+					<button
+						type="button"
+						onclick={() => (durationMode = 'auto')}
+						disabled={app.tests.isUploading}
+						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+							durationMode === 'auto'
+								? 'bg-accent-contrast text-accent-contrast-text font-bold'
+								: 'bg-surface hover:bg-muted text-text-muted'
+						}`}
+					>
+						✨ AI Estimate
+					</button>
+					<button
+						type="button"
+						onclick={() => (durationMode = 'untimed')}
+						disabled={app.tests.isUploading}
+						class={`font-mono text-[10px] px-1.5 py-0.5 border ${
+							durationMode === 'untimed'
+								? 'bg-accent-contrast text-accent-contrast-text font-bold'
+								: 'bg-surface hover:bg-muted text-text-muted'
+						}`}
+					>
+						Untimed
+					</button>
+				</div>
+			</div>
 
-		<div>
-			<label for="form-questions" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1 text-text-primary">
-				Est. Questions
-			</label>
-			<input
-				id="form-questions"
-				type="number"
-				min="1"
-				max="200"
-				bind:value={questionCount}
-				disabled={app.tests.isUploading}
-				class="neo-input w-full text-sm font-mono"
-			/>
+			{#if durationMode === 'custom'}
+				<div class="relative">
+					<input
+						id="form-duration"
+						type="number"
+						min="5"
+						max="360"
+						bind:value={durationMinutes}
+						disabled={app.tests.isUploading}
+						class="neo-input w-full text-sm font-mono pr-14"
+					/>
+					<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none">
+						mins
+					</span>
+				</div>
+			{:else if durationMode === 'auto'}
+				<div class="p-2.5 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
+					<span class="text-accent-contrast font-bold">✨</span>
+					<span>AI will estimate realistic time based on questions.</span>
+				</div>
+			{:else}
+				<div class="p-2.5 bg-muted/40 border border-dashed border-border-color text-xs font-mono text-text-secondary flex items-center gap-2">
+					<span class="text-accent-contrast font-bold">♾️</span>
+					<span>No time limit. Assessment will be untimed.</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -608,7 +686,27 @@ async function handleSubmit(e: SubmitEvent) {
 		{/if}
 	</div>
 
-	<!-- Live MuPDF Progress Bar -->
+	<!-- Error Alert Banner -->
+	{#if formError}
+		<div class="neo-box p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
+			<div class="flex h-7 w-7 shrink-0 items-center justify-center bg-rose-600 text-white font-mono text-sm font-black">
+				✕
+			</div>
+			<div class="space-y-1 text-xs">
+				<p class="font-sans font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+					Assessment Generation Failed
+				</p>
+				<p class="text-text-primary leading-relaxed font-mono text-[11px]">
+					{formError}
+				</p>
+				<p class="font-mono text-[10px] text-text-muted pt-1">
+					💡 Tip: Verify your API key, check model image limits (e.g. Groq max 3 images), or switch to Google Gemini.
+				</p>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Live AI & MuPDF Progress Bar -->
 	{#if app.tests.isUploading}
 		<div class="neo-box p-4 bg-muted/40 animate-slide-down border-2 border-border-color space-y-2">
 			<div class="flex items-center justify-between text-xs font-mono font-bold">

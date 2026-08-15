@@ -66,7 +66,7 @@ export class FilterStore {
 			case 'questions-asc':
 				return list.sort((a, b) => a.questionCount - b.questionCount);
 			case 'duration-desc':
-				return list.sort((a, b) => b.durationMinutes - a.durationMinutes);
+				return list.sort((a, b) => (b.durationMinutes ?? 0) - (a.durationMinutes ?? 0));
 			case 'title-asc':
 				return list.sort((a, b) => a.title.localeCompare(b.title));
 			default:

@@ -125,13 +125,16 @@ export class AppStore {
 			if (!payload.scale) {
 				payload.scale = this.selectedScale;
 			}
-			const newTest = await this.tests.createTest(payload);
+			const apiKey = payload.aiProvider ? this.apiKeys.getKey(payload.aiProvider) : undefined;
+			const newTest = await this.tests.createTest(payload, apiKey);
 			this.toast.show(`Test "${newTest.title}" created successfully!`, 'success');
 			this.modals.closeUpload(true);
 			return newTest;
 		} catch (error) {
-			this.toast.show('Failed to process test PDF.', 'error');
+			const errorMsg = error instanceof Error ? error.message : 'Failed to process test PDF.';
+			this.toast.show(errorMsg, 'error', 8000);
 			console.error('[AppStore] Upload error:', error);
+			throw error;
 		}
 	}
 

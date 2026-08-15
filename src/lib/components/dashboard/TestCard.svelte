@@ -67,7 +67,7 @@ function handleDelete() {
 		<div class="grid grid-cols-3 gap-2 py-3 border-y-2 border-border-color/20 my-3 font-mono text-xs">
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Duration</span>
-				<span class="font-bold text-text-primary">{test.durationMinutes} Mins</span>
+				<span class="font-bold text-text-primary">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Questions</span>

@@ -1,25 +1,37 @@
 import type { PdfExtractionResult } from '$lib/services/pdf';
 import type { AIProvider } from '$lib/types/apiKeys';
 
+export type QuestionType = 'multiple_choice' | 'numerical';
+
 export interface QuestionPreview {
 	id: string;
 	questionNumber: number;
-	type: 'multiple_choice' | 'numerical' | 'subjective';
+	type: QuestionType;
 	text: string;
 	options?: string[];
 	correctAnswer?: string;
+	explanation?: string;
 	marks: number;
+	negativeMarks?: number;
 	associatedDiagramId?: string;
+	associatedDiagramUrl?: string;
+	pageNumber?: number;
 }
 
 export type TestStatus = 'ready' | 'processing' | 'error';
+
+export interface TokenUsageStats {
+	promptTokens?: number;
+	completionTokens?: number;
+	totalTokens?: number;
+}
 
 export interface TestItem {
 	id: string;
 	title: string;
 	description?: string;
 	subject: string;
-	durationMinutes: number;
+	durationMinutes: number | null; // null or 0 indicates untimed
 	questionCount: number;
 	totalMarks: number;
 	hasAnswerKey: boolean;
@@ -38,13 +50,17 @@ export interface TestItem {
 	renderScale?: number;
 	aiProvider?: AIProvider;
 	aiModel?: string;
+	tokenUsage?: TokenUsageStats;
 }
 
 export interface TestUploadPayload {
-	title: string;
+	title?: string;
+	autoTitle?: boolean;
 	subject: string;
-	durationMinutes: number;
-	questionCount: number;
+	durationMinutes?: number | null;
+	autoDuration?: boolean;
+	isUntimed?: boolean;
+	questionCount?: number;
 	totalMarks?: number;
 	description?: string;
 	scale?: number;
