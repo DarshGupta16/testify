@@ -1,8 +1,5 @@
 import type { PdfExtractionResult } from '$lib/services/pdf';
-
-/**
- * Testify - Domain Models & Types
- */
+import type { AIProvider } from '$lib/types/apiKeys';
 
 export interface QuestionPreview {
 	id: string;
@@ -39,6 +36,8 @@ export interface TestItem {
 	extractedPagesCount?: number;
 	extractedDiagramsCount?: number;
 	renderScale?: number;
+	aiProvider?: AIProvider;
+	aiModel?: string;
 }
 
 export interface TestUploadPayload {
@@ -49,6 +48,8 @@ export interface TestUploadPayload {
 	totalMarks?: number;
 	description?: string;
 	scale?: number;
+	aiProvider?: AIProvider;
+	aiModel?: string;
 	testFile: {
 		name: string;
 		size: number;

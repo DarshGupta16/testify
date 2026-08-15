@@ -1,5 +1,6 @@
 <script lang="ts">
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import type { ExtractedPdfPage } from '$lib/services/pdf';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import { formatBytes } from '$lib/utils';
 
@@ -29,7 +30,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 {#if app.modals.isDetailsModalOpen && app.modals.selectedTest}
 	{@const test = app.modals.selectedTest}
-	{@const allDiagrams = test.extractedData?.pages.flatMap((p) => p.embeddedImages) || []}
+	{@const allDiagrams = test.extractedData?.pages.flatMap((p: ExtractedPdfPage) => p.embeddedImages) || []}
 	{@const allPages = test.extractedData?.pages || []}
 
 	<!-- Backdrop -->
@@ -68,6 +69,11 @@ function handleKeyDown(e: KeyboardEvent) {
 						{#if allDiagrams.length > 0}
 							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 								🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Diagram' : 'Diagrams'}
+							</span>
+						{/if}
+						{#if test.aiModel}
+							<span class="neo-badge bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/40">
+								⚡ {test.aiModel}
 							</span>
 						{/if}
 					</div>

@@ -143,5 +143,7 @@ export async function processTestUpload(
 		extractedPagesCount: extractionResult?.totalPages,
 		extractedDiagramsCount: allDiagrams.length,
 		renderScale: scale,
+		aiProvider: payload.aiProvider,
+		aiModel: payload.aiModel,
 	};
 }
