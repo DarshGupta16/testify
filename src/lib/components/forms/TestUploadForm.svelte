@@ -23,7 +23,6 @@ let autoTitle = $state(false);
 let title = $state('');
 let subject = $state('STEM');
 let autoDuration = $state(false);
-let isUntimed = $state(false);
 let durationMinutes = $state(60);
 let formError = $state<string | null>(null);
 
@@ -112,9 +111,8 @@ async function handleSubmit(e: SubmitEvent) {
 			: title.trim() || testFile.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
 		autoTitle,
 		subject,
-		durationMinutes: isUntimed ? null : autoDuration ? null : Number(durationMinutes) || 60,
+		durationMinutes: autoDuration ? null : Number(durationMinutes) || 60,
 		autoDuration,
-		isUntimed,
 		scale: Number(app.selectedScale) || 1.25,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
@@ -148,7 +146,14 @@ async function handleSubmit(e: SubmitEvent) {
 }
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-6">
+<form onsubmit={handleSubmit} class="space-y-5">
+	<!-- PDF Documents Header -->
+	<div class="pb-1">
+		<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-muted">
+			PDF Documents
+		</span>
+	</div>
+
 	<!-- Dual File Pickers Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 		<!-- 1. Question Paper PDF -->
@@ -158,6 +163,9 @@ async function handleSubmit(e: SubmitEvent) {
 			file={testFile}
 			required={true}
 			disabled={app.tests.isUploading}
+			badgeText="PDF"
+			badgeColor="bg-accent-contrast text-accent-contrast-text"
+			subtitle="Exam sheets, practice tests (.pdf)"
 			onchange={handleTestFileSelect}
 			onclear={clearTestFile}
 		/>
@@ -169,194 +177,222 @@ async function handleSubmit(e: SubmitEvent) {
 			file={answerKeyFile}
 			optionalBadge={true}
 			disabled={app.tests.isUploading}
-			subtitle="Separate solution sheet (Optional)"
+			badgeText="KEY"
+			badgeColor="bg-emerald-500 text-white"
+			subtitle="Enables instant auto-scoring"
 			onchange={handleAnswerKeyFileSelect}
 			onclear={clearAnswerKeyFile}
 		/>
 	</div>
 
-	<!-- Metadata Grid: Title, Subject, Duration -->
-	<div class="space-y-4 pt-2 border-t border-border-color/20">
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-			<!-- Title Input -->
-			<div class="md:col-span-2">
-				<div class="flex items-center justify-between mb-1.5">
-					<label for="form-title" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-						Assessment Title
-					</label>
-					<label class="flex items-center gap-1.5 font-mono text-[11px] text-text-muted cursor-pointer">
-						<input
-							type="checkbox"
-							bind:checked={autoTitle}
-							disabled={app.tests.isUploading}
-							class="rounded-none border-2 border-border-color h-3.5 w-3.5"
-						/>
-						<span>Auto-Detect</span>
+	<!-- Scale Preset Selector -->
+	<div class="p-3.5 bg-muted/30 border-2 border-border-color/60">
+		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+			<div>
+				<div class="flex items-center gap-1.5">
+					<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full"></span>
+					<label for="form-scale-select" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+						Extraction Resolution Scale
 					</label>
 				</div>
-				<input
-					id="form-title"
-					type="text"
-					bind:value={title}
-					disabled={autoTitle || app.tests.isUploading}
-					placeholder={autoTitle ? 'Will be extracted from document header...' : 'e.g. Physics Midterm Exam 2026'}
-					class="neo-input w-full text-xs font-mono py-2 disabled:opacity-50 disabled:bg-muted"
-				/>
+				<p class="text-[11px] text-text-muted mt-0.5">
+					Specifies rendering fidelity of full pages and vector diagram crops.
+				</p>
 			</div>
 
-			<!-- Subject Category Dropdown -->
-			<div>
-				<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider mb-1.5 text-text-primary">
-					Subject Category
+			<select
+				id="form-scale-select"
+				bind:value={app.selectedScale}
+				disabled={app.tests.isUploading}
+				class="neo-input text-xs font-mono py-1.5 px-2.5 bg-surface"
+			>
+				<option value={1.0}>1.0× (Standard - Compact)</option>
+				<option value={1.25}>1.25× (Recommended for AI Vision)</option>
+				<option value={1.5}>1.5× (High Resolution)</option>
+				<option value={2.0}>2.0× (Ultra Crisp)</option>
+			</select>
+		</div>
+	</div>
+
+	<!-- Metadata Fields: Title, Subject, Duration -->
+	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t-2 border-border-color/20">
+		<!-- 1. Assessment Title -->
+		<div class="sm:col-span-3 space-y-1.5">
+			<div class="flex items-center justify-between">
+				<label for="form-title" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Assessment Title
 				</label>
-				<select
-					id="form-subject"
-					bind:value={subject}
-					disabled={app.tests.isUploading}
-					class="neo-input w-full text-xs font-mono py-2"
-				>
-					<option value="STEM">STEM</option>
-					<option value="Computer Science">Computer Science</option>
-					<option value="Humanities">Humanities</option>
-					<option value="Languages">Languages</option>
-					<option value="General">General</option>
-				</select>
+				<label class="flex items-center gap-1.5 cursor-pointer select-none">
+					<input
+						type="checkbox"
+						bind:checked={autoTitle}
+						disabled={app.tests.isUploading}
+						class="accent-accent-contrast h-3.5 w-3.5"
+					/>
+					<span class="font-mono text-[11px] font-bold text-accent-contrast">
+						✨ Auto-Detect from PDF
+					</span>
+				</label>
 			</div>
+
+			<input
+				id="form-title"
+				type="text"
+				bind:value={title}
+				disabled={app.tests.isUploading || autoTitle}
+				placeholder={autoTitle ? 'Auto-detected from document header...' : 'e.g. Physics Midterm Examination 2026'}
+				class={`neo-input w-full h-10 text-sm ${
+					autoTitle ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
+				}`}
+			/>
 		</div>
 
-		<!-- Duration Row -->
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-			<div>
-				<div class="flex items-center justify-between mb-1.5">
-					<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-						Duration (Minutes)
-					</label>
-					<div class="flex items-center gap-3">
-						<label class="flex items-center gap-1.5 font-mono text-[11px] text-text-muted cursor-pointer">
-							<input
-								type="checkbox"
-								bind:checked={isUntimed}
-								disabled={app.tests.isUploading}
-								class="rounded-none border-2 border-border-color h-3.5 w-3.5"
-							/>
-							<span>Untimed</span>
-						</label>
-						<label class="flex items-center gap-1.5 font-mono text-[11px] text-text-muted cursor-pointer">
-							<input
-								type="checkbox"
-								bind:checked={autoDuration}
-								disabled={isUntimed || app.tests.isUploading}
-								class="rounded-none border-2 border-border-color h-3.5 w-3.5"
-							/>
-							<span>Auto-Estimate</span>
-						</label>
-					</div>
-				</div>
+		<!-- 2. Subject / Field Category -->
+		<div class="space-y-1.5">
+			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+				Subject / Field
+			</label>
+			<select
+				id="form-subject"
+				bind:value={subject}
+				disabled={app.tests.isUploading}
+				class="neo-input w-full h-10 text-sm font-sans bg-surface"
+			>
+				<option value="STEM">STEM & Sciences</option>
+				<option value="Computer Science">Computer Science</option>
+				<option value="Humanities">Humanities & Social</option>
+				<option value="Languages">Languages & Literature</option>
+				<option value="General">General Assessment</option>
+			</select>
+		</div>
+
+		<!-- 3. Duration Input & Auto Mode -->
+		<div class="sm:col-span-2 space-y-1.5">
+			<div class="flex items-center justify-between">
+				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Exam Duration
+				</label>
+				<label class="flex items-center gap-1.5 cursor-pointer select-none">
+					<input
+						type="checkbox"
+						bind:checked={autoDuration}
+						disabled={app.tests.isUploading}
+						class="accent-accent-contrast h-3.5 w-3.5"
+					/>
+					<span class="font-mono text-[11px] font-bold text-accent-contrast">
+						✨ Let AI Decide (Auto)
+					</span>
+				</label>
+			</div>
+
+			<div class="relative h-10">
 				<input
 					id="form-duration"
 					type="number"
 					min="5"
-					max="300"
-					step="5"
+					max="360"
 					bind:value={durationMinutes}
-					disabled={isUntimed || autoDuration || app.tests.isUploading}
-					class="neo-input w-full text-xs font-mono py-2 disabled:opacity-50 disabled:bg-muted"
+					disabled={app.tests.isUploading || autoDuration}
+					placeholder={autoDuration ? 'Auto-estimated by AI model...' : '60'}
+					class={`neo-input w-full h-10 text-sm font-mono pr-14 ${
+						autoDuration ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
+					}`}
 				/>
-			</div>
-
-			<!-- Extraction Scale -->
-			<div>
-				<div class="flex items-center justify-between mb-1.5">
-					<label for="form-scale" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-						PDF Render Resolution
-					</label>
-					<span class="font-mono text-[10px] text-text-muted">
-						Current: {app.selectedScale}x
-					</span>
-				</div>
-				<div id="form-scale" class="grid grid-cols-4 gap-1.5">
-					{#each [1.0, 1.25, 1.5, 2.0] as scaleOption}
-						<button
-							type="button"
-							onclick={() => app.setScale(scaleOption)}
-							disabled={app.tests.isUploading}
-							class={`font-mono text-xs py-1.5 border-2 text-center transition-all ${
-								app.selectedScale === scaleOption
-									? 'bg-accent-contrast text-accent-contrast-text border-accent-contrast font-bold'
-									: 'bg-surface border-border-color/50 text-text-secondary hover:bg-muted'
-							}`}
-						>
-							{scaleOption}x
-						</button>
-					{/each}
-				</div>
+				<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none">
+					mins
+				</span>
 			</div>
 		</div>
 	</div>
 
-	<!-- AI Provider & Model Sub-Component -->
-	<div class="pt-2 border-t border-border-color/20">
-		<AiProviderSelector
-			{selectedProvider}
-			{modelName}
-			disabled={app.tests.isUploading}
-			onproviderchange={handleProviderChange}
-			onmodelchange={handleModelChange}
-		/>
-	</div>
+	<!-- AI Provider & Vision Model Section -->
+	<AiProviderSelector
+		{selectedProvider}
+		{modelName}
+		disabled={app.tests.isUploading}
+		onproviderchange={handleProviderChange}
+		onmodelchange={handleModelChange}
+	/>
 
-	<!-- Upload Progress Bar -->
-	{#if app.tests.isUploading}
-		<div class="space-y-2 p-4 bg-muted/40 border-2 border-border-color animate-fade-in font-mono text-xs">
-			<div class="flex items-center justify-between">
-				<span class="font-bold uppercase text-text-primary">
-					{app.tests.uploadStatusText || 'Processing Assessment...'}
-				</span>
-				<span class="font-bold text-accent-contrast">
-					{app.tests.uploadProgress}%
-				</span>
+	<!-- Error Alert Banner -->
+	{#if formError}
+		<div class="neo-box p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
+			<div class="flex h-7 w-7 shrink-0 items-center justify-center bg-rose-600 text-white font-mono text-sm font-black">
+				✕
 			</div>
-			<div class="w-full bg-surface border-2 border-border-color h-4 p-0.5 overflow-hidden">
+			<div class="space-y-1 text-xs">
+				<p class="font-sans font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+					Assessment Generation Failed
+				</p>
+				<p class="text-text-primary leading-relaxed font-mono text-[11px]">
+					{formError}
+				</p>
+				<p class="font-mono text-[10px] text-text-muted pt-1">
+					💡 Tip: Verify your API key, check model image limits (e.g. Groq max 3 images), or switch to Google Gemini.
+				</p>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Live AI & MuPDF Progress Bar -->
+	{#if app.tests.isUploading}
+		<div class="neo-box p-4 bg-muted/40 animate-slide-down border-2 border-border-color space-y-2">
+			<div class="flex items-center justify-between text-xs font-mono font-bold">
+				<span class="flex items-center gap-2 text-text-primary truncate">
+					<span class="h-2.5 w-2.5 bg-accent-contrast animate-pulse"></span>
+					<span class="truncate">{app.tests.uploadStatusText || 'Extracting pages & diagrams...'}</span>
+				</span>
+				<span class="font-mono text-accent-contrast ml-2">{app.tests.uploadProgress}%</span>
+			</div>
+			<div class="h-3 w-full border-2 border-border-color bg-surface overflow-hidden">
 				<div
-					class="bg-accent-contrast h-full transition-all duration-300 ease-out"
-					style="width: {app.tests.uploadProgress}%"
+					class="h-full bg-accent-contrast transition-all duration-300 ease-out"
+					style={`width: ${app.tests.uploadProgress}%`}
 				></div>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Error Alert -->
-	{#if formError}
-		<div class="p-3 bg-rose-500/10 border-2 border-rose-500/50 text-rose-600 dark:text-rose-400 font-mono text-xs space-y-1 animate-fade-in">
-			<span class="font-bold block uppercase">Assessment Ingestion Error</span>
-			<p>{formError}</p>
-		</div>
-	{/if}
-
-	<!-- Actions -->
-	<div class="flex items-center justify-end gap-3 pt-2 border-t border-border-color/20">
-		{#if isModal && oncancel}
-			<button
-				type="button"
-				onclick={oncancel}
-				disabled={app.tests.isUploading}
-				class="neo-btn text-xs py-2 px-4 disabled:opacity-40"
-			>
-				Cancel
-			</button>
+	<!-- Form Action Buttons -->
+	<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-border-color/20 mt-2">
+		{#if isModal}
+			<div class="flex items-center justify-end gap-2.5 w-full">
+				<button
+					type="button"
+					onclick={oncancel}
+					disabled={app.tests.isUploading}
+					class="neo-btn text-xs h-9 px-4 disabled:opacity-40"
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					disabled={app.tests.isUploading}
+					class="neo-btn neo-btn-primary text-xs h-9 px-5 disabled:opacity-50 inline-flex items-center gap-1.5 font-bold"
+				>
+					{#if app.tests.isUploading}
+						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
+						<span>Ingesting PDF...</span>
+					{:else}
+						<span>Ingest & Create Test &rarr;</span>
+					{/if}
+				</button>
+			</div>
+		{:else}
+			<div class="flex items-center justify-end w-full">
+				<button
+					type="submit"
+					disabled={app.tests.isUploading}
+					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-bold"
+				>
+					{#if app.tests.isUploading}
+						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
+						<span>Ingesting PDF...</span>
+					{:else}
+						<span>Generate Test &rarr;</span>
+					{/if}
+				</button>
+			</div>
 		{/if}
-
-		<button
-			type="submit"
-			disabled={app.tests.isUploading || !testFile}
-			class="neo-btn neo-btn-primary text-xs py-2.5 px-6 disabled:opacity-40 flex items-center gap-2"
-		>
-			{#if app.tests.isUploading}
-				<span class="inline-block animate-spin font-mono">↻</span>
-				<span>Processing PDF & AI Synthesis...</span>
-			{:else}
-				<span>Digitize & Generate Assessment</span>
-			{/if}
-		</button>
 	</div>
 </form>

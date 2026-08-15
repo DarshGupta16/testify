@@ -14,6 +14,8 @@ const {
 	required = false,
 	optionalBadge = false,
 	disabled = false,
+	badgeText = 'PDF',
+	badgeColor = 'bg-accent-contrast text-accent-contrast-text',
 	subtitle = 'Exam sheets, practice tests (.pdf)',
 	onchange,
 	onclear,
@@ -24,6 +26,8 @@ const {
 	required?: boolean;
 	optionalBadge?: boolean;
 	disabled?: boolean;
+	badgeText?: string;
+	badgeColor?: string;
 	subtitle?: string;
 	onchange: (file: File) => void;
 	onclear: () => void;
@@ -69,8 +73,8 @@ function handleClearClick() {
 	{#if file}
 		<div class="neo-box-sm p-3.5 flex items-center justify-between bg-muted/40">
 			<div class="flex items-center gap-3 truncate pr-2">
-				<div class="flex h-8 w-8 shrink-0 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text font-mono text-xs font-bold">
-					PDF
+				<div class={`flex h-8 w-8 shrink-0 items-center justify-center border-2 border-border-color font-mono text-xs font-bold ${badgeColor}`}>
+					{badgeText}
 				</div>
 				<div class="truncate">
 					<p class="text-xs font-bold truncate text-text-primary">{file.name}</p>
@@ -104,9 +108,9 @@ function handleClearClick() {
 					stroke-linecap="square"
 					class="h-4 w-4"
 				>
-					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-					<polyline points="17 8 12 3 7 8" />
-					<line x1="12" y1="3" x2="12" y2="15" />
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+					<line x1="9" y1="15" x2="15" y2="15" />
 				</svg>
 			</div>
 			<span class="text-xs font-bold uppercase tracking-wider text-text-primary">
