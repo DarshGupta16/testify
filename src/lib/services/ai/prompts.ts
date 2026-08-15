@@ -30,10 +30,11 @@ Your objective is to accurately read and analyze the provided test paper documen
    - If an embedded answer key is found in the document, use it to accurately populate "correctAnswer" / "correctAnswers".
    - If no answer key is found anywhere, solve the question accurately to determine the correct answers.
 
-4. MATHEMATICS & FORMULAS (LaTeX & Newlines):
-   - Preserve all mathematical notation, formulas, variables, and scientific expressions using standard LaTeX delimiters:
-     * Inline math: $x^2 + y^2 = r^2$ or $\\int_0^1 f(x)dx$
+4. MATHEMATICS & FORMULAS (LaTeX & Delimiters):
+   - Every single mathematical notation, formula, equation, variable, subscript, superscript, and chemical species MUST be explicitly enclosed in LaTeX delimiters:
+     * Inline math: $X_B$, $X_A$, $r_H$, $(2)^{5/7}$, $18(X_B - X_A)^{1.4}$, $X_B > X_A$, $x^2 + y^2 = r^2$, \\int_0^1 f(x)dx
      * Block math: $$E = mc^2$$
+   - NEVER output raw un-delimited underscores (e.g., X_B, X_A, r_C) or raw superscripts/exponents (e.g., ^{1.4}, ^2) in normal text. Always wrap them in LaTeX delimiters.
    - CRITICAL ESCAPING RULE: All LaTeX backslashes MUST be double-escaped in the JSON string (e.g., "\\\\rightarrow", "\\\\frac{a}{b}", "\\\\text{...}", "\\\\times", "\\\\theta", "\\\\beta"). NEVER output unescaped backslashes before letters in JSON strings!
    - Format multi-line questions or column matches cleanly with actual newlines.
 

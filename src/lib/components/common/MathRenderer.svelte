@@ -39,6 +39,34 @@ function sanitizeMathForKatex(rawMath: string): string {
 	return math;
 }
 
+/**
+ * Determines if an entire text string is an isolated standalone formula
+ * (e.g. `\text{H}^+ + \\& \text{H}` or `\frac{a}{b}`) rather than English prose.
+ */
+function isPureMathExpression(str: string): boolean {
+	const trimmed = str.trim();
+	if (/(\$\$|\\\[|\$|\\\()/.test(trimmed)) return false;
+
+	// If it contains multiple common English words, it is PROSE, not a single formula
+	const englishWords = trimmed.match(
+		/\b(the|is|are|of|and|in|to|for|with|which|calculate|given|where|according|then|what|when|if|from|by|an|as|on|select|correct|statement|order|following|reacts|compounds|possible|element|energy|potential)\b/gi
+	);
+	if (englishWords && englishWords.length >= 2) {
+		return false;
+	}
+
+	// If it contains LaTeX commands like \text, \frac, \sqrt, \rightarrow, \alpha, \pm, \approx, etc.
+	if (
+		/\\(text|frac|sqrt|rightarrow|to|alpha|beta|gamma|theta|pm|approx|times|cdot|le|ge|ne|int|sum|Delta|chi|AA)\b/i.test(
+			trimmed
+		)
+	) {
+		return true;
+	}
+
+	return false;
+}
+
 const renderedHtml = $derived.by(() => {
 	if (!content) return '';
 
@@ -55,84 +83,63 @@ const renderedHtml = $derived.by(() => {
 			}
 		});
 
-		// Auto-wrap raw unwrapped LaTeX formulas (e.g. \text{H}^+ + \\& \text{H})
-		const hasDelimiters = /(\$\$|\\\[|\$|\\\()/.test(processed);
-		const looksLikeRawLatex =
-			/^\\+[a-zA-Z]/.test(processed.trim()) ||
-			/(\\+text\{|\\+frac\{|\\+sqrt\{|\\+rightarrow|\^[0-9+\-a-zA-Z]|_[0-9+\-a-zA-Z])/.test(
-				processed
-			);
+		// 1. Convert literal raw '\n' sequences in prose to real newlines
+		processed = processed.replace(/\\n/g, '\n').replace(/\\r/g, '');
 
-		if (!hasDelimiters && looksLikeRawLatex) {
+		// 2. Auto-wrap isolated pure LaTeX formulas in options/cards if they lack delimiters
+		if (isPureMathExpression(processed)) {
 			processed = `$${processed.trim()}$`;
 		}
 
-		// 1. Extract block math $$...$$
-		processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-			const id = `%%MATH_BLOCK_${placeholderCount++}%%`;
+		function storeMath(mathStr: string, isBlock = false): string {
+			const id = `%%MATH_${isBlock ? 'BLOCK' : 'INLINE'}_${placeholderCount++}%%`;
 			try {
-				const cleanMath = sanitizeMathForKatex(math);
+				const cleanMath = sanitizeMathForKatex(mathStr);
 				const html = katex.renderToString(cleanMath, {
-					displayMode: true,
+					displayMode: isBlock,
 					throwOnError: false,
 				});
-				mathPlaceholders.set(id, `<div class="my-2 overflow-x-auto">${html}</div>`);
+				mathPlaceholders.set(
+					id,
+					isBlock ? `<div class="my-2 overflow-x-auto">${html}</div>` : html
+				);
 			} catch {
-				mathPlaceholders.set(id, `$$${math}$$`);
+				mathPlaceholders.set(id, isBlock ? `$$${mathStr}$$` : `$${mathStr}$`);
 			}
 			return id;
-		});
+		}
+
+		// 1. Extract block math $$...$$
+		processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => storeMath(math, true));
 
 		// 2. Extract block math \[...\]
-		processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
-			const id = `%%MATH_BLOCK_${placeholderCount++}%%`;
-			try {
-				const cleanMath = sanitizeMathForKatex(math);
-				const html = katex.renderToString(cleanMath, {
-					displayMode: true,
-					throwOnError: false,
-				});
-				mathPlaceholders.set(id, `<div class="my-2 overflow-x-auto">${html}</div>`);
-			} catch {
-				mathPlaceholders.set(id, `\\[${math}\\]`);
-			}
-			return id;
-		});
+		processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => storeMath(math, true));
 
 		// 3. Extract inline math $...$
-		processed = processed.replace(/(?<!\\)\$((?:\\\$|[^$])+?)\$/g, (_, math) => {
-			const id = `%%MATH_INLINE_${placeholderCount++}%%`;
-			try {
-				const cleanMath = sanitizeMathForKatex(math);
-				const html = katex.renderToString(cleanMath, {
-					displayMode: false,
-					throwOnError: false,
-				});
-				mathPlaceholders.set(id, html);
-			} catch {
-				mathPlaceholders.set(id, `$${math}$`);
-			}
-			return id;
-		});
+		processed = processed.replace(/(?<!\\)\$((?:\\\$|[^$])+?)\$/g, (_, math) =>
+			storeMath(math, false)
+		);
 
 		// 4. Extract inline math \(...\)
-		processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
-			const id = `%%MATH_INLINE_${placeholderCount++}%%`;
-			try {
-				const cleanMath = sanitizeMathForKatex(math);
-				const html = katex.renderToString(cleanMath, {
-					displayMode: false,
-					throwOnError: false,
-				});
-				mathPlaceholders.set(id, html);
-			} catch {
-				mathPlaceholders.set(id, `\\(${math}\\)`);
-			}
-			return id;
-		});
+		processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => storeMath(math, false));
 
-		// 5. In the remaining prose/markdown outside math: convert literal '\n' sequences to actual newlines
-		processed = processed.replace(/\\n/g, '\n').replace(/\\r/g, '');
+		// 5. Catch unwrapped mathematical formulas outside delimiters:
+		// A. Formula terms with exponents like: 18(X_B - X_A)^{1.4} or (2)^{5/7}
+		processed = processed.replace(
+			/(?:\b|\()([A-Za-z0-9_()\-+\s]+?)\^\{([^}]+)\}/g,
+			(match, base, exp) => {
+				const words = base.trim().match(/\b[A-Za-z]{3,}\b/g) || [];
+				if (words.length <= 1) {
+					return storeMath(`${base.trim()}^{${exp}}`, false);
+				}
+				return match;
+			}
+		);
+
+		// B. Unwrapped variable subscripts like X_B, X_A, r_H, d_AB outside delimiters
+		processed = processed.replace(/\b([A-Za-z])_([A-Za-z0-9]+)\b/g, (_, base, sub) => {
+			return storeMath(`${base}_${sub}`, false);
+		});
 
 		// 6. Parse Markdown with breaks enabled
 		let parsedHtml = inline
