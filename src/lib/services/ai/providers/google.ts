@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
 import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
+import { GEMINI_ASSESSMENT_SCHEMA } from '../schemas';
 
 export async function generateGoogleQuestions(
 	payload: AIGenerationPayload
@@ -76,6 +77,7 @@ export async function generateGoogleQuestions(
 		config: {
 			systemInstruction: TESTIFY_SYSTEM_PROMPT,
 			responseMimeType: 'application/json',
+			responseSchema: GEMINI_ASSESSMENT_SCHEMA,
 		},
 	});
 

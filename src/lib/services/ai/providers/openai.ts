@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
 import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
+import { OPENAI_STRICT_ASSESSMENT_SCHEMA } from '../schemas';
 
 export async function generateOpenAIQuestions(
 	payload: AIGenerationPayload
@@ -73,7 +74,7 @@ export async function generateOpenAIQuestions(
 
 	const response = await openai.chat.completions.create({
 		model: modelName,
-		response_format: { type: 'json_object' },
+		response_format: OPENAI_STRICT_ASSESSMENT_SCHEMA,
 		messages: [
 			{
 				role: 'system',

@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
 import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
+import { ANTHROPIC_ASSESSMENT_TOOL } from '../schemas';
 
 export async function generateAnthropicQuestions(
 	payload: AIGenerationPayload
@@ -94,7 +95,7 @@ export async function generateAnthropicQuestions(
 
 	userContent.push({
 		type: 'text',
-		text: `${userPromptText}\n\nImportant: Output ONLY the valid JSON assessment object matching the schema.`,
+		text: `${userPromptText}\n\nImportant: Synthesize the complete assessment schema.`,
 	});
 
 	payload.onProgress?.('Extracting questions and resolving diagrams with Claude...', 60);
@@ -103,6 +104,8 @@ export async function generateAnthropicQuestions(
 		model: modelName,
 		max_tokens: 8192,
 		system: TESTIFY_SYSTEM_PROMPT,
+		tools: [ANTHROPIC_ASSESSMENT_TOOL as Anthropic.Tool],
+		tool_choice: { type: 'tool', name: 'synthesize_assessment' },
 		messages: [
 			{
 				role: 'user',
@@ -113,10 +116,19 @@ export async function generateAnthropicQuestions(
 
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
-	const rawText = response.content
-		.filter((b) => b.type === 'text')
-		.map((b) => (b as { text: string }).text)
-		.join('\n');
+	let rawText = '';
+	const toolUseBlock = response.content.find((b) => b.type === 'tool_use');
+	if (toolUseBlock && toolUseBlock.type === 'tool_use') {
+		rawText =
+			typeof toolUseBlock.input === 'string'
+				? toolUseBlock.input
+				: JSON.stringify(toolUseBlock.input);
+	} else {
+		rawText = response.content
+			.filter((b) => b.type === 'text')
+			.map((b) => (b as { text: string }).text)
+			.join('\n');
+	}
 
 	const tokenUsage = response.usage
 		? {

@@ -13,9 +13,56 @@ import type { AIProvider } from '$lib/types/apiKeys';
 import type { QuestionPreview, TokenUsageStats } from '$lib/types/test';
 
 /**
- * Strips markdown code fences, trailing commas, and formatting noise from raw model output,
- * and repairs unclosed JSON structures (unclosed strings, brackets, and braces) caused by
- * model truncation or omission of the final root closing brace.
+ * Sanitizes unescaped ASCII control characters (raw newlines, carriage returns, tabs)
+ * inside JSON string literals ("..."), replacing them with standard JSON escape sequences (\n, \t).
+ */
+export function escapeControlCharsInJsonStrings(raw: string): string {
+	let result = '';
+	let inString = false;
+	let isEscaped = false;
+
+	for (let i = 0; i < raw.length; i++) {
+		const ch = raw[i];
+
+		if (isEscaped) {
+			result += ch;
+			isEscaped = false;
+			continue;
+		}
+
+		if (ch === '\\') {
+			result += ch;
+			isEscaped = true;
+			continue;
+		}
+
+		if (ch === '"') {
+			inString = !inString;
+			result += ch;
+			continue;
+		}
+
+		if (inString) {
+			if (ch === '\n') {
+				result += '\\n';
+			} else if (ch === '\r') {
+				// Drop carriage return
+			} else if (ch === '\t') {
+				result += '\\t';
+			} else {
+				result += ch;
+			}
+		} else {
+			result += ch;
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Strips markdown code fences, trailing commas, ignores stray/mismatched closing tokens,
+ * isolates the root JSON object, and auto-repairs unclosed structures if truncated.
  */
 export function cleanRawJsonText(rawText: string): string {
 	let text = rawText.trim();
@@ -33,60 +80,87 @@ export function cleanRawJsonText(rawText: string): string {
 		text = text.substring(firstBrace);
 	}
 
-	// 3. Remove trailing commas before object or array close braces
+	// 3. First escape raw control characters inside string literals
+	text = escapeControlCharsInJsonStrings(text);
+
+	// 4. Remove trailing commas before object or array close braces
 	text = text.replace(/,\s*([}\]])/g, '$1');
 
-	// 4. Count unclosed brackets and braces using a LIFO stack
+	// 5. Parse bracket/brace balance and filter out stray mismatched tokens
+	let cleanedResult = '';
 	const openStack: Array<'{' | '['> = [];
 	let inString = false;
 	let isEscaped = false;
+	let rootCompleted = false;
 
 	for (let i = 0; i < text.length; i++) {
 		const ch = text[i];
 		if (isEscaped) {
+			cleanedResult += ch;
 			isEscaped = false;
 			continue;
 		}
 		if (ch === '\\') {
+			cleanedResult += ch;
 			isEscaped = true;
 			continue;
 		}
 		if (ch === '"') {
 			inString = !inString;
+			cleanedResult += ch;
 			continue;
 		}
+
 		if (!inString) {
 			if (ch === '{' || ch === '[') {
 				openStack.push(ch);
-			} else if (ch === '}' && openStack[openStack.length - 1] === '{') {
-				openStack.pop();
-			} else if (ch === ']' && openStack[openStack.length - 1] === '[') {
-				openStack.pop();
+				cleanedResult += ch;
+			} else if (ch === '}') {
+				if (openStack[openStack.length - 1] === '{') {
+					openStack.pop();
+					cleanedResult += ch;
+					if (openStack.length === 0) {
+						rootCompleted = true;
+						break; // Root object successfully closed! Discard trailing duplicate tokens
+					}
+				}
+				// If top of stack is NOT '{', this '}' is stray/mismatched, skip it!
+			} else if (ch === ']') {
+				if (openStack[openStack.length - 1] === '[') {
+					openStack.pop();
+					cleanedResult += ch;
+				}
+				// If top of stack is NOT '[', this ']' is stray/mismatched, skip it!
+			} else {
+				cleanedResult += ch;
 			}
+		} else {
+			cleanedResult += ch;
 		}
 	}
 
-	if (inString) {
-		text += '"';
+	if (rootCompleted) {
+		return cleanedResult;
 	}
 
-	// Remove trailing commas before closing
-	text = text.trim().replace(/,\s*$/, '');
+	// 6. If truncated mid-stream, close open string and open structures in LIFO order
+	if (inString) {
+		cleanedResult += '"';
+	}
 
-	// Close open structures in exact reverse LIFO order
+	cleanedResult = cleanedResult.trim().replace(/,\s*$/, '');
+
 	while (openStack.length > 0) {
 		const lastOpen = openStack.pop();
 		if (lastOpen === '{') {
-			text += '\n}';
+			cleanedResult += '\n}';
 		} else if (lastOpen === '[') {
-			text += '\n]';
+			cleanedResult += '\n]';
 		}
 	}
 
-	// Final sweep for trailing commas before closing braces/brackets
-	text = text.replace(/,\s*([}\]])/g, '$1');
-
-	return text;
+	cleanedResult = cleanedResult.replace(/,\s*([}\]])/g, '$1');
+	return cleanedResult;
 }
 
 /**
