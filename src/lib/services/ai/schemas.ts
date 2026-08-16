@@ -14,11 +14,6 @@ export const GEMINI_ASSESSMENT_SCHEMA = {
 			type: Type.STRING,
 			description: 'Title of the exam or assessment detected from headers',
 		},
-		subject: {
-			type: Type.STRING,
-			description:
-				'Academic subject category: STEM, Computer Science, Humanities, Languages, or General',
-		},
 		instructions: {
 			type: Type.STRING,
 			description: 'General test instructions extracted or summarized from the document',
@@ -122,7 +117,6 @@ export const OPENAI_STRICT_ASSESSMENT_SCHEMA = {
 			type: 'object',
 			properties: {
 				title: { type: 'string' },
-				subject: { type: 'string' },
 				instructions: { type: 'string' },
 				totalMarks: { type: 'number' },
 				estimatedDurationMinutes: { type: 'number' },
@@ -179,14 +173,7 @@ export const OPENAI_STRICT_ASSESSMENT_SCHEMA = {
 					},
 				},
 			},
-			required: [
-				'title',
-				'subject',
-				'instructions',
-				'totalMarks',
-				'estimatedDurationMinutes',
-				'questions',
-			],
+			required: ['title', 'instructions', 'totalMarks', 'estimatedDurationMinutes', 'questions'],
 			additionalProperties: false,
 		},
 	},
@@ -202,7 +189,6 @@ export const ANTHROPIC_ASSESSMENT_TOOL = {
 		type: 'object' as const,
 		properties: {
 			title: { type: 'string' },
-			subject: { type: 'string' },
 			instructions: { type: 'string' },
 			totalMarks: { type: 'number' },
 			estimatedDurationMinutes: { type: 'number' },

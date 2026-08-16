@@ -1,5 +1,4 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
-import { SETTINGS_KEYS } from '$lib/services/settings';
 import { processTestUpload } from '$lib/services/testUploader';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 
@@ -26,34 +25,9 @@ export class TestStore {
 
 	async init() {
 		try {
-			// 1. Load from Dexie IndexedDB
 			const savedTests = await this.database.getAllTests();
-
 			if (savedTests && savedTests.length > 0) {
 				this.tests = savedTests;
-				return;
-			}
-
-			// 2. Migration fallback: check legacy localStorage if Dexie is empty
-			if (typeof window !== 'undefined') {
-				const legacyData = localStorage.getItem(SETTINGS_KEYS.LEGACY_TESTS_V1);
-				if (legacyData) {
-					try {
-						const parsed = JSON.parse(legacyData);
-						if (Array.isArray(parsed) && parsed.length > 0) {
-							this.tests = parsed;
-							// Migrate all legacy tests to Dexie in background
-							fireAndForget(
-								Promise.all(parsed.map((t) => this.database.saveTest(t))),
-								'Migrating legacy localStorage tests to Dexie'
-							);
-							// Clean up legacy localStorage key
-							localStorage.removeItem(SETTINGS_KEYS.LEGACY_TESTS_V1);
-						}
-					} catch (e) {
-						console.error('[TestStore] Failed parsing legacy tests:', e);
-					}
-				}
 			}
 		} catch (err) {
 			console.error('[TestStore] Error initializing from Dexie:', err);

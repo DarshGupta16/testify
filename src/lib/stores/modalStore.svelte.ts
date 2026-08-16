@@ -7,9 +7,20 @@ export class ModalStore {
 	isDetailsModalOpen = $state<boolean>(false);
 	isApiKeysModalOpen = $state<boolean>(false);
 	isMasterPasswordModalOpen = $state<boolean>(false);
+	isSubjectsModalOpen = $state<boolean>(false);
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
 	selectedTest = $state<TestItem | null>(null);
+
+	openSubjects() {
+		this.isSubjectsModalOpen = true;
+	}
+
+	closeSubjects(force = false) {
+		if (force || this.isSubjectsModalOpen) {
+			this.isSubjectsModalOpen = false;
+		}
+	}
 
 	openUpload() {
 		this.isUploadModalOpen = true;

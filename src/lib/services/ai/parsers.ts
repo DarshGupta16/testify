@@ -195,7 +195,6 @@ export function parseAIResponse(rawText: string): RawAIResponseSchema {
 
 		return {
 			title: typeof parsed.title === 'string' ? parsed.title : undefined,
-			subject: typeof parsed.subject === 'string' ? parsed.subject : undefined,
 			instructions: typeof parsed.instructions === 'string' ? parsed.instructions : undefined,
 			totalMarks: typeof parsed.totalMarks === 'number' ? parsed.totalMarks : undefined,
 			estimatedDurationMinutes:
@@ -540,7 +539,6 @@ export function synthesizeAiResult(
 		provider,
 		model: modelName,
 		title: parsedSchema.title || payload.metadata?.titleHint,
-		subject: parsedSchema.subject || payload.metadata?.subjectHint,
 		instructions: parsedSchema.instructions,
 		durationMinutes,
 		totalMarks: parsedSchema.totalMarks || questions.reduce((acc, q) => acc + q.marks, 0),

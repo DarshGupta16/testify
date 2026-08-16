@@ -20,7 +20,6 @@ export interface AIPageAsset {
 
 export interface AIGenerationMetadataHints {
 	titleHint?: string;
-	subjectHint?: string;
 	questionCountHint?: number;
 	autoTitle?: boolean;
 	autoDuration?: boolean;
@@ -66,7 +65,6 @@ export interface RawAIQuestion {
 
 export interface RawAIResponseSchema {
 	title?: string;
-	subject?: string;
 	instructions?: string;
 	totalMarks?: number;
 	estimatedDurationMinutes?: number;
@@ -77,7 +75,6 @@ export interface AIGenerationResult {
 	provider: AIProvider;
 	model: string;
 	title?: string;
-	subject?: string;
 	instructions?: string;
 	durationMinutes?: number | null;
 	totalMarks?: number;

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import { AI_PROVIDERS, type AIProvider } from '$lib/types/apiKeys';
+import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
 import AiProviderSelector from './AiProviderSelector.svelte';
@@ -21,10 +22,17 @@ const app = getAppContext();
 // Form State
 let autoTitle = $state(false);
 let title = $state('');
-let subject = $state('STEM');
+let selectedSubjectId = $state(app.subjects.subjects[0]?.id || DEFAULT_SUBJECT_IDS.STEM);
 let autoDuration = $state(false);
 let durationMinutes = $state(60);
 let formError = $state<string | null>(null);
+
+// Ensure a valid subject ID is selected once subjects load
+$effect(() => {
+	if (!selectedSubjectId && app.subjects.subjects.length > 0) {
+		selectedSubjectId = app.subjects.subjects[0].id;
+	}
+});
 
 // AI Provider & Model Configuration
 let selectedProvider = $state<AIProvider>('google');
@@ -110,7 +118,7 @@ async function handleSubmit(e: SubmitEvent) {
 			? undefined
 			: title.trim() || testFile.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
 		autoTitle,
-		subject,
+		subjectId: selectedSubjectId || app.subjects.subjects[0]?.id || 'general',
 		durationMinutes: autoDuration ? null : Number(durationMinutes) || 60,
 		autoDuration,
 		scale: Number(app.selectedScale) || 1.25,
@@ -254,15 +262,13 @@ async function handleSubmit(e: SubmitEvent) {
 			</label>
 			<select
 				id="form-subject"
-				bind:value={subject}
+				bind:value={selectedSubjectId}
 				disabled={app.tests.isUploading}
 				class="neo-input w-full h-10 text-sm font-sans bg-surface"
 			>
-				<option value="STEM">STEM & Sciences</option>
-				<option value="Computer Science">Computer Science</option>
-				<option value="Humanities">Humanities & Social</option>
-				<option value="Languages">Languages & Literature</option>
-				<option value="General">General Assessment</option>
+				{#each app.subjects.subjects as sub (sub.id)}
+					<option value={sub.id}>{sub.name}</option>
+				{/each}
 			</select>
 		</div>
 

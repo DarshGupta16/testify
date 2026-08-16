@@ -69,3 +69,15 @@ export function formatSecondsToText(totalSeconds: number): string {
 export function formatNumber(val: number): string {
 	return new Intl.NumberFormat('en-US').format(val);
 }
+
+/**
+ * Generates a URL/ID-safe slug from a text string (e.g. "Computer Science" -> "computer-science").
+ */
+export function generateSlug(text: string): string {
+	return text
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9\s-]/g, '')
+		.replace(/\s+/g, '-')
+		.replace(/-+/g, '-');
+}

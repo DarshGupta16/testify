@@ -3,10 +3,13 @@ import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestAttemptStats } from '$lib/stores/attemptStore.svelte';
 import type { ExtractedEmbeddedImage, ExtractedPdfPage } from '$lib/types/pdf';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 import { formatDate, formatSecondsToText } from '$lib/utils';
+
+const app = getAppContext();
 
 const {
 	test,
@@ -54,7 +57,7 @@ const filteredAttempts = $derived(
 						&larr; Dashboard
 					</a>
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
-						{test.subject}
+						{app.subjects.getName(test.subjectId) || '?'}
 					</span>
 					{#if allDiagrams.length > 0}
 						<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">

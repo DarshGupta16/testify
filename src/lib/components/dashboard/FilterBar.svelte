@@ -4,15 +4,6 @@ import type { CategoryFilter, SortOption } from '$lib/types/test';
 
 const app = getAppContext();
 
-const categories: CategoryFilter[] = [
-	'All',
-	'STEM',
-	'Computer Science',
-	'Humanities',
-	'Languages',
-	'General',
-];
-
 const sortOptions: { label: string; value: SortOption }[] = [
 	{ label: 'Newest First', value: 'newest' },
 	{ label: 'Oldest First', value: 'oldest' },
@@ -27,8 +18,8 @@ function handleSearchInput(e: Event) {
 	app.filter.setSearch(val);
 }
 
-function handleCategoryClick(cat: CategoryFilter) {
-	app.filter.setCategory(cat);
+function handleSubjectClick(subjectId: CategoryFilter) {
+	app.filter.setCategory(subjectId);
 }
 
 function handleSortChange(e: Event) {
@@ -93,40 +84,60 @@ function handleSortChange(e: Event) {
 		</div>
 	</div>
 
-	<!-- Bottom Row: Category Pills -->
-	<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border-color/20">
+	<!-- Bottom Row: Subject Pills & Manage Button -->
+	<div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border-color/20">
 		<div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
 			<span class="font-mono text-[11px] font-bold uppercase tracking-wider text-text-muted mr-1">
-				Filter:
+				Subject:
 			</span>
-			{#each categories as category}
+			<button
+				type="button"
+				onclick={() => handleSubjectClick('All')}
+				class={`neo-badge cursor-pointer transition-all ${
+					app.filter.selectedCategory === 'All'
+						? 'bg-accent-contrast text-accent-contrast-text border-border-color shadow-[2px_2px_0px_var(--shadow-color)]'
+						: 'hover:bg-muted opacity-80 hover:opacity-100'
+				}`}
+			>
+				All
+			</button>
+			{#each app.subjects.subjects as sub (sub.id)}
 				<button
 					type="button"
-					onclick={() => handleCategoryClick(category)}
+					onclick={() => handleSubjectClick(sub.id)}
 					class={`neo-badge cursor-pointer transition-all ${
-						app.filter.selectedCategory === category
+						app.filter.selectedCategory === sub.id || app.filter.selectedCategory === sub.name
 							? 'bg-accent-contrast text-accent-contrast-text border-border-color shadow-[2px_2px_0px_var(--shadow-color)]'
 							: 'hover:bg-muted opacity-80 hover:opacity-100'
 					}`}
 				>
-					{category}
+					{sub.name}
 				</button>
 			{/each}
 		</div>
 
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2 sm:gap-3">
 			{#if app.filter.searchQuery || app.filter.selectedCategory !== 'All'}
 				<button
 					type="button"
 					onclick={() => app.filter.reset()}
 					class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
 				>
-					Reset Filters
+					Reset
 				</button>
 			{/if}
 			<span class="font-mono text-xs font-bold text-text-secondary">
-				Showing {app.filteredTests.length} of {app.tests.totalTests}
+				{app.filteredTests.length}/{app.tests.totalTests}
 			</span>
+			<button
+				type="button"
+				onclick={() => app.modals.openSubjects()}
+				class="neo-btn text-xs py-1 px-2.5 font-bold flex items-center gap-1.5 hover:bg-muted"
+				title="Configure Subjects"
+			>
+				<span>⚙️</span>
+				<span>Manage</span>
+			</button>
 		</div>
 	</div>
 </div>

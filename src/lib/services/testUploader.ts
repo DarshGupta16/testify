@@ -4,6 +4,7 @@
 
 import { aiService, formatAiProviderError } from '$lib/services/ai';
 import { extractPdfPagesAndImages, type PdfExtractionResult } from '$lib/services/pdf';
+import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
 import type { QuestionPreview, TestItem, TestUploadPayload } from '$lib/types/test';
 
 export type UploadProgressCallback = (progress: number, statusText: string) => void;
@@ -100,7 +101,6 @@ export async function processTestUpload(
 			answerKeyExtractionResult,
 			metadata: {
 				titleHint: payload.title,
-				subjectHint: payload.subject,
 				questionCountHint: payload.questionCount,
 				autoTitle: payload.autoTitle,
 				autoDuration: payload.autoDuration,
@@ -149,9 +149,10 @@ export async function processTestUpload(
 	onProgress?.(100, 'Assessment Ready!');
 
 	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+	const chosenSubjectId = payload.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
 
 	const tags = [
-		payload.subject || 'General',
+		chosenSubjectId,
 		finalDuration ? `${finalDuration}m` : 'Untimed',
 		`${count} Qs`,
 		`${extractionResult.totalPages} ${extractionResult.totalPages === 1 ? 'Page' : 'Pages'}`,
@@ -167,7 +168,7 @@ export async function processTestUpload(
 		description:
 			payload.description ||
 			`Generated from ${docName} (${extractionResult.totalPages} pages, ${allDiagrams.length} extracted figures).`,
-		subject: payload.subject || 'General',
+		subjectId: chosenSubjectId,
 		durationMinutes: finalDuration,
 		questionCount: count,
 		totalMarks: finalTotalMarks,

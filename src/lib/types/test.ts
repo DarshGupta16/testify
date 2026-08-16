@@ -80,7 +80,7 @@ export interface TestItem {
 	id: string;
 	title: string;
 	description?: string;
-	subject: string;
+	subjectId: string;
 	durationMinutes: number | null; // null or 0 indicates untimed
 	questionCount: number;
 	totalMarks: number;
@@ -105,7 +105,7 @@ export interface TestItem {
 export interface TestUploadPayload {
 	title?: string;
 	autoTitle?: boolean;
-	subject: string;
+	subjectId?: string;
 	durationMinutes?: number | null;
 	autoDuration?: boolean;
 	isUntimed?: boolean;
@@ -129,13 +129,7 @@ export interface TestUploadPayload {
 	} | null;
 }
 
-export type CategoryFilter =
-	| 'All'
-	| 'STEM'
-	| 'Computer Science'
-	| 'Humanities'
-	| 'Languages'
-	| 'General';
+export type CategoryFilter = string;
 
 export type SortOption =
 	| 'newest'

@@ -45,7 +45,6 @@ Your objective is to accurately read and analyze the provided test paper documen
 
 6. ASSESSMENT METADATA:
    - Detect or extract the exam title from the document headers (e.g., "Physics Midterm Exam 2026").
-   - Suggest the academic subject (e.g., "STEM", "Computer Science", "Humanities", "Languages", "General").
    - If requested to estimate duration, calculate a realistic examination time in minutes (e.g. 45, 60, 90, 120, 180) based on the number and difficulty of questions.
 
 7. OUTPUT FORMAT:
@@ -55,7 +54,6 @@ Your objective is to accurately read and analyze the provided test paper documen
 ### JSON OUTPUT SCHEMA:
 {
   "title": "Detected or Inferred Exam Title",
-  "subject": "STEM | Computer Science | Humanities | Languages | General",
   "instructions": "General exam instructions found in the header, or brief summary",
   "totalMarks": 100,
   "estimatedDurationMinutes": 60,
@@ -127,10 +125,6 @@ export function buildUserPrompt(
 		sections.push(`- Assessment Title: Use "${metadata.titleHint}".`);
 	} else {
 		sections.push('- Assessment Title: Auto-detect the exact title from the document header.');
-	}
-
-	if (metadata?.subjectHint) {
-		sections.push(`- Subject: Prioritize categorization as "${metadata.subjectHint}".`);
 	}
 
 	if (metadata?.isUntimed) {

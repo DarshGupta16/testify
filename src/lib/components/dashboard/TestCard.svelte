@@ -28,7 +28,7 @@ function handleDelete() {
 		<!-- Badges Row -->
 		<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 			<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
-				{test.subject}
+				{app.subjects.getName(test.subjectId) || '?'}
 			</span>
 
 			<div class="flex flex-wrap items-center gap-1.5">

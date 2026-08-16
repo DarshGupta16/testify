@@ -63,7 +63,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<div>
 					<div class="flex flex-wrap items-center gap-2 mb-1.5">
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
-							{test.subject}
+							{app.subjects.getName(test.subjectId) || '?'}
 						</span>
 						{#if allDiagrams.length > 0}
 							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">

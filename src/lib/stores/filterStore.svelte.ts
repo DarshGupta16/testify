@@ -13,6 +13,10 @@ export class FilterStore {
 		this.selectedCategory = category;
 	}
 
+	setSubject(subjectId: string) {
+		this.selectedCategory = subjectId;
+	}
+
 	setSort(sort: SortOption) {
 		this.sortBy = sort;
 	}
@@ -24,31 +28,39 @@ export class FilterStore {
 	}
 
 	/**
-	 * Pure function to apply current search, category, and sort criteria on a list of tests.
+	 * Pure function to apply current search, subject/category, and sort criteria on a list of tests.
 	 */
-	apply(tests: TestItem[]): TestItem[] {
+	apply(tests: TestItem[], getSubjectName?: (id: string) => string): TestItem[] {
 		let list = [...tests];
 
-		// Category filtering
+		// Category / Subject filtering
 		if (this.selectedCategory !== 'All') {
-			const targetCat = this.selectedCategory.toLowerCase();
-			list = list.filter(
-				(t) =>
-					t.subject.toLowerCase() === targetCat ||
-					t.tags.some((tag) => tag.toLowerCase() === targetCat)
-			);
+			const target = this.selectedCategory.toLowerCase();
+			list = list.filter((t) => {
+				const subjectId = (t.subjectId || '').toLowerCase();
+				const subjectName = getSubjectName ? getSubjectName(t.subjectId).toLowerCase() : '';
+
+				return (
+					subjectId === target ||
+					subjectName === target ||
+					t.tags.some((tag) => tag.toLowerCase() === target)
+				);
+			});
 		}
 
 		// Search query filtering
 		const query = this.searchQuery.trim().toLowerCase();
 		if (query) {
-			list = list.filter(
-				(t) =>
+			list = list.filter((t) => {
+				const subjectName = getSubjectName ? getSubjectName(t.subjectId).toLowerCase() : '';
+				return (
 					t.title.toLowerCase().includes(query) ||
-					t.subject.toLowerCase().includes(query) ||
+					(t.subjectId || '').toLowerCase().includes(query) ||
+					subjectName.includes(query) ||
 					t.testFileName.toLowerCase().includes(query) ||
-					t.tags.some((tag) => tag.toLowerCase().includes(query))
-			);
+					t.tags.some((tag) => tag.toLowerCase() === query || tag.toLowerCase().includes(query))
+				);
+			});
 		}
 
 		// Sorting

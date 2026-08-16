@@ -2,12 +2,14 @@ import { getContext, setContext } from 'svelte';
 import { db, fireAndForget } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
+import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
 import { ModalStore } from './modalStore.svelte';
 import { SecurityStore } from './securityStore.svelte';
+import { SubjectStore } from './subjectStore.svelte';
 import { TestStore } from './testStore.svelte';
 import { ThemeStore } from './themeStore.svelte';
 import { ToastStore } from './toastStore.svelte';
@@ -16,6 +18,7 @@ const APP_CONTEXT_KEY = Symbol('TESTIFY_APP_CONTEXT');
 
 export class AppStore {
 	// Specialized Domain Sub-Stores
+	readonly subjects = new SubjectStore();
 	readonly tests = new TestStore();
 	readonly attempts = new AttemptStore();
 	readonly filter = new FilterStore();
@@ -30,12 +33,13 @@ export class AppStore {
 
 	// Composed Derived Reactive Queries
 	readonly filteredTests = $derived.by(() => {
-		return this.filter.apply(this.tests.tests);
+		return this.filter.apply(this.tests.tests, (id) => this.subjects.getName(id));
 	});
 
 	async init() {
-		// 1. Initialize persistent UI preferences, attempts, & local exam collections
+		// 1. Initialize persistent UI preferences, subjects, attempts, & local exam collections
 		await this.theme.init();
+		await this.subjects.init();
 		await this.tests.init();
 		await this.attempts.init();
 
@@ -150,6 +154,41 @@ export class AppStore {
 		if (deleted) {
 			this.toast.show(`Test "${deleted.title}" deleted.`, 'info');
 		}
+	}
+
+	handleDeleteSubject(id: string) {
+		const targetSubject = this.subjects.get(id);
+		if (!targetSubject) return;
+
+		const fallbackId =
+			this.subjects.subjects.find((s) => s.id !== id)?.id || DEFAULT_SUBJECT_IDS.GENERAL;
+		const affectedTests = this.tests.tests.filter((t) => t.subjectId === id);
+
+		// Reassign affected tests in memory
+		if (affectedTests.length > 0) {
+			this.tests.tests = this.tests.tests.map((t) =>
+				t.subjectId === id ? { ...t, subjectId: fallbackId } : t
+			);
+
+			// Persist updated tests to Dexie
+			for (const t of affectedTests) {
+				fireAndForget(
+					db.saveTest({ ...t, subjectId: fallbackId }),
+					`Reassigning test "${t.title}" to subject "${fallbackId}"`
+				);
+			}
+		}
+
+		// Reset filter if currently filtering on this deleted subject
+		if (
+			this.filter.selectedCategory === id ||
+			this.filter.selectedCategory === targetSubject.name
+		) {
+			this.filter.setCategory('All');
+		}
+
+		this.subjects.deleteSubject(id);
+		this.toast.show(`Subject "${targetSubject.name}" deleted.`, 'info');
 	}
 
 	handleClearAllTests() {

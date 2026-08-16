@@ -1,5 +1,6 @@
 import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
+import type { SubjectItem } from '$lib/types/subject';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 
 export interface AppSettingRecord {
@@ -13,12 +14,14 @@ export interface AppSettingRecord {
  *
  * Provides typed schemas and local persistence for:
  * 1. Test Items (`tests`)
- * 2. Application Preferences & State (`settings`)
- * 3. AI Provider Credentials (`apiKeys`)
- * 4. User Exam Session Attempts (`attempts`)
+ * 2. Academic Subjects (`subjects`)
+ * 3. Application Preferences & State (`settings`)
+ * 4. AI Provider Credentials (`apiKeys`)
+ * 5. User Exam Session Attempts (`attempts`)
  */
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
+	subjects!: EntityTable<SubjectItem, 'id'>;
 	settings!: EntityTable<AppSettingRecord, 'key'>;
 	apiKeys!: EntityTable<StoredApiKeyRecord, 'provider'>;
 	attempts!: EntityTable<TestAttempt, 'id'>;
@@ -26,13 +29,40 @@ export class TestifyDatabase extends Dexie {
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
 
-		// Schema definitions (Version 1)
 		this.version(1).stores({
-			tests: 'id, title, subject, createdAt, status',
+			tests: 'id, title, subjectId, createdAt, status',
+			subjects: 'id, name, createdAt',
 			settings: 'key, updatedAt',
 			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
 			attempts: 'id, testId, status, startedAt, completedAt, score',
 		});
+	}
+
+	// --- Subjects CRUD Operations ---
+
+	async getAllSubjects(): Promise<SubjectItem[]> {
+		try {
+			return await this.subjects.toArray();
+		} catch (err) {
+			console.error('[DB] Failed to get all subjects:', err);
+			return [];
+		}
+	}
+
+	async saveSubject(subject: SubjectItem): Promise<void> {
+		await this.subjects.put(subject);
+	}
+
+	async bulkSaveSubjects(subjectsList: SubjectItem[]): Promise<void> {
+		await this.subjects.bulkPut(subjectsList);
+	}
+
+	async deleteSubject(id: string): Promise<void> {
+		await this.subjects.delete(id);
+	}
+
+	async clearAllSubjects(): Promise<void> {
+		await this.subjects.clear();
 	}
 
 	// --- Tests CRUD Operations ---
