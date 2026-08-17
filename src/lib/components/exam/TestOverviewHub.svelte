@@ -17,6 +17,7 @@ const {
 	stats = null,
 	onstartpractice,
 	onstartexam,
+	onopenedit,
 	onviewattempt,
 	ondeleteattempt,
 	ondeletetest,
@@ -26,6 +27,7 @@ const {
 	stats: TestAttemptStats | null;
 	onstartpractice: () => void;
 	onstartexam: () => void;
+	onopenedit: () => void;
 	onviewattempt: (attempt: TestAttempt) => void;
 	ondeleteattempt: (id: string) => void;
 	ondeletetest: () => void;
@@ -92,6 +94,15 @@ const filteredAttempts = $derived(
 					class="neo-btn neo-btn-primary text-xs py-2.5 px-5"
 				>
 					🎯 Exam Simulation
+				</button>
+
+				<button
+					type="button"
+					onclick={onopenedit}
+					class="neo-btn text-xs py-2.5 px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold"
+					title="Edit Assessment & Questions"
+				>
+					✏️ Edit Test
 				</button>
 
 				{#if isConfirmingDelete}

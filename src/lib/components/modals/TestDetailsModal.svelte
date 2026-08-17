@@ -27,6 +27,14 @@ function handleStartExam() {
 	}
 }
 
+function handleEdit() {
+	if (app.modals.selectedTest) {
+		const testId = app.modals.selectedTest.id;
+		app.modals.closeDetails();
+		goto(`/test/${testId}?edit=true`);
+	}
+}
+
 function handleKeyDown(e: KeyboardEvent) {
 	if (e.key === 'Escape' && !zoomedImage) {
 		app.modals.closeDetails();
@@ -160,13 +168,22 @@ function handleKeyDown(e: KeyboardEvent) {
 
 			<!-- Footer Action Buttons -->
 			<div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t-2 border-border-color">
-				<a
-					href={`/test/${test.id}`}
-					onclick={() => app.modals.closeDetails()}
-					class="neo-btn text-xs py-2.5 px-4 font-bold"
-				>
-					Open Full Page Hub &rarr;
-				</a>
+				<div class="flex flex-wrap items-center gap-2">
+					<a
+						href={`/test/${test.id}`}
+						onclick={() => app.modals.closeDetails()}
+						class="neo-btn text-xs py-2.5 px-4 font-bold"
+					>
+						Open Full Page Hub &rarr;
+					</a>
+					<button
+						type="button"
+						onclick={handleEdit}
+						class="neo-btn text-xs py-2.5 px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold"
+					>
+						✏️ Edit Test
+					</button>
+				</div>
 
 				<div class="flex flex-wrap items-center gap-2">
 					<button

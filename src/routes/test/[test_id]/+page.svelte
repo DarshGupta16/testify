@@ -13,6 +13,9 @@ const app = getAppContext();
 // URL params
 const testId = $derived(page.params.test_id);
 const shouldStartImmediately = $derived(page.url.searchParams.get('start') === 'true');
+const shouldEditImmediately = $derived(
+	page.url.searchParams.get('edit') === 'true' || page.url.searchParams.get('edit') === '1'
+);
 const initialModeParam = $derived(page.url.searchParams.get('mode') as TestMode | null);
 
 // Resolved Test Item & Attempts
@@ -26,12 +29,28 @@ const testStats = $derived(
 let isExamActive = $state<boolean>(false);
 let activeTestMode = $state<TestMode>('exam');
 let reviewingAttempt = $state<TestAttempt | null>(null);
+let hasHandledInitialEdit = $state(false);
 
 onMount(() => {
 	if (shouldStartImmediately && test && (test.questions?.length || 0) > 0) {
 		activeTestMode = initialModeParam === 'practice' ? 'practice' : 'exam';
 		isExamActive = true;
 		reviewingAttempt = null;
+	}
+});
+
+$effect(() => {
+	if (
+		shouldEditImmediately &&
+		test &&
+		!hasHandledInitialEdit &&
+		!isExamActive &&
+		!reviewingAttempt
+	) {
+		hasHandledInitialEdit = true;
+		app.modals.openEdit(test);
+		// Strip ?edit=true query param so closing the modal will not reopen it
+		goto(`/test/${test.id}`, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 });
 
@@ -145,6 +164,7 @@ const pageTitle = $derived(
 			stats={testStats}
 			onstartpractice={handleStartPractice}
 			onstartexam={handleStartExam}
+			onopenedit={() => app.modals.openEdit(test)}
 			onviewattempt={(att) => (reviewingAttempt = att)}
 			ondeleteattempt={handleDeleteAttempt}
 			ondeletetest={handleDeleteTest}

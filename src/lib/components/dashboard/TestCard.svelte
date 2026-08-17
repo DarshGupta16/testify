@@ -1,4 +1,5 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 import { formatDate } from '$lib/utils';
@@ -6,12 +7,36 @@ import { formatDate } from '$lib/utils';
 const { test }: { test: TestItem } = $props();
 const app = getAppContext();
 
+let isSelectingMode = $state(false);
 let isConfirmingDelete = $state(false);
+let modeTimer: ReturnType<typeof setTimeout> | null = null;
 
-function handleLaunchExam() {
-	app.toast.show(`[SIMULATOR] Launching test session for "${test.title}"...`, 'info');
-	app.modals.openDetails(test);
+function handleStartClick() {
+	isSelectingMode = true;
+	if (modeTimer) clearTimeout(modeTimer);
+	modeTimer = setTimeout(() => {
+		isSelectingMode = false;
+		modeTimer = null;
+	}, 10000);
 }
+
+function handleSelectPractice() {
+	if (modeTimer) clearTimeout(modeTimer);
+	isSelectingMode = false;
+	goto(`/test/${test.id}?start=true&mode=practice`);
+}
+
+function handleSelectExam() {
+	if (modeTimer) clearTimeout(modeTimer);
+	isSelectingMode = false;
+	goto(`/test/${test.id}?start=true&mode=exam`);
+}
+
+$effect(() => {
+	return () => {
+		if (modeTimer) clearTimeout(modeTimer);
+	};
+});
 
 function handleDelete() {
 	if (!isConfirmingDelete) {
@@ -77,34 +102,56 @@ function handleDelete() {
 
 	<!-- Action Footer Buttons -->
 	<div class="pt-2 border-t border-border-color/20 flex flex-col gap-2">
-		<!-- Primary Start Test Button (Opens Structure Preview Modal) -->
-		<button
-			type="button"
-			onclick={() => app.modals.openDetails(test)}
-			class="neo-btn neo-btn-primary w-full text-xs py-2.5"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2.5"
-				stroke-linecap="square"
-				class="h-3.5 w-3.5"
+		<!-- Primary Start Test / Mode Selector Slot -->
+		{#if isSelectingMode}
+			<div class="grid grid-cols-2 gap-2 animate-slide-down">
+				<button
+					type="button"
+					onclick={handleSelectPractice}
+					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate"
+					title="Start in Practice Mode"
+				>
+					🌿 Practice
+				</button>
+				<button
+					type="button"
+					onclick={handleSelectExam}
+					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate"
+					title="Start Exam Simulation"
+				>
+					🎯 Exam Sim
+				</button>
+			</div>
+		{:else}
+			<button
+				type="button"
+				onclick={handleStartClick}
+				class="neo-btn neo-btn-primary w-full text-xs py-2.5"
 			>
-				<polygon points="5 3 19 12 5 21 5 3" />
-			</svg>
-			<span>Start Test</span>
-		</button>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="square"
+					class="h-3.5 w-3.5"
+				>
+					<polygon points="5 3 19 12 5 21 5 3" />
+				</svg>
+				<span>Start Test</span>
+			</button>
+		{/if}
 
 		<!-- Sub Actions: Details & Delete -->
 		<div class="flex items-center justify-between gap-2">
-			<a
-				href={`/test/${test.id}`}
+			<button
+				type="button"
+				onclick={() => app.modals.openDetails(test)}
 				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
 			>
 				View Details
-			</a>
+			</button>
 
 			{#if isConfirmingDelete}
 				<div class="flex items-center gap-1 flex-1">

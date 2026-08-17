@@ -19,6 +19,17 @@ export interface AppSettingRecord {
  * 4. AI Provider Credentials (`apiKeys`)
  * 5. User Exam Session Attempts (`attempts`)
  */
+/**
+ * Strips reactive proxies (e.g. Svelte 5 $state proxies) so that records
+ * can be safely serialized by browser IndexedDB Structured Clone algorithm.
+ */
+export function toCloneable<T>(data: T): T {
+	if (data === null || typeof data !== 'object') {
+		return data;
+	}
+	return JSON.parse(JSON.stringify(data));
+}
+
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
 	subjects!: EntityTable<SubjectItem, 'id'>;
@@ -50,11 +61,11 @@ export class TestifyDatabase extends Dexie {
 	}
 
 	async saveSubject(subject: SubjectItem): Promise<void> {
-		await this.subjects.put(subject);
+		await this.subjects.put(toCloneable(subject));
 	}
 
 	async bulkSaveSubjects(subjectsList: SubjectItem[]): Promise<void> {
-		await this.subjects.bulkPut(subjectsList);
+		await this.subjects.bulkPut(toCloneable(subjectsList));
 	}
 
 	async deleteSubject(id: string): Promise<void> {
@@ -77,7 +88,7 @@ export class TestifyDatabase extends Dexie {
 	}
 
 	async saveTest(test: TestItem): Promise<void> {
-		await this.tests.put(test);
+		await this.tests.put(toCloneable(test));
 	}
 
 	async deleteTest(id: string): Promise<void> {
@@ -120,7 +131,7 @@ export class TestifyDatabase extends Dexie {
 	}
 
 	async saveAttempt(attempt: TestAttempt): Promise<void> {
-		await this.attempts.put(attempt);
+		await this.attempts.put(toCloneable(attempt));
 	}
 
 	async deleteAttempt(id: string): Promise<void> {
@@ -152,11 +163,13 @@ export class TestifyDatabase extends Dexie {
 	}
 
 	async setSetting<T>(key: string, value: T): Promise<void> {
-		await this.settings.put({
-			key,
-			value,
-			updatedAt: new Date().toISOString(),
-		});
+		await this.settings.put(
+			toCloneable({
+				key,
+				value,
+				updatedAt: new Date().toISOString(),
+			})
+		);
 	}
 
 	// --- API Keys CRUD Operations ---
@@ -171,7 +184,7 @@ export class TestifyDatabase extends Dexie {
 	}
 
 	async saveApiKeyRecord(record: StoredApiKeyRecord): Promise<void> {
-		await this.apiKeys.put(record);
+		await this.apiKeys.put(toCloneable(record));
 	}
 
 	async deleteApiKeyRecord(provider: AIProvider): Promise<void> {

@@ -7,6 +7,7 @@ import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
 import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
 import SubjectsModal from '$lib/components/modals/SubjectsModal.svelte';
 import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
+import TestEditModal from '$lib/components/modals/TestEditModal.svelte';
 import UploadModal from '$lib/components/modals/UploadModal.svelte';
 import { AppStore, setAppContext } from '$lib/stores/appContext.svelte';
 import './layout.css';
@@ -41,6 +42,7 @@ onMount(() => {
 	<!-- Global Modals & Notifications -->
 	<UploadModal />
 	<TestDetailsModal />
+	<TestEditModal />
 	<ApiKeysModal />
 	<MasterPasswordModal />
 	<SubjectsModal />

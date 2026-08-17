@@ -145,6 +145,17 @@ export class AppStore {
 		}
 	}
 
+	handleUpdateTest(updatedTest: TestItem): void {
+		this.tests.updateTest(updatedTest);
+		if (this.modals.selectedTest?.id === updatedTest.id) {
+			this.modals.selectedTest = { ...updatedTest };
+		}
+		if (this.modals.editingTest?.id === updatedTest.id) {
+			this.modals.editingTest = { ...updatedTest };
+		}
+		this.toast.show(`Test "${updatedTest.title}" updated successfully!`, 'success');
+	}
+
 	handleDeleteTest(id: string) {
 		const deleted = this.tests.deleteTest(id);
 		this.attempts.deleteAttemptsForTest(id);

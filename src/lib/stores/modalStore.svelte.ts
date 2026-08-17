@@ -8,9 +8,24 @@ export class ModalStore {
 	isApiKeysModalOpen = $state<boolean>(false);
 	isMasterPasswordModalOpen = $state<boolean>(false);
 	isSubjectsModalOpen = $state<boolean>(false);
+	isEditModalOpen = $state<boolean>(false);
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
 	selectedTest = $state<TestItem | null>(null);
+	editingTest = $state<TestItem | null>(null);
+
+	openEdit(test: TestItem) {
+		// Deep clone to ensure edits are completely isolated until explicitly saved
+		this.editingTest = JSON.parse(JSON.stringify(test));
+		this.isEditModalOpen = true;
+	}
+
+	closeEdit(force = false) {
+		if (force || this.isEditModalOpen) {
+			this.isEditModalOpen = false;
+			this.editingTest = null;
+		}
+	}
 
 	openSubjects() {
 		this.isSubjectsModalOpen = true;

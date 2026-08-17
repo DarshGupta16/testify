@@ -73,6 +73,15 @@ export class TestStore {
 		return target;
 	}
 
+	updateTest(updated: TestItem): void {
+		const index = this.tests.findIndex((t) => t.id === updated.id);
+		if (index !== -1) {
+			this.tests[index] = updated;
+			this.tests = [...this.tests];
+			fireAndForget(this.database.saveTest(updated), `Updating Test "${updated.title}" in Dexie`);
+		}
+	}
+
 	clearAll() {
 		// 1. In-memory update synchronously
 		this.tests = [];
