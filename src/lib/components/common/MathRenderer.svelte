@@ -74,23 +74,6 @@ const renderedHtml = $derived.by(() => {
 		const mathPlaceholders: Map<string, string> = new Map();
 		let placeholderCount = 0;
 
-		// 0. Decode any raw unicode escape sequences (e.g. \u00c5, \u00C5, \u212B, \u00b0, etc.)
-		let processed = content.replace(/(?:\\+)?u([0-9a-fA-F]{4})/g, (_, hex) => {
-			try {
-				return String.fromCharCode(Number.parseInt(hex, 16));
-			} catch {
-				return _;
-			}
-		});
-
-		// 1. Convert literal raw '\n' sequences in prose to real newlines
-		processed = processed.replace(/\\n/g, '\n').replace(/\\r/g, '');
-
-		// 2. Auto-wrap isolated pure LaTeX formulas in options/cards if they lack delimiters
-		if (isPureMathExpression(processed)) {
-			processed = `$${processed.trim()}$`;
-		}
-
 		function storeMath(mathStr: string, isBlock = false): string {
 			const id = `%%MATH_${isBlock ? 'BLOCK' : 'INLINE'}_${placeholderCount++}%%`;
 			try {
@@ -103,28 +86,49 @@ const renderedHtml = $derived.by(() => {
 					id,
 					isBlock ? `<div class="my-2 overflow-x-auto">${html}</div>` : html
 				);
-			} catch {
+			} catch (err) {
+				console.error('[MathRenderer] KaTeX error:', err);
 				mathPlaceholders.set(id, isBlock ? `$$${mathStr}$$` : `$${mathStr}$`);
 			}
 			return id;
 		}
 
-		// 1. Extract block math $$...$$
+		// 0. Normalize real CR/LF control characters (NOT escaped \r or \n)
+		let processed = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+		// 1. Decode raw unicode escape sequences (e.g. \u00c5, \u212B, \u00b0)
+		processed = processed.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+			try {
+				return String.fromCharCode(Number.parseInt(hex, 16));
+			} catch {
+				return _;
+			}
+		});
+
+		// 2. Auto-wrap isolated pure LaTeX formulas lacking delimiters
+		if (isPureMathExpression(processed)) {
+			processed = `$${processed.trim()}$`;
+		}
+
+		// 3. Extract ALL Math Blocks FIRST so that LaTeX macros (\rightarrow, \right, \rho, \nu, \nabla, etc.)
+		// are completely isolated and immune to prose whitespace or markdown transformations.
+
+		// A. Block math $$...$$
 		processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => storeMath(math, true));
 
-		// 2. Extract block math \[...\]
+		// B. Block math \[...\]
 		processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => storeMath(math, true));
 
-		// 3. Extract inline math $...$
+		// C. Inline math $...$
 		processed = processed.replace(/(?<!\\)\$((?:\\\$|[^$])+?)\$/g, (_, math) =>
 			storeMath(math, false)
 		);
 
-		// 4. Extract inline math \(...\)
+		// D. Inline math \(...\)
 		processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => storeMath(math, false));
 
-		// 5. Catch unwrapped mathematical formulas outside delimiters:
-		// A. Formula terms with exponents like: 18(X_B - X_A)^{1.4} or (2)^{5/7}
+		// E. Catch unwrapped mathematical formulas outside delimiters:
+		// Formula terms with exponents like: 18(X_B - X_A)^{1.4} or (2)^{5/7}
 		processed = processed.replace(
 			/(?:\b|\()([A-Za-z0-9_()\-+\s]+?)\^\{([^}]+)\}/g,
 			(match, base, exp) => {
@@ -136,17 +140,20 @@ const renderedHtml = $derived.by(() => {
 			}
 		);
 
-		// B. Unwrapped variable subscripts like X_B, X_A, r_H, d_AB outside delimiters
+		// Unwrapped variable subscripts like X_B, X_A, r_H, d_AB outside delimiters
 		processed = processed.replace(/\b([A-Za-z])_([A-Za-z0-9]+)\b/g, (_, base, sub) => {
 			return storeMath(`${base}_${sub}`, false);
 		});
 
-		// 6. Parse Markdown with breaks enabled
+		// 4. In the remaining prose ONLY, convert literal '\n' escape strings to real newlines
+		processed = processed.replace(/\\n/g, '\n');
+
+		// 5. Parse Markdown with breaks enabled
 		let parsedHtml = inline
 			? (marked.parseInline(processed) as string)
 			: (marked.parse(processed) as string);
 
-		// 7. Restore Math HTML placeholders
+		// 6. Restore Math HTML placeholders
 		for (const [placeholder, mathHtml] of mathPlaceholders.entries()) {
 			parsedHtml = parsedHtml.split(placeholder).join(mathHtml);
 		}

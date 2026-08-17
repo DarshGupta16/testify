@@ -162,7 +162,9 @@ const userSelectedOptionIds = $derived<string[]>(
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="text-emerald-600 dark:text-emerald-400 uppercase font-bold">Correct Expected:</span>
-				<span class="font-bold text-emerald-700 dark:text-emerald-300 font-mono">{q.correctAnswer || '0.0'}</span>
+				<span class="font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+					<MathRenderer content={q.correctAnswer || '0.0'} inline={true} />
+				</span>
 			</div>
 		</div>
 	{/if}

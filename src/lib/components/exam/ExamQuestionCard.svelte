@@ -198,8 +198,9 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 						</div>
 					{:else if question.correctAnswer}
 						{@const matchingOpt = question.options?.find((o) => o.id === question.correctAnswer)}
-						<div class="font-bold text-emerald-600 dark:text-emerald-400">
-							Correct Answer: {matchingOpt ? matchingOpt.text : question.correctAnswer}
+						<div class="font-bold text-emerald-600 dark:text-emerald-400 flex items-center flex-wrap gap-1">
+							<span>Correct Answer:</span>
+							<MathRenderer content={matchingOpt ? matchingOpt.text : question.correctAnswer} inline={true} />
 						</div>
 					{/if}
 
