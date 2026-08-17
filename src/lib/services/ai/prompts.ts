@@ -63,14 +63,14 @@ Your objective is to accurately read and analyze the provided test paper documen
       "type": "single_choice",
       "text": "What is the derivative of $f(x) = \\\\sin(x^2)$?",
       "options": [
-        { "id": "opt_a9b1", "text": "$2x\\\\cos(x^2)$" },
-        { "id": "opt_c4d2", "text": "$\\\\cos(x^2)$" },
-        { "id": "opt_e7f3", "text": "$-2x\\\\cos(x^2)$" },
-        { "id": "opt_g2h4", "text": "$2\\\\cos(x)$" }
+        { "id": "opt_k7p1", "text": "$\\\\cos(x^2)$" },
+        { "id": "opt_w3n2", "text": "$-2x\\\\cos(x^2)$" },
+        { "id": "opt_r9v3", "text": "$2x\\\\cos(x^2)$" },
+        { "id": "opt_b5m4", "text": "$2\\\\cos(x)$" }
       ],
-      "correctAnswer": "opt_a9b1",
+      "correctAnswer": "opt_r9v3",
       "hint": "Apply the chain rule: $\\\\frac{d}{dx}f(g(x)) = f'(g(x)) \\\\cdot g'(x)$ with $g(x) = x^2$.",
-      "explanation": "Using chain rule: let $u = x^2$, so $\\\\frac{d}{dx}\\\\sin(u) = \\\\cos(u) \\\\cdot 2x = 2x\\\\cos(x^2)$. Thus, opt_a9b1 is correct.",
+      "explanation": "Using chain rule: let $u = x^2$, so $\\\\frac{d}{dx}\\\\sin(u) = \\\\cos(u) \\\\cdot 2x = 2x\\\\cos(x^2)$. Thus, opt_r9v3 is the correct option.",
       "marks": 4,
       "negativeMarks": 1,
       "associatedDiagramId": null,

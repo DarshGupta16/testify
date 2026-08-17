@@ -264,7 +264,7 @@ export function normalizeQuestions(
 			let type: 'single_choice' | 'multi_choice' | 'numerical' = 'single_choice';
 
 			const hasMultiAnswers =
-				Array.isArray(q.correctAnswers) ||
+				(Array.isArray(q.correctAnswers) && q.correctAnswers.length > 1) ||
 				(Array.isArray(q.correctAnswer) && q.correctAnswer.length > 1) ||
 				rawType.includes('multi');
 
@@ -273,6 +273,8 @@ export function normalizeQuestions(
 				(!q.options && q.correctAnswer && !Number.isNaN(Number(q.correctAnswer)))
 			) {
 				type = 'numerical';
+			} else if (rawType.includes('single')) {
+				type = 'single_choice';
 			} else if (hasMultiAnswers) {
 				type = 'multi_choice';
 			} else {
@@ -320,29 +322,74 @@ export function normalizeQuestions(
 					];
 				}
 
-				// Helper to resolve an answer token (ID, letter A/B/C/D, or text) to option ID
-				const resolveOptionId = (token: string): string | undefined => {
+				// Helper to resolve an answer token to option ID with safety-net fallbacks
+				const resolveOptionId = (token: unknown): string | undefined => {
+					if (token === null || token === undefined) return undefined;
 					const trimmed = String(token).trim();
-					if (!trimmed || !options) return undefined;
+					if (!trimmed || !options || options.length === 0) return undefined;
 
-					// 1. Direct ID match
-					const direct = options.find((o) => o.id === trimmed);
+					// 1. Direct ID match (case-insensitive)
+					const direct = options.find((o) => o.id.toLowerCase() === trimmed.toLowerCase());
 					if (direct) return direct.id;
 
-					// 2. Letter match (e.g. "A", "B", "C", "D", "(A)", "A)")
-					const letterMatch = trimmed.match(/^[([]?([A-Da-d])[)\]\s.:]?$/);
-					if (letterMatch) {
-						const idx = letterMatch[1].toUpperCase().charCodeAt(0) - 65;
-						if (idx >= 0 && idx < options.length) return options[idx].id;
+					// 2. Letter match safety net (e.g. "A", "B", "C", "D", "Option A", "Opt (B)", "(C)", "Choice D", "A.")
+					const letterMatch = trimmed.match(
+						/(?:(?:option|opt|choice|statement|item)\s*[:.-]?\s*)?[(['"]?([A-Za-z])[)\]'"]?(?:\s*[:.)-]|\s*$)/i
+					);
+					if (letterMatch?.[1]) {
+						const letter = letterMatch[1].toUpperCase();
+						const idx = letter.charCodeAt(0) - 65; // A -> 0, B -> 1, C -> 2, D -> 3...
+						if (idx >= 0 && idx < options.length) {
+							return options[idx].id;
+						}
 					}
 
-					// 3. Exact or fuzzy text match
-					const textMatch = options.find(
-						(o) =>
-							o.text.toLowerCase() === trimmed.toLowerCase() ||
-							o.text.toLowerCase().includes(trimmed.toLowerCase())
+					// 3. Numeric 1-based option index safety net (e.g. "1", "2", "3", "4", "Option 1", "(1)", "1.")
+					const numMatch = trimmed.match(
+						/(?:(?:option|opt|choice|statement|item)\s*[:.-]?\s*)?[(['"]?([1-9]\d*)[)\]'"]?(?:\s*[:.)-]|\s*$)/i
 					);
-					if (textMatch) return textMatch.id;
+					if (numMatch?.[1]) {
+						const numIdx = Number.parseInt(numMatch[1], 10) - 1;
+						if (numIdx >= 0 && numIdx < options.length) {
+							return options[numIdx].id;
+						}
+					}
+
+					// 4. Normalized text matching safety net (stripping LaTeX math $, \text{}, spaces)
+					const cleanToken = trimmed
+						.replace(/[$`]/g, '')
+						.replace(/\\text\{([^}]+)\}/g, '$1')
+						.replace(/\\left|\\right/g, '')
+						.replace(/\s+/g, '')
+						.toLowerCase();
+
+					if (cleanToken.length > 0) {
+						for (const o of options) {
+							const cleanOpt = o.text
+								.replace(/[$`]/g, '')
+								.replace(/\\text\{([^}]+)\}/g, '$1')
+								.replace(/\\left|\\right/g, '')
+								.replace(/\s+/g, '')
+								.toLowerCase();
+							if (cleanOpt === cleanToken) {
+								return o.id;
+							}
+						}
+
+						if (cleanToken.length >= 2) {
+							for (const o of options) {
+								const cleanOpt = o.text
+									.replace(/[$`]/g, '')
+									.replace(/\\text\{([^}]+)\}/g, '$1')
+									.replace(/\\left|\\right/g, '')
+									.replace(/\s+/g, '')
+									.toLowerCase();
+								if (cleanOpt.includes(cleanToken) || cleanToken.includes(cleanOpt)) {
+									return o.id;
+								}
+							}
+						}
+					}
 
 					return undefined;
 				};
@@ -352,13 +399,12 @@ export function normalizeQuestions(
 					const rawAnswerList: string[] = [];
 					if (Array.isArray(q.correctAnswers)) {
 						rawAnswerList.push(...q.correctAnswers.map(String));
-					} else if (Array.isArray(q.correctAnswer)) {
+					}
+					if (Array.isArray(q.correctAnswer)) {
 						rawAnswerList.push(...q.correctAnswer.map(String));
-					} else if (q.correctAnswer) {
-						// Comma or space separated letters/IDs (e.g. "A, B, D" or "opt_1 opt_2")
-						const tokens = String(q.correctAnswer)
-							.split(/[,\s]+/)
-							.filter(Boolean);
+					} else if (typeof q.correctAnswer === 'string' && q.correctAnswer.trim()) {
+						// Comma, semicolon, slash or space separated letters/IDs (e.g. "opt_1, opt_2")
+						const tokens = q.correctAnswer.split(/[,;\s/]+/).filter(Boolean);
 						rawAnswerList.push(...tokens);
 					}
 
@@ -379,12 +425,20 @@ export function normalizeQuestions(
 						correctAnswer = options[0].id;
 					}
 				} else {
-					// Single choice
-					if (q.correctAnswer) {
-						const singleAnswer = Array.isArray(q.correctAnswer)
-							? q.correctAnswer[0]
-							: q.correctAnswer;
-						correctAnswer = resolveOptionId(String(singleAnswer)) || options[0]?.id;
+					// Single choice: check correctAnswer first, or fallback to correctAnswers[0]
+					let candidate: unknown;
+					if (
+						q.correctAnswer !== undefined &&
+						q.correctAnswer !== null &&
+						String(q.correctAnswer).trim() !== ''
+					) {
+						candidate = Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer;
+					} else if (Array.isArray(q.correctAnswers) && q.correctAnswers.length > 0) {
+						candidate = q.correctAnswers[0];
+					}
+
+					if (candidate !== undefined && candidate !== null) {
+						correctAnswer = resolveOptionId(candidate) || options[0]?.id;
 					} else if (options && options.length > 0) {
 						correctAnswer = options[0].id;
 					}
