@@ -1,4 +1,5 @@
 <script lang="ts">
+import favicon from '$lib/assets/favicon.svg';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
@@ -13,21 +14,8 @@ const app = getAppContext();
 				class="group flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-border-color"
 				aria-label="Testify Home"
 			>
-				<div class="flex h-9 w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)] transition-transform group-hover:-translate-y-0.5">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="square"
-						stroke-linejoin="miter"
-						class="h-5 w-5"
-					>
-						<polygon points="12 2 2 7 12 12 22 7 12 2" />
-						<polyline points="2 17 12 22 22 17" />
-						<polyline points="2 12 12 17 22 12" />
-					</svg>
+				<div class="flex h-9 w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)] transition-transform group-hover:-translate-y-0.5 overflow-hidden">
+					<img src={favicon} alt="Testify Logo" class="h-full w-full object-cover" />
 				</div>
 				<span class="font-sans text-xl font-extrabold tracking-tight uppercase">
 					Testify
