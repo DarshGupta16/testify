@@ -107,7 +107,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Questions</span>
-					<span class="text-sm sm:text-base font-black text-text-primary">{test.questionCount} Items</span>
+					<span class="text-sm sm:text-base font-black text-text-primary">{test.questions?.length || 0} Items</span>
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Total Marks</span>

@@ -40,11 +40,7 @@ export class FilterStore {
 				const subjectId = (t.subjectId || '').toLowerCase();
 				const subjectName = getSubjectName ? getSubjectName(t.subjectId).toLowerCase() : '';
 
-				return (
-					subjectId === target ||
-					subjectName === target ||
-					t.tags.some((tag) => tag.toLowerCase() === target)
-				);
+				return subjectId === target || subjectName === target;
 			});
 		}
 
@@ -57,8 +53,7 @@ export class FilterStore {
 					t.title.toLowerCase().includes(query) ||
 					(t.subjectId || '').toLowerCase().includes(query) ||
 					subjectName.includes(query) ||
-					t.testFileName.toLowerCase().includes(query) ||
-					t.tags.some((tag) => tag.toLowerCase() === query || tag.toLowerCase().includes(query))
+					t.testFileName.toLowerCase().includes(query)
 				);
 			});
 		}
@@ -74,9 +69,9 @@ export class FilterStore {
 					(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
 				);
 			case 'questions-desc':
-				return list.sort((a, b) => b.questionCount - a.questionCount);
+				return list.sort((a, b) => (b.questions?.length || 0) - (a.questions?.length || 0));
 			case 'questions-asc':
-				return list.sort((a, b) => a.questionCount - b.questionCount);
+				return list.sort((a, b) => (a.questions?.length || 0) - (b.questions?.length || 0));
 			case 'duration-desc':
 				return list.sort((a, b) => (b.durationMinutes ?? 0) - (a.durationMinutes ?? 0));
 			case 'title-asc':

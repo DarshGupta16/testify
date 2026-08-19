@@ -151,7 +151,7 @@ const filteredAttempts = $derived(
 			</div>
 			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Items</span>
-				<span class="text-sm sm:text-lg font-black text-text-primary">{test.questionCount} Questions</span>
+				<span class="text-sm sm:text-lg font-black text-text-primary">{test.questions?.length || 0} Questions</span>
 			</div>
 			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Marks</span>

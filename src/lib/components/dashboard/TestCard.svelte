@@ -82,7 +82,7 @@ function handleDelete() {
 			</div>
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Questions</span>
-				<span class="font-bold text-text-primary text-[11px] sm:text-xs">{test.questionCount} Qs</span>
+				<span class="font-bold text-text-primary text-[11px] sm:text-xs">{test.questions?.length || 0} Qs</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Total Marks</span>

@@ -49,7 +49,7 @@ function handleSortChange(e: Event) {
 			</div>
 			<input
 				type="text"
-				placeholder="Search assessments by title, subject, filename, or tags..."
+				placeholder="Search assessments by title, subject, or filename..."
 				value={app.filter.searchQuery}
 				oninput={handleSearchInput}
 				class="neo-input w-full !pl-11 pr-8 text-xs sm:text-sm"

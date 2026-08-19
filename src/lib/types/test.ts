@@ -82,7 +82,6 @@ export interface TestItem {
 	description?: string;
 	subjectId: string;
 	durationMinutes: number | null; // null or 0 indicates untimed
-	questionCount: number;
 	totalMarks: number;
 	testFileName: string;
 	testFileSizeFormatted: string;
@@ -90,7 +89,6 @@ export interface TestItem {
 	answerKeyFileSizeFormatted?: string;
 	createdAt: string; // ISO date string
 	status: TestStatus;
-	tags: string[];
 	questions?: QuestionPreview[];
 	// Extracted PDF assets and metrics
 	extractedData?: PdfExtractionResult;

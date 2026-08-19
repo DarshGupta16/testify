@@ -138,7 +138,6 @@ export async function processTestUpload(
 	if (!finalTitle) {
 		finalTitle = docName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'Untitled Test';
 	}
-	const count = finalQuestions.length;
 	if (!finalTotalMarks || finalTotalMarks === 0) {
 		finalTotalMarks = finalQuestions.reduce((acc, q) => acc + (q.marks || 4), 0);
 	}
@@ -151,17 +150,6 @@ export async function processTestUpload(
 	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 	const chosenSubjectId = payload.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
 
-	const tags = [
-		chosenSubjectId,
-		finalDuration ? `${finalDuration}m` : 'Untimed',
-		`${count} Qs`,
-		`${extractionResult.totalPages} ${extractionResult.totalPages === 1 ? 'Page' : 'Pages'}`,
-	];
-
-	if (allDiagrams.length > 0) {
-		tags.push(`${allDiagrams.length} ${allDiagrams.length === 1 ? 'Figure' : 'Figures'}`);
-	}
-
 	return {
 		id: newId,
 		title: finalTitle,
@@ -170,7 +158,6 @@ export async function processTestUpload(
 			`Generated from ${docName} (${extractionResult.totalPages} pages, ${allDiagrams.length} extracted figures).`,
 		subjectId: chosenSubjectId,
 		durationMinutes: finalDuration,
-		questionCount: count,
 		totalMarks: finalTotalMarks,
 		testFileName: docName,
 		testFileSizeFormatted: payload.testFile?.formattedSize || '2.4 MB',
@@ -178,7 +165,6 @@ export async function processTestUpload(
 		answerKeyFileSizeFormatted: payload.answerKeyFile?.formattedSize,
 		createdAt: new Date().toISOString(),
 		status: 'ready',
-		tags,
 		questions: finalQuestions,
 		extractedData: extractionResult,
 		extractedPagesCount: extractionResult.totalPages,

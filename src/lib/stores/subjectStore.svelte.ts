@@ -26,7 +26,25 @@ export class SubjectStore {
 		try {
 			const saved = await this.database.getAllSubjects();
 			if (saved && saved.length > 0) {
-				this.subjects = saved;
+				let hasLegacyFields = false;
+				const cleaned = saved.map((s) => {
+					if ('color' in s) {
+						hasLegacyFields = true;
+						const copy = { ...s };
+						delete (copy as { color?: unknown }).color;
+						return copy;
+					}
+					return s;
+				});
+
+				this.subjects = cleaned;
+
+				if (hasLegacyFields) {
+					fireAndForget(
+						this.database.bulkSaveSubjects(cleaned),
+						'Sanitizing legacy subject color field in Dexie'
+					);
+				}
 			} else {
 				// Seed with default built-in subjects
 				this.subjects = [...DEFAULT_SUBJECTS];
@@ -71,7 +89,7 @@ export class SubjectStore {
 	/**
 	 * Adds a new subject to state with a random UUID v4 and persists to Dexie.
 	 */
-	addSubject(name: string, color?: string): SubjectItem {
+	addSubject(name: string): SubjectItem {
 		const trimmed = name.trim();
 		if (!trimmed) {
 			throw new Error('Subject name cannot be empty.');
@@ -86,7 +104,6 @@ export class SubjectStore {
 		const newSubject: SubjectItem = {
 			id: uuidv4(),
 			name: trimmed,
-			color,
 			createdAt: new Date().toISOString(),
 		};
 
@@ -105,7 +122,7 @@ export class SubjectStore {
 	/**
 	 * Updates / renames an existing subject.
 	 */
-	updateSubject(id: string, newName: string, color?: string): SubjectItem {
+	updateSubject(id: string, newName: string): SubjectItem {
 		const trimmed = newName.trim();
 		if (!trimmed) {
 			throw new Error('Subject name cannot be empty.');
@@ -128,7 +145,6 @@ export class SubjectStore {
 		const updated: SubjectItem = {
 			...target,
 			name: trimmed,
-			color: color !== undefined ? color : target.color,
 		};
 
 		// 1. In-memory update synchronously

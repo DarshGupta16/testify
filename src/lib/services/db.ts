@@ -47,6 +47,49 @@ export class TestifyDatabase extends Dexie {
 			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
 			attempts: 'id, testId, status, startedAt, completedAt, score',
 		});
+
+		// Version 2 Migration: Clean up legacy arbitrary tags, questionCount, and subject color
+		this.version(2).stores({
+			tests: 'id, title, subjectId, createdAt, status',
+			subjects: 'id, name, createdAt',
+			settings: 'key, updatedAt',
+			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+			attempts: 'id, testId, status, startedAt, completedAt, score',
+		});
+
+		// Version 3 Migration: Clean up legacy arbitrary tags, questionCount, and subject color using bulk overwrite
+		this.version(3)
+			.stores({
+				tests: 'id, title, subjectId, createdAt, status',
+				subjects: 'id, name, createdAt',
+				settings: 'key, updatedAt',
+				apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+				attempts: 'id, testId, status, startedAt, completedAt, score',
+			})
+			.upgrade(async (tx) => {
+				const testsTable = tx.table('tests');
+				const allTests = await testsTable.toArray();
+				if (allTests.length > 0) {
+					const cleaned = allTests.map((t: Record<string, unknown>) => {
+						const clone = { ...t };
+						delete clone.tags;
+						delete clone.questionCount;
+						return clone;
+					});
+					await testsTable.bulkPut(cleaned);
+				}
+
+				const subjectsTable = tx.table('subjects');
+				const allSubjects = await subjectsTable.toArray();
+				if (allSubjects.length > 0) {
+					const cleaned = allSubjects.map((s: Record<string, unknown>) => {
+						const clone = { ...s };
+						delete clone.color;
+						return clone;
+					});
+					await subjectsTable.bulkPut(cleaned);
+				}
+			});
 	}
 
 	// --- Subjects CRUD Operations ---
@@ -89,6 +132,10 @@ export class TestifyDatabase extends Dexie {
 
 	async saveTest(test: TestItem): Promise<void> {
 		await this.tests.put(toCloneable(test));
+	}
+
+	async bulkSaveTests(testsList: TestItem[]): Promise<void> {
+		await this.tests.bulkPut(toCloneable(testsList));
 	}
 
 	async deleteTest(id: string): Promise<void> {

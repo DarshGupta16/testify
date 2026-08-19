@@ -122,6 +122,8 @@ function handleSave() {
 	if (!app.modals.editingTest) return;
 
 	const plainEditingTest = JSON.parse(JSON.stringify(app.modals.editingTest));
+	delete plainEditingTest.tags;
+	delete plainEditingTest.questionCount;
 	const plainQuestions = JSON.parse(JSON.stringify(draftQuestions));
 
 	const updatedTestItem: TestItem = {
@@ -131,7 +133,6 @@ function handleSave() {
 		durationMinutes: draftDurationMinutes,
 		description: draftDescription.trim(),
 		questions: plainQuestions,
-		questionCount: plainQuestions.length,
 		totalMarks: computedTotalMarks,
 	};
 

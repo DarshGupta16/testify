@@ -14,7 +14,9 @@ export class TestStore {
 
 	// Derived metrics
 	totalTests = $derived(this.tests.length);
-	totalQuestions = $derived(this.tests.reduce((acc, curr) => acc + (curr.questionCount || 0), 0));
+	totalQuestions = $derived(
+		this.tests.reduce((acc, curr) => acc + (curr.questions?.length || 0), 0)
+	);
 	totalDurationMinutes = $derived(
 		this.tests.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0)
 	);
@@ -27,7 +29,26 @@ export class TestStore {
 		try {
 			const savedTests = await this.database.getAllTests();
 			if (savedTests && savedTests.length > 0) {
-				this.tests = savedTests;
+				let hasLegacyFields = false;
+				const cleaned = savedTests.map((t) => {
+					if ('tags' in t || 'questionCount' in t) {
+						hasLegacyFields = true;
+						const copy = { ...t };
+						delete (copy as { tags?: unknown }).tags;
+						delete (copy as { questionCount?: unknown }).questionCount;
+						return copy;
+					}
+					return t;
+				});
+
+				this.tests = cleaned;
+
+				if (hasLegacyFields) {
+					fireAndForget(
+						this.database.bulkSaveTests(cleaned),
+						'Sanitizing legacy test tags and questionCount in Dexie'
+					);
+				}
 			}
 		} catch (err) {
 			console.error('[TestStore] Error initializing from Dexie:', err);
