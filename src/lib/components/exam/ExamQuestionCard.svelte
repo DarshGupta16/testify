@@ -59,7 +59,7 @@ const selectedMultiList = $derived(
 const hasAnswer = $derived(hasResponseAnswer(response));
 </script>
 
-<div class="neo-box p-5 sm:p-7 bg-surface space-y-6 animate-fade-in">
+<div class="neo-box p-4 sm:p-7 bg-surface space-y-5 sm:space-y-6 animate-fade-in">
 	<!-- Question Header Bar -->
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border-color/20 pb-3">
 		<div class="flex items-center gap-2">
@@ -80,7 +80,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 		<div class="flex items-center gap-1.5">
 			{#if isMulti}
 				<span class="neo-badge bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-[10px] uppercase font-bold">
-					☑ Single Choice
+					☑ Multiple Choice
 				</span>
 			{:else if isSingle}
 				<span class="neo-badge bg-muted text-[10px] uppercase font-bold text-text-secondary">
@@ -294,13 +294,13 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 	</div>
 
 	<!-- Action Toolbar -->
-	<div class="flex flex-wrap items-center justify-between gap-3 pt-6 border-t-2 border-border-color/20">
-		<div class="flex items-center gap-2">
+	<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 pt-4 sm:pt-6 border-t-2 border-border-color/20">
+		<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 			<button
 				type="button"
 				onclick={onprevious}
 				disabled={questionIndex === 0}
-				class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider"
+				class="neo-btn text-xs py-2 px-3 sm:px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider text-center"
 			>
 				&larr; Previous
 			</button>
@@ -308,28 +308,28 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 				type="button"
 				onclick={onclearresponse}
 				disabled={!hasAnswer}
-				class="neo-btn text-xs py-2 px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider"
+				class="neo-btn text-xs py-2 px-3 sm:px-3.5 disabled:opacity-40 disabled:cursor-not-allowed uppercase font-bold tracking-wider text-center"
 			>
 				Clear
 			</button>
 		</div>
 
-		<div class="flex items-center gap-2">
+		<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 			<button
 				type="button"
 				onclick={onmarkandnext}
-				class={`neo-btn text-xs py-2 px-3.5 uppercase font-bold tracking-wider ${
+				class={`neo-btn text-xs py-2 px-2.5 sm:px-3.5 uppercase font-bold tracking-wider text-center truncate ${
 					response?.isMarkedForReview
 						? 'bg-purple-600 text-white border-purple-700'
 						: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/40'
 				}`}
 			>
-				{response?.isMarkedForReview ? '★ Marked for Review' : '☆ Mark & Next'}
+				{response?.isMarkedForReview ? '★ Marked' : '☆ Mark & Next'}
 			</button>
 			<button
 				type="button"
 				onclick={onnext}
-				class="neo-btn neo-btn-primary text-xs py-2 px-4 uppercase font-bold tracking-wider"
+				class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:px-4 uppercase font-bold tracking-wider text-center truncate"
 			>
 				<span>{questionIndex === totalQuestions - 1 ? 'Save & Review' : 'Save & Next →'}</span>
 			</button>

@@ -5,9 +5,9 @@ import { formatDuration } from '$lib/utils';
 const app = getAppContext();
 </script>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
 	<!-- Stat 1: Total Tests -->
-	<div class="neo-box p-4 sm:p-5 flex flex-col justify-between">
+	<div class="neo-box p-3.5 sm:p-5 flex flex-col justify-between">
 		<div class="flex items-center justify-between text-text-muted mb-2">
 			<span class="font-mono text-xs uppercase font-bold tracking-wider">Total Tests</span>
 			<div class="h-2.5 w-2.5 bg-accent-contrast"></div>
@@ -22,7 +22,7 @@ const app = getAppContext();
 	</div>
 
 	<!-- Stat 2: Total Questions -->
-	<div class="neo-box p-4 sm:p-5 flex flex-col justify-between">
+	<div class="neo-box p-3.5 sm:p-5 flex flex-col justify-between">
 		<div class="flex items-center justify-between text-text-muted mb-2">
 			<span class="font-mono text-xs uppercase font-bold tracking-wider">Total Questions</span>
 			<div class="h-2.5 w-2.5 bg-accent-contrast"></div>
@@ -37,7 +37,7 @@ const app = getAppContext();
 	</div>
 
 	<!-- Stat 3: Practice Time -->
-	<div class="neo-box p-4 sm:p-5 flex flex-col justify-between">
+	<div class="neo-box p-3.5 sm:p-5 flex flex-col justify-between">
 		<div class="flex items-center justify-between text-text-muted mb-2">
 			<span class="font-mono text-xs uppercase font-bold tracking-wider">Exam Duration</span>
 			<div class="h-2.5 w-2.5 bg-accent-contrast"></div>

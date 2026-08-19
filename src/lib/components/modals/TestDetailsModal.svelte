@@ -51,7 +51,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
 			if (e.target === e.currentTarget && !zoomedImage) {
 				app.modals.closeDetails();
@@ -61,15 +61,15 @@ function handleKeyDown(e: KeyboardEvent) {
 	>
 		<!-- Modal Content -->
 		<div
-			class="neo-box-lg w-full max-w-4xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[92vh] overflow-y-auto"
+			class="neo-box-lg w-full max-w-4xl bg-surface p-4 sm:p-7 animate-slide-down max-h-[94vh] flex flex-col overflow-hidden"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="details-modal-title"
 		>
 			<!-- Modal Header -->
-			<div class="flex items-start justify-between border-b-2 border-border-color pb-4 mb-5">
+			<div class="flex items-start justify-between border-b-2 border-border-color pb-3 sm:pb-4 mb-4 shrink-0">
 				<div>
-					<div class="flex flex-wrap items-center gap-2 mb-1.5">
+					<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 							{app.subjects.getName(test.subjectId) || '?'}
 						</span>
@@ -84,7 +84,7 @@ function handleKeyDown(e: KeyboardEvent) {
 							</span>
 						{/if}
 					</div>
-					<h2 id="details-modal-title" class="text-xl sm:text-2xl font-black uppercase tracking-tight text-text-primary">
+					<h2 id="details-modal-title" class="text-lg sm:text-2xl font-black uppercase tracking-tight text-text-primary break-words">
 						{test.title}
 					</h2>
 				</div>
@@ -92,7 +92,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<button
 					type="button"
 					onclick={() => app.modals.closeDetails()}
-					class="neo-btn text-xs py-1 px-2.5"
+					class="neo-btn text-xs py-1 px-2.5 ml-2 shrink-0"
 					aria-label="Close details"
 				>
 					✕
@@ -100,18 +100,18 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Specs Grid -->
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 border-2 border-border-color mb-6 font-mono text-xs">
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-3 sm:p-4 bg-muted/40 border-2 border-border-color mb-4 font-mono text-xs shrink-0">
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Total Duration</span>
-					<span class="text-base font-black text-text-primary">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
+					<span class="text-sm sm:text-base font-black text-text-primary">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Questions</span>
-					<span class="text-base font-black text-text-primary">{test.questionCount} Items</span>
+					<span class="text-sm sm:text-base font-black text-text-primary">{test.questionCount} Items</span>
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">Total Marks</span>
-					<span class="text-base font-black text-text-primary">{test.totalMarks} Points</span>
+					<span class="text-sm sm:text-base font-black text-text-primary">{test.totalMarks} Points</span>
 				</div>
 				<div>
 					<span class="text-[10px] text-text-muted uppercase block font-bold">PDF Source</span>
@@ -120,32 +120,32 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Tab Navigation -->
-			<div class="flex items-center gap-2 border-b-2 border-border-color mb-4 pb-2">
+			<div class="flex items-center gap-1.5 sm:gap-2 border-b-2 border-border-color mb-3 sm:mb-4 pb-2 overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">
 				<button
 					type="button"
 					onclick={() => (activeTab = 'questions')}
-					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
 				>
 					Questions ({test.questions?.length || 0})
 				</button>
 				<button
 					type="button"
 					onclick={() => (activeTab = 'diagrams')}
-					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 				>
 					Extracted Diagrams ({allDiagrams.length})
 				</button>
 				<button
 					type="button"
 					onclick={() => (activeTab = 'pages')}
-					class={`neo-btn text-xs py-1.5 px-3 font-mono font-bold ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 				>
 					Rendered Pages ({allPages.length})
 				</button>
 			</div>
 
 			<!-- Tab Contents -->
-			<div class="max-h-80 overflow-y-auto pr-1 mb-6">
+			<div class="flex-1 min-h-0 overflow-y-auto pr-1 mb-4">
 				{#if activeTab === 'questions'}
 					<QuestionsTab
 						questions={test.questions || []}
@@ -167,39 +167,39 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Footer Action Buttons -->
-			<div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t-2 border-border-color">
-				<div class="flex flex-wrap items-center gap-2">
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color shrink-0">
+				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 					<a
 						href={`/test/${test.id}`}
 						onclick={() => app.modals.closeDetails()}
-						class="neo-btn text-xs py-2.5 px-4 font-bold"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 font-bold text-center truncate"
 					>
-						Open Full Page Hub &rarr;
+						Open Full Hub &rarr;
 					</a>
 					<button
 						type="button"
 						onclick={handleEdit}
-						class="neo-btn text-xs py-2.5 px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
 					>
 						✏️ Edit Test
 					</button>
 				</div>
 
-				<div class="flex flex-wrap items-center gap-2">
+				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 					<button
 						type="button"
 						onclick={handleStartPractice}
-						class="neo-btn text-xs py-2.5 px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate"
 					>
-						🌿 Start Practice Mode
+						🌿 Practice
 					</button>
 
 					<button
 						type="button"
 						onclick={handleStartExam}
-						class="neo-btn neo-btn-primary text-xs py-2.5 px-5"
+						class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate"
 					>
-						🎯 Start Exam Simulation
+						🎯 Exam Sim
 					</button>
 				</div>
 			</div>

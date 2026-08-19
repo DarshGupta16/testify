@@ -140,12 +140,12 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 
 		<!-- Modal Dialog -->
 		<div
-			class="neo-box-lg relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col bg-surface border-2 border-border-color shadow-[6px_6px_0px_var(--shadow-color)] animate-slide-down overflow-hidden"
+			class="neo-box-lg relative z-10 flex max-h-[94vh] w-full max-w-2xl flex-col bg-surface border-2 border-border-color shadow-[6px_6px_0px_var(--shadow-color)] animate-slide-down overflow-hidden"
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between border-b-2 border-border-color bg-surface px-5 py-4 sm:px-6">
-				<div class="flex items-center gap-3">
-					<div class="flex h-9 w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)]">
+			<div class="flex items-center justify-between border-b-2 border-border-color bg-surface px-4 py-3.5 sm:px-6 sm:py-4">
+				<div class="flex items-center gap-2.5 sm:gap-3">
+					<div class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)] shrink-0">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							viewBox="0 0 24 24"
@@ -153,14 +153,14 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 							stroke="currentColor"
 							stroke-width="2.5"
 							stroke-linecap="square"
-							class="h-5 w-5"
+							class="h-4 w-4 sm:h-5 sm:w-5"
 						>
 							<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
 							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 						</svg>
 					</div>
 					<div>
-						<h2 id="api-keys-modal-title" class="font-sans text-lg font-extrabold uppercase tracking-tight">
+						<h2 id="api-keys-modal-title" class="font-sans text-base sm:text-lg font-extrabold uppercase tracking-tight">
 							AI Provider Credentials
 						</h2>
 						<p class="font-mono text-xs text-text-muted">
@@ -176,7 +176,7 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 					<button
 						type="button"
 						onclick={handleClose}
-						class="neo-btn p-2 text-text-muted hover:text-text-primary"
+						class="neo-btn p-1.5 sm:p-2 text-text-muted hover:text-text-primary"
 						aria-label="Close API Keys Modal"
 					>
 						<svg
@@ -196,11 +196,11 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 			</div>
 
 			<!-- Modal Body (Scrollable) -->
-			<div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+			<div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
 				<!-- Security Level Control Card -->
-				<section class="neo-box p-4 bg-muted/40 border-2 border-border-color space-y-3">
-					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-						<div class="flex items-center gap-2">
+				<section class="neo-box p-3.5 sm:p-4 bg-muted/40 border-2 border-border-color space-y-3">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+						<div class="flex flex-wrap items-center gap-2">
 							<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 								Security Tier:
 							</span>
@@ -210,7 +210,7 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 								<button
 									type="button"
 									onclick={() => requestModeSwitch('lax')}
-									class={`px-3 py-1 font-mono text-xs font-bold uppercase transition-colors ${
+									class={`px-2.5 sm:px-3 py-1 font-mono text-[11px] sm:text-xs font-bold uppercase transition-colors ${
 										app.security.securityMode === 'lax'
 											? 'bg-accent-contrast text-accent-contrast-text'
 											: 'text-text-muted hover:text-text-primary hover:bg-muted'
@@ -221,7 +221,7 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 								<button
 									type="button"
 									onclick={() => requestModeSwitch('strict')}
-									class={`px-3 py-1 font-mono text-xs font-bold uppercase transition-colors border-l-2 border-border-color ${
+									class={`px-2.5 sm:px-3 py-1 font-mono text-[11px] sm:text-xs font-bold uppercase transition-colors border-l-2 border-border-color ${
 										app.security.securityMode === 'strict'
 											? 'bg-accent-contrast text-accent-contrast-text'
 											: 'text-text-muted hover:text-text-primary hover:bg-muted'

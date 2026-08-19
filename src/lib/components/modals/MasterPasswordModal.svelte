@@ -69,7 +69,7 @@ async function handleConfirmReset() {
 
 {#if app.modals.isMasterPasswordModalOpen}
 	<div
-		class="fixed inset-0 z-60 flex items-center justify-center p-4 sm:p-6"
+		class="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="master-password-title"
@@ -84,7 +84,7 @@ async function handleConfirmReset() {
 
 		<!-- Dialog Box -->
 		<div
-			class="neo-box-lg relative z-10 w-full max-w-md bg-surface border-2 border-border-color shadow-[6px_6px_0px_var(--shadow-color)] animate-slide-down overflow-hidden p-5 sm:p-6 space-y-4"
+			class="neo-box-lg relative z-10 w-full max-w-md bg-surface border-2 border-border-color shadow-[6px_6px_0px_var(--shadow-color)] animate-slide-down overflow-hidden p-4 sm:p-6 space-y-4"
 		>
 			{#if app.modals.masterPasswordModalMode === 'set'}
 				<!-- Set Master Password Mode -->

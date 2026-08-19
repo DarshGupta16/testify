@@ -23,10 +23,10 @@ const userSelectedOptionIds = $derived<string[]>(
 );
 </script>
 
-<div class="neo-box p-5 sm:p-6 bg-surface space-y-4">
+<div class="neo-box p-4 sm:p-6 bg-surface space-y-4">
 	<!-- Question Review Header -->
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-color/30 pb-3">
-		<div class="flex items-center gap-2 font-mono text-xs">
+		<div class="flex flex-wrap items-center gap-2 font-mono text-xs">
 			<span class="font-bold text-text-primary uppercase">
 				Question #{item.originalIndex + 1}
 			</span>
@@ -108,7 +108,7 @@ const userSelectedOptionIds = $derived<string[]>(
 				{@const isUserSelected = userSelectedOptionIds.includes(opt.id)}
 
 				<div
-					class={`p-3 border-2 flex items-start justify-between gap-3 ${
+					class={`p-2.5 sm:p-3 border-2 flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3 ${
 						isCorrectOpt && isUserSelected
 							? 'bg-emerald-500/15 border-emerald-600 text-text-primary'
 							: isCorrectOpt
@@ -135,7 +135,7 @@ const userSelectedOptionIds = $derived<string[]>(
 						</div>
 					</div>
 
-					<div class="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase">
+					<div class="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase self-end sm:self-auto">
 						{#if isCorrectOpt && isUserSelected}
 							<span class="text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 border border-emerald-500/50">
 								✓ Correct Choice

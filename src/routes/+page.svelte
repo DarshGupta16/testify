@@ -12,15 +12,15 @@ const app = getAppContext();
 	<title>Testify — Assessment Dashboard</title>
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+<div class="mx-auto max-w-7xl px-3.5 py-4 sm:px-6 sm:py-8">
 	{#if app.tests.totalTests === 0}
 		<!-- Zero Tests: Show Centered Empty State with Direct Upload Form -->
 		<EmptyState />
 	{:else}
 		<!-- Active Dashboard with Tests -->
-		<div class="space-y-6 animate-fade-in">
+		<div class="space-y-4 sm:space-y-6 animate-fade-in">
 			<!-- Dashboard Title & Action Row -->
-			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border-color pb-5">
+			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
 				<div>
 					<div class="flex items-center gap-2 mb-1">
 						<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -37,7 +37,7 @@ const app = getAppContext();
 					<button
 						type="button"
 						onclick={() => app.modals.openUpload()}
-						class="neo-btn neo-btn-primary text-xs py-2 px-4"
+						class="neo-btn neo-btn-primary text-[11px] sm:text-xs py-1.5 px-3 sm:py-2 sm:px-4 font-bold inline-flex items-center gap-1.5"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +46,7 @@ const app = getAppContext();
 							stroke="currentColor"
 							stroke-width="2.5"
 							stroke-linecap="square"
-							class="h-3.5 w-3.5"
+							class="h-3 w-3 sm:h-3.5 sm:w-3.5"
 						>
 							<line x1="12" y1="5" x2="12" y2="19" />
 							<line x1="5" y1="12" x2="19" y2="12" />

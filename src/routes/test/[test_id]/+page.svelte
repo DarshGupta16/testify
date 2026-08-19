@@ -115,39 +115,41 @@ const pageTitle = $derived(
 	<title>{pageTitle}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-	{#if !test}
-		<!-- Assessment Not Found State -->
-		<div class="mx-auto max-w-4xl py-16 text-center animate-fade-in">
-			<div class="neo-box p-8 sm:p-12 bg-surface space-y-4">
-				<div class="mx-auto flex h-16 w-16 items-center justify-center border-2 border-border-color bg-muted">
-					<span class="text-2xl font-mono">⚠️</span>
+{#if !test}
+	<!-- Assessment Not Found State -->
+	<div class="mx-auto max-w-7xl px-3.5 py-8 sm:px-6">
+		<div class="mx-auto max-w-4xl py-12 text-center animate-fade-in">
+			<div class="neo-box p-6 sm:p-12 bg-surface space-y-4">
+				<div class="mx-auto flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center border-2 border-border-color bg-muted">
+					<span class="text-xl sm:text-2xl font-mono">⚠️</span>
 				</div>
-				<h1 class="text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
+				<h1 class="text-xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
 					Assessment Not Found
 				</h1>
-				<p class="text-sm text-text-secondary max-w-md mx-auto">
+				<p class="text-xs sm:text-sm text-text-secondary max-w-md mx-auto">
 					The requested examination could not be loaded. It may have been deleted or the link is invalid.
 				</p>
-				<div class="pt-4">
-					<a href="/" class="neo-btn neo-btn-primary text-xs py-2 px-5 inline-flex items-center gap-2">
+				<div class="pt-2 sm:pt-4">
+					<a href="/" class="neo-btn neo-btn-primary text-xs py-2 px-5 inline-flex items-center gap-2 font-bold">
 						<span>&larr; Return to Dashboard</span>
 					</a>
 				</div>
 			</div>
 		</div>
+	</div>
 
-	{:else if isExamActive}
-		<!-- Active Examination or Practice Runner -->
-		<ExamSessionRunner
-			{test}
-			mode={activeTestMode}
-			onexamcomplete={handleExamComplete}
-			onexamexit={() => (isExamActive = false)}
-		/>
+{:else if isExamActive}
+	<!-- Active Examination or Practice Runner (Full-bleed for sticky header) -->
+	<ExamSessionRunner
+		{test}
+		mode={activeTestMode}
+		onexamcomplete={handleExamComplete}
+		onexamexit={() => (isExamActive = false)}
+	/>
 
-	{:else if reviewingAttempt}
-		<!-- Scorecard Review View -->
+{:else if reviewingAttempt}
+	<!-- Scorecard Review View -->
+	<div class="mx-auto max-w-7xl px-3.5 py-4 sm:py-6 sm:px-6">
 		<ExamScorecardReview
 			{test}
 			attempt={reviewingAttempt}
@@ -155,9 +157,11 @@ const pageTitle = $derived(
 			onretakepractice={handleStartPractice}
 			onretakeexam={handleStartExam}
 		/>
+	</div>
 
-	{:else}
-		<!-- Test Overview Hub & Past Attempts Tab View -->
+{:else}
+	<!-- Test Overview Hub & Past Attempts Tab View -->
+	<div class="mx-auto max-w-7xl px-3.5 py-4 sm:py-6 sm:px-6">
 		<TestOverviewHub
 			{test}
 			attempts={testAttempts}
@@ -169,5 +173,5 @@ const pageTitle = $derived(
 			ondeleteattempt={handleDeleteAttempt}
 			ondeletetest={handleDeleteTest}
 		/>
-	{/if}
-</div>
+	</div>
+{/if}

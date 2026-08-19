@@ -360,27 +360,27 @@ async function handleSubmit(e: SubmitEvent) {
 	{/if}
 
 	<!-- Form Action Buttons -->
-	<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-border-color/20 mt-2">
+	<div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color/20 mt-2">
 		{#if isModal}
-			<div class="flex items-center justify-end gap-2.5 w-full">
+			<div class="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-2.5 w-full">
 				<button
 					type="button"
 					onclick={oncancel}
 					disabled={app.tests.isUploading}
-					class="neo-btn text-xs h-9 px-4 disabled:opacity-40"
+					class="neo-btn text-xs h-9 px-3 sm:px-4 disabled:opacity-40 text-center truncate"
 				>
 					Cancel
 				</button>
 				<button
 					type="submit"
 					disabled={app.tests.isUploading}
-					class="neo-btn neo-btn-primary text-xs h-9 px-5 disabled:opacity-50 inline-flex items-center gap-1.5 font-bold"
+					class="neo-btn neo-btn-primary text-xs h-9 px-3 sm:px-5 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-bold text-center truncate"
 				>
 					{#if app.tests.isUploading}
 						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
-						<span>Ingesting PDF...</span>
+						<span>Ingesting...</span>
 					{:else}
-						<span>Ingest & Create Test &rarr;</span>
+						<span>Ingest & Create &rarr;</span>
 					{/if}
 				</button>
 			</div>

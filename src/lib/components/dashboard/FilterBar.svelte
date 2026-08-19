@@ -28,9 +28,9 @@ function handleSortChange(e: Event) {
 }
 </script>
 
-<div class="neo-box p-4 sm:p-5 mb-8 space-y-4">
+<div class="neo-box p-3.5 sm:p-5 mb-6 sm:mb-8 space-y-3.5 sm:space-y-4">
 	<!-- Top Row: Search + Sort + Clear -->
-	<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+	<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
 		<!-- Search Input -->
 		<div class="relative flex-1">
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-text-muted">
@@ -52,7 +52,7 @@ function handleSortChange(e: Event) {
 				placeholder="Search assessments by title, subject, filename, or tags..."
 				value={app.filter.searchQuery}
 				oninput={handleSearchInput}
-				class="neo-input w-full !pl-11 pr-8 text-sm"
+				class="neo-input w-full !pl-11 pr-8 text-xs sm:text-sm"
 			/>
 			{#if app.filter.searchQuery}
 				<button
@@ -67,7 +67,7 @@ function handleSortChange(e: Event) {
 		</div>
 
 		<!-- Sort Control -->
-		<div class="flex items-center gap-2 shrink-0">
+		<div class="flex items-center justify-between sm:justify-start gap-2 shrink-0">
 			<label for="sort-select" class="font-mono text-xs font-bold uppercase tracking-wider text-text-muted shrink-0">
 				Sort:
 			</label>
@@ -75,7 +75,7 @@ function handleSortChange(e: Event) {
 				id="sort-select"
 				value={app.filter.sortBy}
 				onchange={handleSortChange}
-				class="neo-input text-xs font-mono py-2 pr-8"
+				class="neo-input text-xs font-mono py-1.5 sm:py-2 pr-8 flex-1 sm:flex-initial"
 			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>
@@ -85,7 +85,7 @@ function handleSortChange(e: Event) {
 	</div>
 
 	<!-- Bottom Row: Subject Pills & Manage Button -->
-	<div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border-color/20">
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-2 border-t border-border-color/20">
 		<div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
 			<span class="font-mono text-[11px] font-bold uppercase tracking-wider text-text-muted mr-1">
 				Subject:
@@ -116,19 +116,21 @@ function handleSortChange(e: Event) {
 			{/each}
 		</div>
 
-		<div class="flex items-center gap-2 sm:gap-3">
-			{#if app.filter.searchQuery || app.filter.selectedCategory !== 'All'}
-				<button
-					type="button"
-					onclick={() => app.filter.reset()}
-					class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
-				>
-					Reset
-				</button>
-			{/if}
-			<span class="font-mono text-xs font-bold text-text-secondary">
-				{app.filteredTests.length}/{app.tests.totalTests}
-			</span>
+		<div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto pt-1 sm:pt-0">
+			<div class="flex items-center gap-2 sm:gap-2.5">
+				{#if app.filter.searchQuery || app.filter.selectedCategory !== 'All'}
+					<button
+						type="button"
+						onclick={() => app.filter.reset()}
+						class="font-mono text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
+					>
+						Reset
+					</button>
+				{/if}
+				<span class="font-mono text-xs font-bold text-text-secondary">
+					{app.filteredTests.length}/{app.tests.totalTests}
+				</span>
+			</div>
 			<button
 				type="button"
 				onclick={() => app.modals.openSubjects()}

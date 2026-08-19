@@ -43,7 +43,7 @@ const examMetrics = $derived.by(() => {
 });
 </script>
 
-<div class="neo-box p-5 bg-surface space-y-4">
+<div class="neo-box p-4 sm:p-5 bg-surface space-y-4">
 	<!-- At-A-Glance Status Filter Pills -->
 	<div class="space-y-2 border-b-2 border-border-color/20 pb-3">
 		<span class="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted block">
@@ -111,7 +111,7 @@ const examMetrics = $derived.by(() => {
 			<span>Showing {filteredIndices.length} of {questions.length}</span>
 		</div>
 
-		<div class="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+		<div class="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-5 gap-1.5 sm:gap-2 max-h-64 overflow-y-auto pr-1">
 			{#each questions as q, idx}
 				{@const isVisible = filteredIndices.includes(idx)}
 				{@const resp = userResponses[q.id]}
@@ -134,7 +134,7 @@ const examMetrics = $derived.by(() => {
 					<button
 						type="button"
 						onclick={() => onselectquestion(idx)}
-						class={`h-9 text-xs font-mono font-bold border-2 flex items-center justify-center transition-all cursor-pointer ${badgeColorClass} ${
+						class={`h-8 sm:h-9 text-xs font-mono font-bold border-2 flex items-center justify-center transition-all cursor-pointer ${badgeColorClass} ${
 							isCurrent ? 'ring-2 ring-accent-contrast ring-offset-2 scale-105 shadow-sm' : 'hover:scale-102'
 						}`}
 						title={`Question ${idx + 1} (${hasAnswer ? 'Attempted' : 'Unattempted'})`}
@@ -150,7 +150,7 @@ const examMetrics = $derived.by(() => {
 	<button
 		type="button"
 		onclick={onopensubmit}
-		class="neo-btn neo-btn-primary w-full text-xs py-2.5 mt-2"
+		class="neo-btn neo-btn-primary w-full text-xs py-2.5 mt-2 font-bold"
 	>
 		{mode === 'practice' ? 'Complete Practice Session' : 'Final Exam Submission'}
 	</button>

@@ -155,44 +155,44 @@ function resetFilters() {
 }
 </script>
 
-<div class="space-y-8 animate-fade-in pb-12">
+<div class="space-y-6 sm:space-y-8 animate-fade-in pb-12">
 	<!-- Scorecard Hero Card -->
-	<div class="neo-box-lg p-6 sm:p-8 bg-surface space-y-6">
-		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border-color pb-5">
+	<div class="neo-box-lg p-4 sm:p-8 bg-surface space-y-4 sm:space-y-6">
+		<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
 			<div>
 				<div class="flex items-center gap-2 mb-1.5 font-mono text-xs">
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 						{attempt.mode === 'practice' ? '🌿 Practice Review' : '🎯 Exam Scorecard'}
 					</span>
-					<span class="text-text-muted">
+					<span class="text-text-muted text-[11px]">
 						{formatDate(attempt.completedAt || attempt.startedAt)}
 					</span>
 				</div>
-				<h2 class="text-xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
+				<h2 class="text-lg sm:text-3xl font-black uppercase tracking-tight text-text-primary break-words">
 					{attempt.testTitle}
 				</h2>
 			</div>
 
 			<!-- Exit & Retake Actions -->
-			<div class="flex flex-wrap items-center gap-2">
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto mt-2 md:mt-0">
 				<button
 					type="button"
 					onclick={onexitreview}
-					class="neo-btn text-xs py-2 px-3.5"
+					class="neo-btn text-xs py-2 px-3 text-center truncate"
 				>
-					&larr; Return to Test Hub
+					&larr; Return to Hub
 				</button>
 				<button
 					type="button"
 					onclick={onretakepractice}
-					class="neo-btn text-xs py-2 px-3.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+					class="neo-btn text-xs py-2 px-3 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 text-center truncate"
 				>
 					Retake Practice
 				</button>
 				<button
 					type="button"
 					onclick={onretakeexam}
-					class="neo-btn neo-btn-primary text-xs py-2 px-4"
+					class="neo-btn neo-btn-primary text-xs py-2 px-3 text-center truncate font-bold"
 				>
 					Retake Exam
 				</button>
@@ -200,36 +200,36 @@ function resetFilters() {
 		</div>
 
 		<!-- High-Level Score Stats Grid -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono">
-			<div class="border-2 border-border-color bg-muted/40 p-4">
-				<span class="text-[11px] text-text-muted uppercase font-bold block">Final Score</span>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 font-mono">
+			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
+				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Final Score</span>
 				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-2xl sm:text-4xl font-black text-text-primary">{attempt.score}</span>
+					<span class="text-xl sm:text-4xl font-black text-text-primary">{attempt.score}</span>
 					<span class="text-xs text-text-muted">/ {attempt.maxPossibleScore}</span>
 				</div>
 			</div>
 
-			<div class="border-2 border-border-color bg-muted/40 p-4">
-				<span class="text-[11px] text-text-muted uppercase font-bold block">Percentage</span>
+			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
+				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Percentage</span>
 				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-2xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400">
+					<span class="text-xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400">
 						{attempt.maxPossibleScore > 0 ? Math.round((Math.max(0, attempt.score) / attempt.maxPossibleScore) * 100) : 0}%
 					</span>
 				</div>
 			</div>
 
-			<div class="border-2 border-border-color bg-muted/40 p-4">
-				<span class="text-[11px] text-text-muted uppercase font-bold block">Accuracy</span>
+			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
+				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Accuracy</span>
 				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-2xl sm:text-4xl font-black text-text-primary">{attempt.accuracyPercentage}%</span>
-					<span class="text-[11px] text-text-muted font-bold">({attempt.correctCount}/{attempt.answeredCount})</span>
+					<span class="text-xl sm:text-4xl font-black text-text-primary">{attempt.accuracyPercentage}%</span>
+					<span class="text-[10px] sm:text-[11px] text-text-muted font-bold">({attempt.correctCount}/{attempt.answeredCount})</span>
 				</div>
 			</div>
 
-			<div class="border-2 border-border-color bg-muted/40 p-4">
-				<span class="text-[11px] text-text-muted uppercase font-bold block">Time Taken</span>
+			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
+				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Time Taken</span>
 				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-xl sm:text-3xl font-black text-text-primary">
+					<span class="text-lg sm:text-3xl font-black text-text-primary">
 						{formatSecondsToText(attempt.durationSecondsTaken)}
 					</span>
 				</div>
@@ -288,9 +288,9 @@ function resetFilters() {
 	</div>
 
 	<!-- Review Filters & Sort Control Bar -->
-	<div class="neo-box p-4 sm:p-5 bg-surface space-y-4">
+	<div class="neo-box p-3.5 sm:p-5 bg-surface space-y-3.5 sm:space-y-4">
 		<!-- Search & Sort Row -->
-		<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+		<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
 			<div class="relative flex-1">
 				<input
 					type="text"
@@ -302,21 +302,21 @@ function resetFilters() {
 					<button
 						type="button"
 						onclick={() => (reviewSearchQuery = '')}
-						class="absolute inset-y-0 right-0 flex items-center pr-3 font-mono text-xs text-text-muted hover:text-text-primary"
+						class="absolute inset-y-0 right-0 flex items-center pr-3 font-mono text-xs font-bold text-text-muted hover:text-text-primary"
 					>
 						✕
 					</button>
 				{/if}
 			</div>
 
-			<div class="flex items-center gap-2 shrink-0">
-				<label for="review-sort" class="font-mono text-xs font-bold uppercase text-text-muted">
+			<div class="flex items-center justify-between sm:justify-start gap-2 shrink-0">
+				<label for="review-sort" class="font-mono text-xs font-bold uppercase text-text-muted shrink-0">
 					Sort:
 				</label>
 				<select
 					id="review-sort"
 					bind:value={reviewSortBy}
-					class="neo-input text-xs font-mono py-1.5 pr-8"
+					class="neo-input text-xs font-mono py-1.5 pr-8 flex-1 sm:flex-initial"
 				>
 					<option value="question_asc">Question Number (Ascending)</option>
 					<option value="question_desc">Question Number (Descending)</option>
@@ -329,7 +329,7 @@ function resetFilters() {
 		</div>
 
 		<!-- Filter Pills Row -->
-		<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border-color/20 font-mono text-xs">
+		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border-color/20 font-mono text-xs">
 			<div class="flex flex-wrap items-center gap-1.5">
 				<span class="font-bold text-text-muted text-[11px] uppercase mr-1">Status:</span>
 
@@ -381,7 +381,7 @@ function resetFilters() {
 				{/if}
 			</div>
 
-			<div class="flex items-center gap-2">
+			<div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
 				{#if hasActiveFilters}
 					<button
 						type="button"
@@ -392,7 +392,7 @@ function resetFilters() {
 					</button>
 				{/if}
 				<span class="font-bold text-text-secondary text-[11px]">
-					Showing {displayedQuestions.length} of {testQuestions.length} Questions
+					Showing {displayedQuestions.length} of {testQuestions.length}
 				</span>
 			</div>
 		</div>

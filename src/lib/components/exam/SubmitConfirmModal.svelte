@@ -32,14 +32,14 @@ function handleKeyDown(e: KeyboardEvent) {
 
 {#if isOpen}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) oncancel();
 		}}
 		role="presentation"
 	>
 		<div
-			class="neo-box-lg w-full max-w-lg bg-surface p-6 sm:p-7 space-y-5 animate-slide-down"
+			class="neo-box-lg w-full max-w-lg bg-surface p-4 sm:p-7 space-y-4 sm:space-y-5 animate-slide-down"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="submit-modal-title"
@@ -56,7 +56,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						</span>
 					{/if}
 				</div>
-				<h3 id="submit-modal-title" class="text-xl font-black uppercase tracking-tight text-text-primary">
+				<h3 id="submit-modal-title" class="text-lg sm:text-xl font-black uppercase tracking-tight text-text-primary">
 					{mode === 'practice' ? 'End Practice Session?' : 'Submit Examination?'}
 				</h3>
 				<p class="text-xs text-text-secondary mt-0.5">
@@ -65,48 +65,48 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Status Overview Grid -->
-			<div class="grid grid-cols-3 gap-3 bg-muted/40 p-4 border-2 border-border-color font-mono text-center text-xs">
-				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+			<div class="grid grid-cols-3 gap-2 sm:gap-3 bg-muted/40 p-3 sm:p-4 border-2 border-border-color font-mono text-center text-xs">
+				<div class="p-1.5 sm:p-2 bg-surface border border-border-color/40 flex flex-col">
 					<span class="text-[10px] text-text-muted uppercase font-bold">Attempted</span>
-					<span class="text-xl font-black text-emerald-600 dark:text-emerald-400 my-0.5">
+					<span class="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 my-0.5">
 						{answeredCount}
 					</span>
-					<span class="text-[10px] text-text-muted">Questions</span>
+					<span class="text-[9px] sm:text-[10px] text-text-muted">Questions</span>
 				</div>
-				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+				<div class="p-1.5 sm:p-2 bg-surface border border-border-color/40 flex flex-col">
 					<span class="text-[10px] text-text-muted uppercase font-bold">Unattempted</span>
-					<span class="text-xl font-black text-rose-500 my-0.5">
+					<span class="text-lg sm:text-xl font-black text-rose-500 my-0.5">
 						{unansweredCount}
 					</span>
-					<span class="text-[10px] text-text-muted">Remaining</span>
+					<span class="text-[9px] sm:text-[10px] text-text-muted">Remaining</span>
 				</div>
-				<div class="p-2 bg-surface border border-border-color/40 flex flex-col">
+				<div class="p-1.5 sm:p-2 bg-surface border border-border-color/40 flex flex-col">
 					<span class="text-[10px] text-text-muted uppercase font-bold">Marked</span>
-					<span class="text-xl font-black text-purple-600 dark:text-purple-400 my-0.5">
+					<span class="text-lg sm:text-xl font-black text-purple-600 dark:text-purple-400 my-0.5">
 						{markedCount}
 					</span>
-					<span class="text-[10px] text-text-muted">For Review</span>
+					<span class="text-[9px] sm:text-[10px] text-text-muted">For Review</span>
 				</div>
 			</div>
 
 			{#if unansweredCount > 0}
-				<div class="p-3 bg-amber-500/10 border-2 border-amber-500/50 text-xs font-mono text-amber-700 dark:text-amber-300">
+				<div class="p-2.5 sm:p-3 bg-amber-500/10 border-2 border-amber-500/50 text-xs font-mono text-amber-700 dark:text-amber-300">
 					⚠️ You have {unansweredCount} unattempted questions that will receive 0 marks.
 				</div>
 			{/if}
 
-			<div class="flex items-center justify-end gap-2 pt-3 border-t-2 border-border-color">
+			<div class="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 pt-3 border-t-2 border-border-color">
 				<button
 					type="button"
 					onclick={oncancel}
-					class="neo-btn text-xs py-2 px-4"
+					class="neo-btn text-xs py-2 px-3 sm:px-4 text-center truncate"
 				>
-					Return to Questions
+					Return
 				</button>
 				<button
 					type="button"
 					onclick={onconfirm}
-					class="neo-btn neo-btn-primary text-xs py-2 px-5"
+					class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:px-5 font-bold text-center truncate"
 				>
 					Confirm & Submit
 				</button>

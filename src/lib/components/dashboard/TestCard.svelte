@@ -47,7 +47,7 @@ function handleDelete() {
 }
 </script>
 
-<article class="neo-box p-5 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all">
+<article class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all">
 	<!-- Card Top Section -->
 	<div>
 		<!-- Badges Row -->
@@ -64,34 +64,34 @@ function handleDelete() {
 		</div>
 
 		<!-- Title & Description -->
-		<h3 class="text-lg sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
+		<h3 class="text-base sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
 			{test.title}
 		</h3>
 
 		{#if test.description}
-			<p class="text-xs text-text-secondary line-clamp-2 mb-4">
+			<p class="text-xs text-text-secondary line-clamp-2 mb-3 sm:mb-4">
 				{test.description}
 			</p>
 		{/if}
 
 		<!-- Test Specs Grid -->
-		<div class="grid grid-cols-3 gap-2 py-3 border-y-2 border-border-color/20 my-3 font-mono text-xs">
+		<div class="grid grid-cols-3 gap-1.5 sm:gap-2 py-2.5 sm:py-3 border-y-2 border-border-color/20 my-3 font-mono text-xs">
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Duration</span>
-				<span class="font-bold text-text-primary">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
+				<span class="font-bold text-text-primary text-[11px] sm:text-xs truncate">{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Questions</span>
-				<span class="font-bold text-text-primary">{test.questionCount} Qs</span>
+				<span class="font-bold text-text-primary text-[11px] sm:text-xs">{test.questionCount} Qs</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="text-[10px] text-text-muted uppercase">Total Marks</span>
-				<span class="font-bold text-text-primary">{test.totalMarks} Pts</span>
+				<span class="font-bold text-text-primary text-[11px] sm:text-xs">{test.totalMarks} Pts</span>
 			</div>
 		</div>
 
 		<!-- Attached PDF Files Info -->
-		<div class="space-y-1.5 font-mono text-[11px] text-text-muted mb-5">
+		<div class="space-y-1.5 font-mono text-[11px] text-text-muted mb-4 sm:mb-5">
 			<div class="flex items-center gap-1.5 truncate">
 				<span class="text-text-primary font-bold">PDF:</span>
 				<span class="truncate text-text-secondary">{test.testFileName}</span>

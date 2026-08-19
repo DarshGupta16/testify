@@ -42,7 +42,7 @@ function handlePresetClick(preset: string) {
 }
 </script>
 
-<div class="p-4 bg-muted/30 border-2 border-border-color/70 space-y-3.5">
+<div class="p-3.5 sm:p-4 bg-muted/30 border-2 border-border-color/70 space-y-3 sm:space-y-3.5">
 	<!-- Section Header -->
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-color/30 pb-2">
 		<div class="flex items-center gap-2">

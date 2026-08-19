@@ -296,29 +296,29 @@ function handleKeyDown(e: KeyboardEvent) {
 
 <div class="min-h-screen bg-canvas flex flex-col">
 	<!-- Fixed Sticky Top Navigation Header -->
-	<header class="sticky top-0 z-30 bg-surface border-b-2 border-border-color shadow-sm px-4 sm:px-6 py-3">
-		<div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+	<header class="sticky top-0 z-30 bg-surface border-b-2 border-border-color shadow-sm px-3 sm:px-6 py-2.5 sm:py-3">
+		<div class="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
 			<!-- Title & Mode Badge -->
-			<div class="flex items-center gap-2.5 truncate">
+			<div class="flex items-center gap-1.5 sm:gap-2.5 truncate">
 				{#if mode === 'practice'}
 					<span class="neo-badge bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 shrink-0 text-[10px] font-bold">
-						🌿 Practice Mode
+						🌿 Practice
 					</span>
 				{:else}
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text shrink-0 text-[10px] font-bold">
-						🎯 Exam Simulation
+						🎯 Exam
 					</span>
 				{/if}
-				<h1 class="text-sm sm:text-base font-black uppercase tracking-tight text-text-primary truncate" title={test.title}>
+				<h1 class="text-xs sm:text-base font-black uppercase tracking-tight text-text-primary truncate" title={test.title}>
 					{test.title}
 				</h1>
 			</div>
 
 			<!-- Live Timer & Submission CTA -->
-			<div class="flex items-center gap-3 shrink-0">
+			<div class="flex items-center gap-2 sm:gap-3 shrink-0">
 				<!-- Timer Box -->
 				<div
-					class={`flex items-center gap-2 px-3 py-1.5 border-2 font-mono font-black text-xs sm:text-sm transition-colors ${
+					class={`flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 border-2 font-mono font-black text-xs sm:text-sm transition-colors ${
 						mode === 'practice'
 							? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
 							: isTimerUrgent
@@ -336,14 +336,14 @@ function handleKeyDown(e: KeyboardEvent) {
 						stroke="currentColor"
 						stroke-width="2.5"
 						stroke-linecap="square"
-						class="h-3.5 w-3.5"
+						class="h-3.5 w-3.5 shrink-0"
 					>
 						<circle cx="12" cy="12" r="10" />
 						<polyline points="12 6 12 12 16 14" />
 					</svg>
 					<span>{timerDisplay}</span>
 					{#if mode === 'practice'}
-						<span class="text-[9px] uppercase font-normal opacity-80">(Untimed)</span>
+						<span class="text-[9px] uppercase font-normal opacity-80 hidden min-[480px]:inline">(Untimed)</span>
 					{/if}
 				</div>
 
@@ -356,16 +356,16 @@ function handleKeyDown(e: KeyboardEvent) {
 				<button
 					type="button"
 					onclick={() => (isSubmitConfirmModalOpen = true)}
-					class="neo-btn neo-btn-primary text-xs py-1.5 px-3.5"
+					class="neo-btn neo-btn-primary text-xs py-1.5 px-2.5 sm:px-3.5 whitespace-nowrap font-bold"
 				>
-					<span>{mode === 'practice' ? 'Finish Practice' : 'Submit Exam'}</span>
+					<span>{mode === 'practice' ? 'Finish' : 'Submit'}<span class="hidden min-[480px]:inline">{mode === 'practice' ? ' Practice' : ' Exam'}</span></span>
 				</button>
 			</div>
 		</div>
 	</header>
 
 	<!-- Main Two-Column Workspace Layout -->
-	<div class="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+	<div class="flex-1 max-w-7xl mx-auto w-full p-3.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
 		<!-- LEFT COLUMN: Active Question Display (Col 8/12) -->
 		<div class="lg:col-span-8 flex flex-col gap-4">
 			{#if currentQuestion}

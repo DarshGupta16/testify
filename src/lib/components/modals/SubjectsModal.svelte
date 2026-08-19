@@ -110,7 +110,7 @@ function focusInput(node: HTMLElement) {
 {#if app.modals.isSubjectsModalOpen}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
+		class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-xs animate-fade-in"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) handleClose();
 		}}
@@ -118,20 +118,20 @@ function focusInput(node: HTMLElement) {
 	>
 		<!-- Modal Box -->
 		<div
-			class="neo-box-lg w-full max-w-xl bg-surface p-6 sm:p-8 animate-slide-down max-h-[90vh] overflow-y-auto space-y-6"
+			class="neo-box-lg w-full max-w-xl bg-surface p-4 sm:p-8 animate-slide-down max-h-[92vh] overflow-y-auto space-y-4 sm:space-y-6"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="subjects-modal-title"
 		>
 			<!-- Header -->
-			<div class="flex items-start justify-between border-b-2 border-border-color pb-4">
+			<div class="flex items-start justify-between border-b-2 border-border-color pb-3 sm:pb-4">
 				<div>
 					<div class="flex items-center gap-2 mb-1">
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text text-[10px] font-mono">
 							CONFIGURATION
 						</span>
 					</div>
-					<h2 id="subjects-modal-title" class="text-xl sm:text-2xl font-black uppercase tracking-tight text-text-primary">
+					<h2 id="subjects-modal-title" class="text-lg sm:text-2xl font-black uppercase tracking-tight text-text-primary">
 						Configure Subjects
 					</h2>
 					<p class="font-mono text-xs text-text-secondary mt-1">
@@ -142,7 +142,7 @@ function focusInput(node: HTMLElement) {
 				<button
 					type="button"
 					onclick={handleClose}
-					class="neo-btn text-xs py-1 px-2.5"
+					class="neo-btn text-xs py-1 px-2.5 ml-2 shrink-0"
 					aria-label="Close modal"
 				>
 					✕
@@ -150,23 +150,23 @@ function focusInput(node: HTMLElement) {
 			</div>
 
 			<!-- Add New Subject Form -->
-			<div class="neo-box p-4 bg-muted/40 space-y-3">
+			<div class="neo-box p-3.5 sm:p-4 bg-muted/40 space-y-2.5 sm:space-y-3">
 				<label for="new-subject-input" class="block font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 					Add New Subject
 				</label>
-				<form onsubmit={handleAddSubject} class="flex items-center gap-2">
+				<form onsubmit={handleAddSubject} class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
 					<input
 						id="new-subject-input"
 						type="text"
 						bind:value={newSubjectName}
-						placeholder="e.g. Organic Chemistry, Macroeconomics..."
-						class="neo-input flex-1 text-sm bg-surface"
+						placeholder="e.g. Organic Chemistry, Economics..."
+						class="neo-input flex-1 text-xs sm:text-sm bg-surface"
 					/>
 					<button
 						type="submit"
 						class="neo-btn neo-btn-primary text-xs py-2 px-4 shrink-0 font-bold"
 					>
-						+ Add
+						+ Add Subject
 					</button>
 				</form>
 				{#if addError}

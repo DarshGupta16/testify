@@ -165,27 +165,27 @@ function handleKeyDown(e: KeyboardEvent) {
 	>
 		<!-- Modal Dialog Container -->
 		<div
-			class="neo-box-lg w-full max-w-5xl bg-surface p-5 sm:p-7 animate-slide-down max-h-[94vh] flex flex-col overflow-hidden"
+			class="neo-box-lg w-full max-w-5xl bg-surface p-4 sm:p-7 animate-slide-down max-h-[94vh] flex flex-col overflow-hidden"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="edit-modal-title"
 		>
 			<!-- Modal Header Bar -->
-			<div class="flex items-center justify-between border-b-2 border-border-color pb-4 mb-4 shrink-0">
-				<div class="flex items-center gap-2.5">
-					<div class="h-4 w-4 bg-accent-contrast"></div>
-					<h2 id="edit-modal-title" class="text-base sm:text-xl font-black uppercase tracking-wide text-text-primary">
+			<div class="flex items-center justify-between border-b-2 border-border-color pb-3 sm:pb-4 mb-3 sm:mb-4 shrink-0">
+				<div class="flex items-center gap-2 sm:gap-2.5">
+					<div class="h-3.5 w-3.5 sm:h-4 sm:w-4 bg-accent-contrast"></div>
+					<h2 id="edit-modal-title" class="text-sm sm:text-xl font-black uppercase tracking-wide text-text-primary">
 						Edit Assessment & Questions
 					</h2>
 				</div>
 
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1.5 sm:gap-2">
 					<button
 						type="button"
 						onclick={handleSave}
-						class="neo-btn neo-btn-primary text-xs py-1.5 px-3 font-bold"
+						class="neo-btn neo-btn-primary text-xs py-1.5 px-2.5 sm:px-3 font-bold truncate"
 					>
-						💾 Save Changes
+						💾 Save
 					</button>
 					<button
 						type="button"
@@ -199,7 +199,7 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Scrollable Form Body -->
-			<div class="flex-1 overflow-y-auto space-y-6 pr-1">
+			<div class="flex-1 overflow-y-auto space-y-4 sm:space-y-6 pr-1">
 				<!-- Section 1: Test Metadata -->
 				<TestMetadataEditForm
 					title={draftTitle}
@@ -215,12 +215,12 @@ function handleKeyDown(e: KeyboardEvent) {
 
 				<!-- Section 2: Questions Editor -->
 				<div class="space-y-3">
-					<div class="flex items-center justify-between">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
 						<h3 class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
 							<span>📝</span>
 							<span>Question Content & Configuration</span>
 						</h3>
-						<span class="font-mono text-xs text-text-muted">
+						<span class="font-mono text-[11px] sm:text-xs text-text-muted">
 							{draftQuestions.length} Total Questions • {computedTotalMarks} Total Marks
 						</span>
 					</div>
@@ -254,27 +254,27 @@ function handleKeyDown(e: KeyboardEvent) {
 			</div>
 
 			<!-- Modal Sticky Footer Summary & Actions -->
-			<div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t-2 border-border-color mt-4 shrink-0 font-mono text-xs">
-				<div class="flex flex-wrap items-center gap-2 text-text-secondary">
-					<span class="font-bold text-text-primary">{draftQuestions.length} Questions</span>
+			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color mt-3 sm:mt-4 shrink-0 font-mono text-xs">
+				<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 text-text-secondary text-[11px] sm:text-xs">
+					<span class="font-bold text-text-primary">{draftQuestions.length} Qs</span>
 					<span>•</span>
 					<span class="font-bold text-emerald-600 dark:text-emerald-400">{computedTotalMarks} Marks</span>
 					<span>•</span>
 					<span>{draftDurationMinutes ? `${draftDurationMinutes} Mins` : 'Untimed'}</span>
 				</div>
 
-				<div class="flex items-center gap-2">
+				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
 					<button
 						type="button"
 						onclick={() => app.modals.closeEdit()}
-						class="neo-btn text-xs py-2 px-4"
+						class="neo-btn text-xs py-2 px-3 sm:px-4 text-center truncate"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onclick={handleSave}
-						class="neo-btn neo-btn-primary text-xs py-2 px-5 font-bold"
+						class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:px-5 font-bold text-center truncate"
 					>
 						💾 Save Changes
 					</button>

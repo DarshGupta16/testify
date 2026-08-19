@@ -33,7 +33,7 @@ function getTypeBadge(type: string): string {
 	</div>
 
 	<!-- Scrollable Question Pills / Tiles -->
-	<div class="grid grid-cols-2 sm:grid-cols-1 gap-1.5 max-h-72 overflow-y-auto pr-1">
+	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-1.5 max-h-72 overflow-y-auto pr-1">
 		{#each questions as q, idx (q.id || idx)}
 			{@const isSelected = idx === selectedIndex}
 			{@const typeBadge = getTypeBadge(q.type)}

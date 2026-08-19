@@ -50,12 +50,12 @@ const filteredAttempts = $derived(
 
 <div class="space-y-6 animate-fade-in pb-12">
 	<!-- Hero Overview Banner -->
-	<div class="neo-box-lg p-6 sm:p-8 bg-surface space-y-6">
+	<div class="neo-box-lg p-4 sm:p-8 bg-surface space-y-4 sm:space-y-6">
 		<!-- Top Action Row -->
-		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border-color pb-5">
+		<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
 			<div>
-				<div class="flex flex-wrap items-center gap-2 mb-2">
-					<a href="/" class="font-mono text-xs text-text-muted hover:text-text-primary mr-2">
+				<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
+					<a href="/" class="font-mono text-xs text-text-muted hover:text-text-primary mr-1 sm:mr-2">
 						&larr; Dashboard
 					</a>
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
@@ -73,17 +73,17 @@ const filteredAttempts = $derived(
 					{/if}
 				</div>
 
-				<h1 class="text-2xl sm:text-4xl font-black uppercase tracking-tight text-text-primary">
+				<h1 class="text-xl sm:text-4xl font-black uppercase tracking-tight text-text-primary break-words">
 					{test.title}
 				</h1>
 			</div>
 
 			<!-- Start Actions & Delete CTA -->
-			<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+			<div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
 				<button
 					type="button"
 					onclick={onstartpractice}
-					class="neo-btn text-xs py-2.5 px-4 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate"
 				>
 					🌿 Practice Mode
 				</button>
@@ -91,15 +91,15 @@ const filteredAttempts = $derived(
 				<button
 					type="button"
 					onclick={onstartexam}
-					class="neo-btn neo-btn-primary text-xs py-2.5 px-5"
+					class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate"
 				>
-					🎯 Exam Simulation
+					🎯 Exam Sim
 				</button>
 
 				<button
 					type="button"
 					onclick={onopenedit}
-					class="neo-btn text-xs py-2.5 px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold"
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
 					title="Edit Assessment & Questions"
 				>
 					✏️ Edit Test
@@ -110,14 +110,14 @@ const filteredAttempts = $derived(
 						<button
 							type="button"
 							onclick={ondeletetest}
-							class="neo-btn neo-btn-danger text-xs py-2.5 px-3"
+							class="neo-btn neo-btn-danger text-xs py-2 px-2.5 sm:py-2.5 sm:px-3"
 						>
-							Confirm Delete
+							Confirm
 						</button>
 						<button
 							type="button"
 							onclick={() => (isConfirmingDelete = false)}
-							class="neo-btn text-xs py-2.5 px-2.5"
+							class="neo-btn text-xs py-2 px-2 sm:py-2.5 sm:px-2.5"
 						>
 							✕
 						</button>
@@ -126,7 +126,7 @@ const filteredAttempts = $derived(
 					<button
 						type="button"
 						onclick={() => (isConfirmingDelete = true)}
-						class="neo-btn text-xs py-2.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white flex items-center justify-center"
 						title="Delete Assessment"
 					>
 						🗑️
@@ -136,28 +136,28 @@ const filteredAttempts = $derived(
 		</div>
 
 		{#if test.description}
-			<p class="text-sm text-text-secondary">
+			<p class="text-xs sm:text-sm text-text-secondary">
 				{test.description}
 			</p>
 		{/if}
 
 		<!-- Specs Grid -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs">
-			<div class="border-2 border-border-color bg-muted/40 p-3.5">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 font-mono text-xs">
+			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Duration</span>
-				<span class="text-lg font-black text-text-primary">
+				<span class="text-sm sm:text-lg font-black text-text-primary">
 					{test.durationMinutes ? `${test.durationMinutes} Mins` : 'Untimed'}
 				</span>
 			</div>
-			<div class="border-2 border-border-color bg-muted/40 p-3.5">
+			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Items</span>
-				<span class="text-lg font-black text-text-primary">{test.questionCount} Questions</span>
+				<span class="text-sm sm:text-lg font-black text-text-primary">{test.questionCount} Questions</span>
 			</div>
-			<div class="border-2 border-border-color bg-muted/40 p-3.5">
+			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Marks</span>
-				<span class="text-lg font-black text-text-primary">{test.totalMarks} Points</span>
+				<span class="text-sm sm:text-lg font-black text-text-primary">{test.totalMarks} Points</span>
 			</div>
-			<div class="border-2 border-border-color bg-muted/40 p-3.5">
+			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">PDF Source</span>
 				<span class="text-xs font-bold text-text-primary truncate block" title={test.testFileName}>
 					{test.testFileName}
@@ -167,32 +167,32 @@ const filteredAttempts = $derived(
 
 		<!-- Performance Stats Card if Attempts exist -->
 		{#if stats && stats.attemptCount > 0}
-			<div class="p-4 bg-muted/30 border-2 border-border-color font-mono text-xs space-y-2">
+			<div class="p-3.5 sm:p-4 bg-muted/30 border-2 border-border-color font-mono text-xs space-y-2">
 				<span class="font-bold uppercase text-text-primary block text-[11px]">
 					📊 Historical Attempt Analytics ({stats.attemptCount} Total Sessions)
 				</span>
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
 					<div>
 						<span class="text-[10px] text-text-muted uppercase block">Best Score</span>
-						<span class="font-black text-base text-emerald-600 dark:text-emerald-400">
+						<span class="font-black text-sm sm:text-base text-emerald-600 dark:text-emerald-400">
 							{stats.bestScore} / {stats.maxPossibleScore} ({stats.bestPercentage}%)
 						</span>
 					</div>
 					<div>
 						<span class="text-[10px] text-text-muted uppercase block">Average Score</span>
-						<span class="font-black text-base text-text-primary">
+						<span class="font-black text-sm sm:text-base text-text-primary">
 							{stats.avgScore} ({stats.avgPercentage}%)
 						</span>
 					</div>
 					<div>
 						<span class="text-[10px] text-text-muted uppercase block">Exam / Practice</span>
-						<span class="font-bold text-text-secondary">
+						<span class="font-bold text-text-secondary text-[11px] sm:text-xs">
 							{stats.examAttemptCount} Exams • {stats.practiceAttemptCount} Practice
 						</span>
 					</div>
 					<div>
 						<span class="text-[10px] text-text-muted uppercase block">Last Attempt</span>
-						<span class="font-bold text-text-secondary">
+						<span class="font-bold text-text-secondary text-[11px] sm:text-xs">
 							{stats.lastAttemptAt ? formatDate(stats.lastAttemptAt) : 'Never'}
 						</span>
 					</div>
@@ -202,32 +202,32 @@ const filteredAttempts = $derived(
 	</div>
 
 	<!-- Main Tab Navigation -->
-	<div class="flex items-center gap-2 border-b-2 border-border-color pb-2 font-mono text-xs font-bold">
+	<div class="flex items-center gap-1.5 sm:gap-2 border-b-2 border-border-color pb-2 font-mono text-xs font-bold overflow-x-auto no-scrollbar whitespace-nowrap">
 		<button
 			type="button"
 			onclick={() => (activeTab = 'attempts')}
-			class={`neo-btn text-xs py-2 px-4 ${activeTab === 'attempts' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'attempts' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Attempt History ({attempts.length})
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'questions')}
-			class={`neo-btn text-xs py-2 px-4 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Questions Preview ({test.questions?.length || 0})
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'diagrams')}
-			class={`neo-btn text-xs py-2 px-4 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Isolated Figures ({allDiagrams.length})
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'pages')}
-			class={`neo-btn text-xs py-2 px-4 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Rendered Pages ({allPages.length})
 		</button>
@@ -237,12 +237,12 @@ const filteredAttempts = $derived(
 	<div>
 		{#if activeTab === 'attempts'}
 			<!-- Attempts Table -->
-			<div class="neo-box p-5 sm:p-6 bg-surface space-y-4">
-				<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-color/30 pb-3">
+			<div class="neo-box p-4 sm:p-6 bg-surface space-y-4">
+				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-border-color/30 pb-3">
 					<h3 class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 						Past Attempt Sessions
 					</h3>
-					<div class="flex items-center gap-1.5 font-mono text-xs">
+					<div class="flex flex-wrap items-center gap-1.5 font-mono text-xs">
 						<button
 							type="button"
 							onclick={() => (attemptFilter = 'all')}
