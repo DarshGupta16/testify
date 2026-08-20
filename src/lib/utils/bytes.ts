@@ -59,3 +59,25 @@ export function formatBytes(bytes: number): string {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
+
+/**
+ * Strips the Data URL prefix (e.g. "data:image/png;base64,") to isolate pure Base64 data.
+ */
+export function stripDataUrlHeader(dataUrl: string): string {
+	const commaIdx = dataUrl.indexOf(',');
+	return commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+}
+
+/**
+ * Extracts MIME type and pure Base64 data payload from a standard Data URL string.
+ */
+export function parseDataUrl(
+	dataUrl: string,
+	fallbackMime = 'image/png'
+): { mimeType: string; data: string } {
+	const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+	if (match) {
+		return { mimeType: match[1], data: match[2] };
+	}
+	return { mimeType: fallbackMime, data: stripDataUrlHeader(dataUrl) };
+}

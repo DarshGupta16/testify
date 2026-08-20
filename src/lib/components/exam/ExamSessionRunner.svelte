@@ -103,6 +103,9 @@ const isTimerWarning = $derived(
 		timeRemainingSeconds <= 600
 );
 
+// Internal question timing tracker decoupled from reactive state
+const questionTimeSpent: Record<string, number> = {};
+
 onMount(() => {
 	currentAttemptId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 	examStartedAt = Date.now();
@@ -113,6 +116,9 @@ onMount(() => {
 	paletteFilter = 'all';
 
 	userResponses = createInitialResponses(testQuestions);
+	for (const q of testQuestions) {
+		questionTimeSpent[q.id] = 0;
+	}
 
 	if (mode === 'exam' && test.durationMinutes && test.durationMinutes > 0) {
 		timeRemainingSeconds = test.durationMinutes * 60;
@@ -126,10 +132,7 @@ onMount(() => {
 
 		if (testQuestions[currentQuestionIndex]) {
 			const activeQId = testQuestions[currentQuestionIndex].id;
-			if (userResponses[activeQId]) {
-				userResponses[activeQId].timeSpentSeconds =
-					(userResponses[activeQId].timeSpentSeconds || 0) + 1;
-			}
+			questionTimeSpent[activeQId] = (questionTimeSpent[activeQId] || 0) + 1;
 		}
 
 		if (mode === 'exam' && timeRemainingSeconds !== null) {
@@ -243,6 +246,8 @@ function goToQuestion(index: number) {
 function handleNextQuestion() {
 	if (currentQuestionIndex < testQuestions.length - 1) {
 		goToQuestion(currentQuestionIndex + 1);
+	} else {
+		isSubmitConfirmModalOpen = true;
 	}
 }
 
@@ -262,9 +267,18 @@ function handleSubmitExam() {
 	if (timerInterval) clearInterval(timerInterval);
 	isSubmitConfirmModalOpen = false;
 
+	// Synchronize exact time spent per question into responses before evaluation
+	const syncedResponses: Record<string, UserQuestionResponse> = {};
+	for (const [qId, resp] of Object.entries(userResponses)) {
+		syncedResponses[qId] = {
+			...resp,
+			timeSpentSeconds: questionTimeSpent[qId] ?? resp.timeSpentSeconds ?? 0,
+		};
+	}
+
 	const completedAttempt = evaluateAttempt({
 		test,
-		userResponses,
+		userResponses: syncedResponses,
 		elapsedTimeSeconds,
 		mode,
 		attemptId: currentAttemptId,

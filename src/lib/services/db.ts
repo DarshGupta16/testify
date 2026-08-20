@@ -22,10 +22,18 @@ export interface AppSettingRecord {
 /**
  * Strips reactive proxies (e.g. Svelte 5 $state proxies) so that records
  * can be safely serialized by browser IndexedDB Structured Clone algorithm.
+ * Uses native Svelte 5 $state.snapshot() with fallback.
  */
 export function toCloneable<T>(data: T): T {
 	if (data === null || typeof data !== 'object') {
 		return data;
+	}
+	try {
+		if (typeof $state !== 'undefined' && typeof $state.snapshot === 'function') {
+			return $state.snapshot(data) as T;
+		}
+	} catch {
+		// Fallback to JSON clone
 	}
 	return JSON.parse(JSON.stringify(data));
 }

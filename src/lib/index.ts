@@ -27,8 +27,14 @@ export { default as TestUploadForm } from './components/forms/TestUploadForm.sve
 // Layout & Modal Components
 export { default as Header } from './components/layout/Header.svelte';
 export { default as ApiKeysModal } from './components/modals/ApiKeysModal.svelte';
+export { default as QuestionItemEditor } from './components/modals/edit/QuestionItemEditor.svelte';
+export { default as QuestionListPalette } from './components/modals/edit/QuestionListPalette.svelte';
+export { default as QuestionOptionsEditor } from './components/modals/edit/QuestionOptionsEditor.svelte';
+export { default as TestMetadataEditForm } from './components/modals/edit/TestMetadataEditForm.svelte';
 export { default as MasterPasswordModal } from './components/modals/MasterPasswordModal.svelte';
+export { default as SubjectsModal } from './components/modals/SubjectsModal.svelte';
 export { default as TestDetailsModal } from './components/modals/TestDetailsModal.svelte';
+export { default as TestEditModal } from './components/modals/TestEditModal.svelte';
 export { default as UploadModal } from './components/modals/UploadModal.svelte';
 
 // PDF Components
@@ -51,6 +57,7 @@ export * from './stores/attemptStore.svelte';
 export * from './stores/filterStore.svelte';
 export * from './stores/modalStore.svelte';
 export * from './stores/securityStore.svelte';
+export * from './stores/subjectStore.svelte';
 export * from './stores/testStore.svelte';
 export * from './stores/themeStore.svelte';
 export * from './stores/toastStore.svelte';

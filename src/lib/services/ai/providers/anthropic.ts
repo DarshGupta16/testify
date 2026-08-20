@@ -4,6 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIGenerationPayload, AIGenerationResult } from '$lib/types/ai';
+import { parseDataUrl } from '$lib/utils/bytes';
 import { synthesizeAiResult } from '../parsers';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '../prompts';
 import { ANTHROPIC_ASSESSMENT_TOOL } from '../schemas';
@@ -43,53 +44,44 @@ export async function generateAnthropicQuestions(
 
 	// 1. Attach Document Pages
 	for (const page of payload.pages) {
-		const match = page.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-		if (match) {
-			const mediaType = (match[1] as ImageMediaType) || 'image/png';
-			userContent.push({
-				type: 'image',
-				source: {
-					type: 'base64',
-					media_type: mediaType,
-					data: match[2],
-				},
-			});
-		}
+		const parsed = parseDataUrl(page.dataUrl);
+		userContent.push({
+			type: 'image',
+			source: {
+				type: 'base64',
+				media_type: (parsed.mimeType as ImageMediaType) || 'image/png',
+				data: parsed.data,
+			},
+		});
 	}
 
 	// 2. Attach Answer Key Pages
 	if (payload.answerKeyPages && payload.answerKeyPages.length > 0) {
 		for (const keyPage of payload.answerKeyPages) {
-			const match = keyPage.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-			if (match) {
-				const mediaType = (match[1] as ImageMediaType) || 'image/png';
-				userContent.push({
-					type: 'image',
-					source: {
-						type: 'base64',
-						media_type: mediaType,
-						data: match[2],
-					},
-				});
-			}
+			const parsed = parseDataUrl(keyPage.dataUrl);
+			userContent.push({
+				type: 'image',
+				source: {
+					type: 'base64',
+					media_type: (parsed.mimeType as ImageMediaType) || 'image/png',
+					data: parsed.data,
+				},
+			});
 		}
 	}
 
 	// 3. Attach Diagram Crops
 	if (payload.diagrams && payload.diagrams.length > 0) {
 		for (const diag of payload.diagrams) {
-			const match = diag.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-			if (match) {
-				const mediaType = (match[1] as ImageMediaType) || 'image/png';
-				userContent.push({
-					type: 'image',
-					source: {
-						type: 'base64',
-						media_type: mediaType,
-						data: match[2],
-					},
-				});
-			}
+			const parsed = parseDataUrl(diag.dataUrl);
+			userContent.push({
+				type: 'image',
+				source: {
+					type: 'base64',
+					media_type: (parsed.mimeType as ImageMediaType) || 'image/png',
+					data: parsed.data,
+				},
+			});
 		}
 	}
 
