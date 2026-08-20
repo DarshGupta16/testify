@@ -67,6 +67,38 @@ function isPureMathExpression(str: string): boolean {
 	return false;
 }
 
+// Module-level in-memory LRU cache for rendered KaTeX formulas
+const KATEX_CACHE = new Map<string, string>();
+const MAX_KATEX_CACHE_ENTRIES = 2000;
+
+function renderCachedKatex(cleanMath: string, isBlock: boolean): string {
+	const cacheKey = `${isBlock ? 'B' : 'I'}:${cleanMath}`;
+	const cached = KATEX_CACHE.get(cacheKey);
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	let html = '';
+	try {
+		const katexHtml = katex.renderToString(cleanMath, {
+			displayMode: isBlock,
+			throwOnError: false,
+		});
+		html = isBlock ? `<div class="my-2 overflow-x-auto">${katexHtml}</div>` : katexHtml;
+	} catch (err) {
+		console.error('[MathRenderer] KaTeX error:', err);
+		html = isBlock ? `$$${cleanMath}$$` : `$${cleanMath}$`;
+	}
+
+	if (KATEX_CACHE.size >= MAX_KATEX_CACHE_ENTRIES) {
+		const oldestKey = KATEX_CACHE.keys().next().value;
+		if (oldestKey) KATEX_CACHE.delete(oldestKey);
+	}
+	KATEX_CACHE.set(cacheKey, html);
+
+	return html;
+}
+
 const renderedHtml = $derived.by(() => {
 	if (!content) return '';
 
@@ -76,20 +108,9 @@ const renderedHtml = $derived.by(() => {
 
 		function storeMath(mathStr: string, isBlock = false): string {
 			const id = `%%MATH_${isBlock ? 'BLOCK' : 'INLINE'}_${placeholderCount++}%%`;
-			try {
-				const cleanMath = sanitizeMathForKatex(mathStr);
-				const html = katex.renderToString(cleanMath, {
-					displayMode: isBlock,
-					throwOnError: false,
-				});
-				mathPlaceholders.set(
-					id,
-					isBlock ? `<div class="my-2 overflow-x-auto">${html}</div>` : html
-				);
-			} catch (err) {
-				console.error('[MathRenderer] KaTeX error:', err);
-				mathPlaceholders.set(id, isBlock ? `$$${mathStr}$$` : `$${mathStr}$`);
-			}
+			const cleanMath = sanitizeMathForKatex(mathStr);
+			const html = renderCachedKatex(cleanMath, isBlock);
+			mathPlaceholders.set(id, html);
 			return id;
 		}
 
