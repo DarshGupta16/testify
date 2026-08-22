@@ -1,5 +1,6 @@
 import * as mupdf from 'mupdf';
 import { createPngUrls } from '$lib/utils/bytes';
+import { DisjointSet } from '$lib/utils/dsu';
 import { doBoxesOverlapOrNear, isPointInside, unionBoxes } from './geometry';
 import type { BoundingBox, ExtractedEmbeddedImage, VectorPathRecord } from './types';
 
@@ -36,38 +37,86 @@ export function filterVectorPaths(
 }
 
 /**
- * Groups adjacent vector paths into clusters using anisotropic distance thresholds.
+ * Groups adjacent vector paths into clusters using Spatial Hashing and Disjoint Set Union (DSU).
+ * Achieves O(N) average time complexity and resolves all transitive connections in a single pass.
  */
-export function clusterVectorPaths(paths: VectorPathRecord[]): BoundingBox[][] {
-	let clusters: BoundingBox[][] = paths.map((p) => [p.bounds]);
-	let merged = true;
+export function clusterVectorPaths(
+	paths: VectorPathRecord[],
+	hGap = 20,
+	vGap = 8
+): BoundingBox[][] {
+	const n = paths.length;
+	if (n === 0) return [];
+	if (n === 1) return [[paths[0].bounds]];
 
-	while (merged) {
-		merged = false;
-		const newClusters: BoundingBox[][] = [];
-		const used = new Array(clusters.length).fill(false);
+	const dsu = new DisjointSet(n);
 
-		for (let i = 0; i < clusters.length; i++) {
-			if (used[i]) continue;
-			const currentCluster = [...clusters[i]];
-			let currentUnion = unionBoxes(currentCluster);
+	// Grid cell dimensions chosen to balance spatial partitioning with document scales
+	const cellW = 40;
+	const cellH = 24;
 
-			for (let j = i + 1; j < clusters.length; j++) {
-				if (used[j]) continue;
-				const otherUnion = unionBoxes(clusters[j]);
-				if (doBoxesOverlapOrNear(currentUnion, otherUnion, 20, 8)) {
-					currentCluster.push(...clusters[j]);
-					currentUnion = unionBoxes(currentCluster);
-					used[j] = true;
-					merged = true;
+	// 1. Populate the spatial hash grid: cellKey -> array of path indices
+	const grid = new Map<string, number[]>();
+
+	for (let i = 0; i < n; i++) {
+		const [x0, y0, x1, y1] = paths[i].bounds;
+		const minCol = Math.floor(x0 / cellW);
+		const maxCol = Math.floor(x1 / cellW);
+		const minRow = Math.floor(y0 / cellH);
+		const maxRow = Math.floor(y1 / cellH);
+
+		for (let r = minRow; r <= maxRow; r++) {
+			for (let c = minCol; c <= maxCol; c++) {
+				const key = `${c}:${r}`;
+				const cell = grid.get(key);
+				if (cell) {
+					cell.push(i);
+				} else {
+					grid.set(key, [i]);
 				}
 			}
-			newClusters.push(currentCluster);
 		}
-		clusters = newClusters;
 	}
 
-	return clusters;
+	// 2. Query each path's dilated bounding box to find neighboring paths
+	for (let i = 0; i < n; i++) {
+		const boxA = paths[i].bounds;
+		const qMinCol = Math.floor((boxA[0] - hGap) / cellW);
+		const qMaxCol = Math.floor((boxA[2] + hGap) / cellW);
+		const qMinRow = Math.floor((boxA[1] - vGap) / cellH);
+		const qMaxRow = Math.floor((boxA[3] + vGap) / cellH);
+
+		for (let r = qMinRow; r <= qMaxRow; r++) {
+			for (let c = qMinCol; c <= qMaxCol; c++) {
+				const key = `${c}:${r}`;
+				const cell = grid.get(key);
+				if (!cell) continue;
+
+				for (const j of cell) {
+					if (j <= i) continue;
+					if (dsu.connected(i, j)) continue;
+
+					if (doBoxesOverlapOrNear(boxA, paths[j].bounds, hGap, vGap)) {
+						dsu.union(i, j);
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Group vector bounding boxes by their DSU root representative
+	const clusterMap = new Map<number, BoundingBox[]>();
+	for (let i = 0; i < n; i++) {
+		const root = dsu.find(i);
+		let cluster = clusterMap.get(root);
+		if (!cluster) {
+			cluster = [];
+			clusterMap.set(root, cluster);
+		}
+		cluster.push(paths[i].bounds);
+	}
+
+	return Array.from(clusterMap.values());
 }
 
 export interface ValidClusterResult {
