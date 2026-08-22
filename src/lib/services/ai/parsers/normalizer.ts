@@ -3,6 +3,7 @@
  */
 
 import type { AIDiagramAsset, RawAIQuestion } from '$lib/types/ai';
+import type { DiagramResolutionDiagnostic } from '$lib/types/devTrace';
 import type { QuestionPreview } from '$lib/types/test';
 
 /**
@@ -19,21 +20,240 @@ export function decodeUnicodeEscapes(str: string): string {
 	});
 }
 
+export interface DiagramMatchResult {
+	diagramId: string;
+	diagramUrl: string;
+	matchedTier: string;
+	mentionsFigure: boolean;
+}
+
+/**
+ * Multi-tier robust diagram resolver:
+ * Reconciles raw AI diagram identifiers against the extracted diagram catalog using
+ * exact lookup, normalized page/index regex parsing, contextual keyword detection,
+ * and page-level fallback heuristics.
+ */
+export function resolveDiagram(
+	rawDiagramId: string | null | undefined,
+	questionPage: number | undefined,
+	questionText: string,
+	diagrams?: AIDiagramAsset[]
+): DiagramMatchResult | undefined {
+	if (!diagrams || diagrams.length === 0) return undefined;
+
+	const diagramMap = new Map<string, AIDiagramAsset>();
+	for (const d of diagrams) {
+		diagramMap.set(d.id.toLowerCase(), d);
+	}
+
+	const trimmedId = rawDiagramId?.trim();
+	const isInvalidId = !trimmedId || /^(?:null|undefined|none|n\/a|no|false|0)$/i.test(trimmedId);
+
+	const mentionsFigure =
+		/(?:figure|diagram|shown\s+in|refer\s+to|graph|circuit|schematic|plot|illustration|given\s+in|curve|triangle|setup|represented\s+by)\b/i.test(
+			questionText
+		);
+
+	// 1. Direct exact / normalized ID lookup
+	if (!isInvalidId) {
+		const directMatch = diagramMap.get(trimmedId.toLowerCase());
+		if (directMatch) {
+			return {
+				diagramId: directMatch.id,
+				diagramUrl: directMatch.dataUrl,
+				matchedTier: 'Tier 1 (Exact ID Match)',
+				mentionsFigure,
+			};
+		}
+
+		if (questionPage !== undefined) {
+			const pagePrefixed = `p${questionPage}_diag_${trimmedId}`.toLowerCase();
+			const matchPrefixed = diagramMap.get(pagePrefixed);
+			if (matchPrefixed) {
+				return {
+					diagramId: matchPrefixed.id,
+					diagramUrl: matchPrefixed.dataUrl,
+					matchedTier: 'Tier 1 (Page-Prefixed Match)',
+					mentionsFigure,
+				};
+			}
+		}
+	}
+
+	// 2. Structured regex match on ID string (e.g. "diag_p1_0", "p1_vdiag_1", "p1_img_2", "p2_1", "figure_1")
+	if (!isInvalidId) {
+		// Pattern A: Match page and index (e.g. "diag_p1_0", "p1_diag_1", "p1_1", "page 2 fig 1")
+		const pageIdxMatch = trimmedId.match(
+			/(?:p|page)?(\d+)[\s_\-:./]*(?:diag|vdiag|img|figure|fig|crop)?[\s_\-:./]*(\d+)/i
+		);
+		if (pageIdxMatch) {
+			const targetPage = Number.parseInt(pageIdxMatch[1], 10);
+			const targetIdx = Number.parseInt(pageIdxMatch[2], 10);
+
+			const pageDiagrams = diagrams.filter((d) => d.pageNumber === targetPage);
+			if (pageDiagrams.length > 0) {
+				// Exact suffix match (e.g. ending in "_1")
+				const exactSuffix = pageDiagrams.find((d) => d.id.endsWith(`_${targetIdx}`));
+				if (exactSuffix)
+					return {
+						diagramId: exactSuffix.id,
+						diagramUrl: exactSuffix.dataUrl,
+						matchedTier: `Tier 2 (Regex Exact Suffix: P${targetPage} #${targetIdx})`,
+						mentionsFigure,
+					};
+
+				// 0-based conversion (diag_p1_0 -> first diagram on page 1)
+				if (targetIdx === 0 && pageDiagrams.length > 0) {
+					return {
+						diagramId: pageDiagrams[0].id,
+						diagramUrl: pageDiagrams[0].dataUrl,
+						matchedTier: `Tier 2 (Regex 0-Based: P${targetPage} #${targetIdx})`,
+						mentionsFigure,
+					};
+				}
+				// 1-based index (targetIdx 1 -> index 0)
+				if (targetIdx >= 1 && targetIdx <= pageDiagrams.length) {
+					return {
+						diagramId: pageDiagrams[targetIdx - 1].id,
+						diagramUrl: pageDiagrams[targetIdx - 1].dataUrl,
+						matchedTier: `Tier 2 (Regex 1-Based: P${targetPage} #${targetIdx})`,
+						mentionsFigure,
+					};
+				}
+				if (pageDiagrams.length === 1) {
+					return {
+						diagramId: pageDiagrams[0].id,
+						diagramUrl: pageDiagrams[0].dataUrl,
+						matchedTier: `Tier 2 (Regex Single Page Diagram: P${targetPage})`,
+						mentionsFigure,
+					};
+				}
+			}
+		}
+
+		// Pattern B: Match index only (e.g. "diag_1", "fig_2", "figure 1")
+		const idxOnlyMatch = trimmedId.match(/(?:diag|vdiag|img|figure|fig|crop)?[\s_\-:./]*(\d+)/i);
+		if (idxOnlyMatch) {
+			const targetIdx = Number.parseInt(idxOnlyMatch[1], 10);
+			const effectivePage = questionPage ?? 1;
+			const pageDiagrams = diagrams.filter((d) => d.pageNumber === effectivePage);
+
+			if (pageDiagrams.length > 0) {
+				if (targetIdx === 0) {
+					return {
+						diagramId: pageDiagrams[0].id,
+						diagramUrl: pageDiagrams[0].dataUrl,
+						matchedTier: `Tier 2 (Regex Index Only: #${targetIdx})`,
+						mentionsFigure,
+					};
+				}
+				if (targetIdx >= 1 && targetIdx <= pageDiagrams.length) {
+					return {
+						diagramId: pageDiagrams[targetIdx - 1].id,
+						diagramUrl: pageDiagrams[targetIdx - 1].dataUrl,
+						matchedTier: `Tier 2 (Regex Index Only: #${targetIdx})`,
+						mentionsFigure,
+					};
+				}
+				if (pageDiagrams.length === 1) {
+					return {
+						diagramId: pageDiagrams[0].id,
+						diagramUrl: pageDiagrams[0].dataUrl,
+						matchedTier: `Tier 2 (Regex Single Page Diagram: #${targetIdx})`,
+						mentionsFigure,
+					};
+				}
+			}
+		}
+
+		// Substring fallback
+		const subMatch = diagrams.find(
+			(d) =>
+				d.id.toLowerCase().includes(trimmedId.toLowerCase()) ||
+				trimmedId.toLowerCase().includes(d.id.toLowerCase())
+		);
+		if (subMatch) {
+			return {
+				diagramId: subMatch.id,
+				diagramUrl: subMatch.dataUrl,
+				matchedTier: `Tier 2 (Substring Match: "${trimmedId}")`,
+				mentionsFigure,
+			};
+		}
+	}
+
+	// 3. Contextual fallback: question text mentions visual cues and page has matching diagrams
+	if (mentionsFigure) {
+		if (questionPage !== undefined) {
+			const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
+			if (pageDiagrams.length === 1) {
+				return {
+					diagramId: pageDiagrams[0].id,
+					diagramUrl: pageDiagrams[0].dataUrl,
+					matchedTier: 'Tier 3 (Contextual: Keyword + Single Diagram on Page)',
+					mentionsFigure: true,
+				};
+			}
+			if (pageDiagrams.length > 1) {
+				// Check if question specifies Figure 1 or Figure 2
+				const figNum = questionText.match(/(?:figure|fig|diagram)\s*[:.]?\s*([1-9]\d*|[A-Za-z])/i);
+				if (figNum?.[1]) {
+					const token = figNum[1].toUpperCase();
+					let idx = Number.parseInt(token, 10) - 1;
+					if (Number.isNaN(idx)) {
+						idx = token.charCodeAt(0) - 65; // A -> 0, B -> 1
+					}
+					if (idx >= 0 && idx < pageDiagrams.length) {
+						return {
+							diagramId: pageDiagrams[idx].id,
+							diagramUrl: pageDiagrams[idx].dataUrl,
+							matchedTier: `Tier 3 (Contextual: Specific Figure Name "${token}")`,
+							mentionsFigure: true,
+						};
+					}
+				}
+				return {
+					diagramId: pageDiagrams[0].id,
+					diagramUrl: pageDiagrams[0].dataUrl,
+					matchedTier: 'Tier 3 (Contextual: Keyword + First Diagram on Page)',
+					mentionsFigure: true,
+				};
+			}
+		} else if (diagrams.length === 1) {
+			return {
+				diagramId: diagrams[0].id,
+				diagramUrl: diagrams[0].dataUrl,
+				matchedTier: 'Tier 3 (Contextual: Keyword + Single Document Diagram)',
+				mentionsFigure: true,
+			};
+		}
+	}
+
+	// 4. Single diagram on page fallback if question is on that page
+	if (questionPage !== undefined) {
+		const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
+		if (pageDiagrams.length === 1) {
+			return {
+				diagramId: pageDiagrams[0].id,
+				diagramUrl: pageDiagrams[0].dataUrl,
+				matchedTier: 'Tier 4 (Single Diagram Page Auto-Link)',
+				mentionsFigure,
+			};
+		}
+	}
+
+	return undefined;
+}
+
 /**
  * Normalizes and enriches raw AI questions with IDs, diagram URL mappings, and schema validation.
  */
 export function normalizeQuestions(
 	rawQuestions: RawAIQuestion[],
 	diagrams?: AIDiagramAsset[],
-	defaultMarks = 4
+	defaultMarks = 4,
+	outDiagnostics?: DiagramResolutionDiagnostic[]
 ): QuestionPreview[] {
-	const diagramMap = new Map<string, string>();
-	if (diagrams) {
-		for (const diag of diagrams) {
-			diagramMap.set(diag.id, diag.dataUrl);
-		}
-	}
-
 	return rawQuestions
 		.filter(
 			(q) => q && typeof q === 'object' && typeof q.text === 'string' && q.text.trim().length > 0
@@ -231,22 +451,25 @@ export function normalizeQuestions(
 			}
 
 			// Resolve diagram URL from catalog
-			let associatedDiagramId = q.associatedDiagramId?.trim() || undefined;
-			let associatedDiagramUrl: string | undefined;
+			const questionPage = typeof q.pageNumber === 'number' ? q.pageNumber : undefined;
+			const qText = String(q.text || '');
+			const resolvedDiagram = resolveDiagram(q.associatedDiagramId, questionPage, qText, diagrams);
+			const associatedDiagramId = resolvedDiagram?.diagramId;
+			const associatedDiagramUrl = resolvedDiagram?.diagramUrl;
 
-			if (associatedDiagramId) {
-				associatedDiagramUrl = diagramMap.get(associatedDiagramId);
-				if (!associatedDiagramUrl) {
-					// If ID was mismatched, attempt fuzzy match
-					const queryId = associatedDiagramId.toLowerCase();
-					const matchedKey = Array.from(diagramMap.keys()).find((k) =>
-						k.toLowerCase().includes(queryId)
-					);
-					if (matchedKey) {
-						associatedDiagramId = matchedKey;
-						associatedDiagramUrl = diagramMap.get(matchedKey);
-					}
-				}
+			if (outDiagnostics) {
+				const cleanText = qText.replace(/\s+/g, ' ').trim();
+				outDiagnostics.push({
+					questionNumber: qNum,
+					rawId: q.associatedDiagramId,
+					resolvedId: associatedDiagramId,
+					resolvedUrl: associatedDiagramUrl,
+					matchedTier: resolvedDiagram?.matchedTier || 'Unlinked (No Diagram Associated)',
+					questionPage,
+					mentionsFigure: Boolean(resolvedDiagram?.mentionsFigure),
+					questionTextSnippet:
+						cleanText.length > 80 ? `${cleanText.substring(0, 80)}...` : cleanText,
+				});
 			}
 
 			const marks = typeof q.marks === 'number' && q.marks > 0 ? q.marks : defaultMarks;
@@ -266,7 +489,7 @@ export function normalizeQuestions(
 				negativeMarks,
 				associatedDiagramId,
 				associatedDiagramUrl,
-				pageNumber: typeof q.pageNumber === 'number' ? q.pageNumber : undefined,
+				pageNumber: questionPage,
 			};
 		});
 }

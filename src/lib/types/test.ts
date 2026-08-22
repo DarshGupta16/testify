@@ -1,4 +1,5 @@
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 
 export type QuestionType =
@@ -98,6 +99,7 @@ export interface TestItem {
 	aiProvider?: AIProvider;
 	aiModel?: string;
 	tokenUsage?: TokenUsageStats;
+	devPipelineTrace?: DevPipelineTrace;
 }
 
 export interface TestUploadPayload {

@@ -2,8 +2,12 @@
  * Testify - PDF Ingestion, AI Testification & Assessment Synthesis Engine
  */
 
+import { dev } from '$app/environment';
 import { aiService, formatAiProviderError } from '$lib/services/ai';
+import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '$lib/services/ai/prompts';
+import { db, fireAndForget } from '$lib/services/db';
 import { extractPdfPagesAndImages, type PdfExtractionResult } from '$lib/services/pdf';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
 import type { QuestionPreview, TestItem, TestUploadPayload } from '$lib/types/test';
 
@@ -22,6 +26,7 @@ export async function processTestUpload(
 	payload: TestUploadPayload,
 	options?: ProcessUploadOptions | UploadProgressCallback
 ): Promise<TestItem> {
+	const overallStartTime = performance.now();
 	const onProgress: UploadProgressCallback | undefined =
 		typeof options === 'function' ? options : options?.onProgress;
 	const apiKey: string | undefined = typeof options === 'object' ? options.apiKey : undefined;
@@ -45,6 +50,7 @@ export async function processTestUpload(
 	// Stage 1 & 2: Extract pages, bitmap images, and vector diagrams via MuPDF
 	onProgress?.(5, 'Reading and rasterizing question paper PDF...');
 
+	const extractionStartTime = performance.now();
 	try {
 		extractionResult = await extractPdfPagesAndImages(rawTestFile, {
 			scale,
@@ -57,6 +63,7 @@ export async function processTestUpload(
 		console.error('[TestUploader] PDF extraction error:', err);
 		throw new Error(`Failed to parse question paper PDF: ${(err as Error).message}`);
 	}
+	const extractionDurationMs = Math.round(performance.now() - extractionStartTime);
 
 	if (!extractionResult || extractionResult.pages.length === 0) {
 		throw new Error('Could not render any pages from the question paper PDF.');
@@ -86,6 +93,10 @@ export async function processTestUpload(
 	let finalDuration: number | null = payload.isUntimed ? null : (payload.durationMinutes ?? 60);
 	let finalTotalMarks = payload.totalMarks || 0;
 	let tokenUsage: TestItem['tokenUsage'];
+	let aiDiagnostics: DevPipelineTrace['stages']['normalization'] | undefined;
+	let aiParserDiagnostics: DevPipelineTrace['stages']['parser'] | undefined;
+	let aiRawResponseText = '';
+	let aiDurationMs = 0;
 
 	try {
 		onProgress?.(
@@ -116,6 +127,10 @@ export async function processTestUpload(
 
 		finalQuestions = aiResult.questions;
 		tokenUsage = aiResult.tokenUsage;
+		aiRawResponseText = aiResult.rawResponse || '';
+		aiDurationMs = aiResult.diagnostics?.durationMs || 0;
+		aiParserDiagnostics = aiResult.diagnostics?.parser;
+		aiDiagnostics = aiResult.diagnostics?.normalization;
 
 		if (payload.autoTitle && aiResult.title) {
 			finalTitle = aiResult.title;
@@ -149,6 +164,85 @@ export async function processTestUpload(
 
 	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 	const chosenSubjectId = payload.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
+	const createdAtIso = new Date().toISOString();
+
+	// Construct dev-only pipeline trace
+	let devPipelineTrace: DevPipelineTrace | undefined;
+	if (dev) {
+		const diagramAssets = allDiagrams.map((d) => ({
+			id: d.id,
+			dataUrl: d.dataUrl,
+			pageNumber: d.pageNumber,
+			mimeType: d.mimeType,
+		}));
+
+		const builtUserPrompt = buildUserPrompt(
+			{
+				titleHint: payload.title,
+				questionCountHint: payload.questionCount,
+				autoTitle: payload.autoTitle,
+				autoDuration: payload.autoDuration,
+				isUntimed: payload.isUntimed,
+				defaultDurationMinutes: payload.durationMinutes,
+				defaultMarksPerQuestion: 4,
+			},
+			diagramAssets,
+			Boolean(answerKeyExtractionResult && answerKeyExtractionResult.pages.length > 0)
+		);
+
+		devPipelineTrace = {
+			id: newId,
+			testId: newId,
+			testTitle: finalTitle,
+			createdAt: createdAtIso,
+			provider: targetProvider,
+			model: payload.aiModel || 'default',
+			totalDurationMs: Math.round(performance.now() - overallStartTime),
+			stages: {
+				extraction: {
+					durationMs: extractionDurationMs,
+					scale,
+					fileName: docName,
+					fileSizeBytes: 'size' in rawTestFile ? rawTestFile.size : rawTestFile.byteLength,
+					totalPages: extractionResult.totalPages,
+					totalDiagrams: allDiagrams.length,
+					pages: extractionResult.pages.map((p) => ({
+						pageNumber: p.pageNumber,
+						width: p.rasterWidth,
+						height: p.rasterHeight,
+						rasterSizeBytes: p.rasterSizeBytes,
+						diagramCount: p.embeddedImages.length,
+					})),
+					diagrams: allDiagrams,
+				},
+				promptPayload: {
+					systemPrompt: TESTIFY_SYSTEM_PROMPT,
+					userPrompt: builtUserPrompt,
+					pageAssetsCount: extractionResult.pages.length,
+					diagramAssetsCount: allDiagrams.length,
+					diagramCatalog: allDiagrams.map((d) => ({ id: d.id, pageNumber: d.pageNumber })),
+				},
+				aiResponse: {
+					durationMs: aiDurationMs,
+					rawResponseText: aiRawResponseText,
+					tokenUsage,
+				},
+				parser: aiParserDiagnostics || {
+					cleanedJsonText: '',
+					sanitizedJsonText: '',
+					parsedSchema: null,
+				},
+				normalization: aiDiagnostics || {
+					questionsCount: finalQuestions.length,
+					diagramResolutionLogs: [],
+					finalQuestions,
+				},
+			},
+		};
+
+		// Save dev trace to Dexie IndexedDB
+		fireAndForget(db.saveDevTrace(devPipelineTrace), 'persisting dev pipeline trace');
+	}
 
 	return {
 		id: newId,
@@ -163,7 +257,7 @@ export async function processTestUpload(
 		testFileSizeFormatted: payload.testFile?.formattedSize || '2.4 MB',
 		answerKeyFileName: payload.answerKeyFile?.name,
 		answerKeyFileSizeFormatted: payload.answerKeyFile?.formattedSize,
-		createdAt: new Date().toISOString(),
+		createdAt: createdAtIso,
 		status: 'ready',
 		questions: finalQuestions,
 		extractedData: extractionResult,
@@ -173,5 +267,6 @@ export async function processTestUpload(
 		aiProvider: payload.aiProvider,
 		aiModel: payload.aiModel,
 		tokenUsage,
+		devPipelineTrace,
 	};
 }

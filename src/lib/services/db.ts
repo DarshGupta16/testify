@@ -1,5 +1,7 @@
 import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
+import { dev } from '$app/environment';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { SubjectItem } from '$lib/types/subject';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 
@@ -18,6 +20,7 @@ export interface AppSettingRecord {
  * 3. Application Preferences & State (`settings`)
  * 4. AI Provider Credentials (`apiKeys`)
  * 5. User Exam Session Attempts (`attempts`)
+ * 6. Dev-Only AI Pipeline Traces (`devTraces`)
  */
 /**
  * Strips reactive proxies (e.g. Svelte 5 $state proxies) so that records
@@ -44,6 +47,7 @@ export class TestifyDatabase extends Dexie {
 	settings!: EntityTable<AppSettingRecord, 'key'>;
 	apiKeys!: EntityTable<StoredApiKeyRecord, 'provider'>;
 	attempts!: EntityTable<TestAttempt, 'id'>;
+	devTraces!: EntityTable<DevPipelineTrace, 'id'>;
 
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
@@ -98,6 +102,16 @@ export class TestifyDatabase extends Dexie {
 					await subjectsTable.bulkPut(cleaned);
 				}
 			});
+
+		// Version 4 Migration: Add devTraces table for development pipeline diagnostic inspection
+		this.version(4).stores({
+			tests: 'id, title, subjectId, createdAt, status',
+			subjects: 'id, name, createdAt',
+			settings: 'key, updatedAt',
+			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+			attempts: 'id, testId, status, startedAt, completedAt, score',
+			devTraces: 'id, testId, testTitle, createdAt, provider, model',
+		});
 	}
 
 	// --- Subjects CRUD Operations ---
@@ -248,6 +262,58 @@ export class TestifyDatabase extends Dexie {
 
 	async clearAllApiKeys(): Promise<void> {
 		await this.apiKeys.clear();
+	}
+
+	// --- Dev-Only Pipeline Traces CRUD Operations ---
+
+	async saveDevTrace(trace: DevPipelineTrace): Promise<void> {
+		if (!dev) return;
+		try {
+			await this.devTraces.put(toCloneable(trace));
+		} catch (err) {
+			console.warn('[DB] Failed to persist dev pipeline trace:', err);
+		}
+	}
+
+	async getDevTrace(testId: string): Promise<DevPipelineTrace | undefined> {
+		if (!dev) return undefined;
+		try {
+			const direct = await this.devTraces.get(testId);
+			if (direct) return direct;
+			const byTestId = await this.devTraces.where('testId').equals(testId).first();
+			return byTestId;
+		} catch (err) {
+			console.warn(`[DB] Failed to get dev pipeline trace for "${testId}":`, err);
+			return undefined;
+		}
+	}
+
+	async getAllDevTraces(): Promise<DevPipelineTrace[]> {
+		if (!dev) return [];
+		try {
+			return await this.devTraces.orderBy('createdAt').reverse().toArray();
+		} catch (err) {
+			console.warn('[DB] Failed to load all dev pipeline traces:', err);
+			return [];
+		}
+	}
+
+	async deleteDevTrace(id: string): Promise<void> {
+		if (!dev) return;
+		try {
+			await this.devTraces.delete(id);
+		} catch (err) {
+			console.warn(`[DB] Failed to delete dev pipeline trace "${id}":`, err);
+		}
+	}
+
+	async clearAllDevTraces(): Promise<void> {
+		if (!dev) return;
+		try {
+			await this.devTraces.clear();
+		} catch (err) {
+			console.warn('[DB] Failed to clear dev pipeline traces:', err);
+		}
 	}
 }
 

@@ -1,11 +1,14 @@
 <script lang="ts">
 import { dev } from '$app/environment';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
+import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestAttemptStats } from '$lib/stores/attemptStore.svelte';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { ExtractedEmbeddedImage, ExtractedPdfPage } from '$lib/types/pdf';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 import { formatDate, formatSecondsToText } from '$lib/utils';
@@ -34,10 +37,23 @@ const {
 	ondeletetest: () => void;
 } = $props();
 
-let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages'>('attempts');
+let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace'>('attempts');
 let attemptFilter = $state<'all' | 'exam' | 'practice'>('all');
 let isConfirmingDelete = $state(false);
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
+let loadedTrace = $state<DevPipelineTrace | null>(null);
+
+$effect(() => {
+	if (dev && test) {
+		if (test.devPipelineTrace) {
+			loadedTrace = test.devPipelineTrace;
+		} else {
+			db.getDevTrace(test.id).then((t) => {
+				loadedTrace = t || null;
+			});
+		}
+	}
+});
 
 const allDiagrams = $derived<ExtractedEmbeddedImage[]>(
 	test.extractedData?.pages.flatMap((p: ExtractedPdfPage) => p.embeddedImages) || []
@@ -233,6 +249,13 @@ const filteredAttempts = $derived(
 			>
 				Rendered Pages ({allPages.length})
 			</button>
+			<button
+				type="button"
+				onclick={() => (activeTab = 'trace')}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
+			>
+				⚡ AI Pipeline Trace
+			</button>
 		{/if}
 	</div>
 
@@ -258,85 +281,70 @@ const filteredAttempts = $derived(
 							onclick={() => (attemptFilter = 'exam')}
 							class={`neo-badge cursor-pointer ${attemptFilter === 'exam' ? 'bg-accent-contrast text-accent-contrast-text' : 'bg-muted'}`}
 						>
-							Exam ({attempts.filter((a) => a.mode === 'exam').length})
+							Exam Mode
 						</button>
 						<button
 							type="button"
 							onclick={() => (attemptFilter = 'practice')}
 							class={`neo-badge cursor-pointer ${attemptFilter === 'practice' ? 'bg-accent-contrast text-accent-contrast-text' : 'bg-muted'}`}
 						>
-							Practice ({attempts.filter((a) => a.mode === 'practice').length})
+							Practice Mode
 						</button>
 					</div>
 				</div>
 
-				{#if filteredAttempts.length === 0}
-					<div class="p-8 text-center bg-muted/30 border-2 border-dashed border-border-color/60 space-y-3">
-						<p class="font-mono text-xs text-text-muted uppercase">No attempt sessions recorded yet.</p>
-						<button
-							type="button"
-							onclick={onstartexam}
-							class="neo-btn neo-btn-primary text-xs py-2 px-4"
-						>
-							Start First Exam Simulation &rarr;
-						</button>
+				{#if attempts.length === 0}
+					<div class="p-8 sm:p-12 text-center font-mono space-y-2 border-2 border-dashed border-border-color">
+						<p class="text-text-secondary text-sm">No exam sessions recorded yet.</p>
+						<p class="text-xs text-text-muted">Start an exam session or practice test to test your knowledge.</p>
 					</div>
 				{:else}
 					<div class="overflow-x-auto">
 						<table class="w-full text-left font-mono text-xs border-collapse">
 							<thead>
-								<tr class="border-b-2 border-border-color bg-muted/50 text-[11px] uppercase text-text-muted">
-									<th class="py-2.5 px-3">Date</th>
-									<th class="py-2.5 px-3">Mode</th>
-									<th class="py-2.5 px-3">Score</th>
-									<th class="py-2.5 px-3">Percentage</th>
-									<th class="py-2.5 px-3">Accuracy</th>
-									<th class="py-2.5 px-3">Time</th>
-									<th class="py-2.5 px-3 text-right">Actions</th>
+								<tr class="border-b-2 border-border-color bg-muted/30">
+									<th class="py-2.5 px-3 font-bold uppercase text-[11px]">Mode</th>
+									<th class="py-2.5 px-3 font-bold uppercase text-[11px]">Score</th>
+									<th class="py-2.5 px-3 font-bold uppercase text-[11px] hidden sm:table-cell">Duration</th>
+									<th class="py-2.5 px-3 font-bold uppercase text-[11px] hidden md:table-cell">Date</th>
+									<th class="py-2.5 px-3 font-bold uppercase text-[11px] text-right">Actions</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-border-color/20">
-								{#each filteredAttempts as att (att.id)}
-									<tr class="hover:bg-muted/30 transition-colors">
-										<td class="py-3 px-3 font-medium text-text-primary">
-											{formatDate(att.completedAt || att.startedAt)}
-										</td>
+								{#each filteredAttempts as attempt}
+									<tr class="hover:bg-muted/15 transition-colors">
 										<td class="py-3 px-3">
-											{#if att.mode === 'practice'}
-												<span class="neo-badge bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
-													Practice
-												</span>
-											{:else}
-												<span class="neo-badge bg-accent-contrast/15 text-accent-contrast text-[10px]">
-													Exam
-												</span>
-											{/if}
+											<span class={`neo-badge uppercase font-bold text-[10px] ${attempt.mode === 'exam' ? 'bg-primary/20 text-primary-text' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'}`}>
+												{attempt.mode}
+											</span>
 										</td>
-										<td class="py-3 px-3 font-bold text-text-primary">
-											{att.score} / {att.maxPossibleScore}
+										<td class="py-3 px-3 font-bold">
+											<span class={attempt.score >= attempt.maxPossibleScore * 0.5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+												{attempt.score} / {attempt.maxPossibleScore}
+											</span>
+											<span class="text-text-muted text-[10px] ml-1">
+												({Math.round((attempt.score / Math.max(1, attempt.maxPossibleScore)) * 100)}%)
+											</span>
 										</td>
-										<td class="py-3 px-3 font-bold text-emerald-600 dark:text-emerald-400">
-											{att.maxPossibleScore > 0 ? Math.round((Math.max(0, att.score) / att.maxPossibleScore) * 100) : 0}%
+										<td class="py-3 px-3 text-text-secondary hidden sm:table-cell">
+											{formatSecondsToText(attempt.durationSecondsTaken)}
 										</td>
-										<td class="py-3 px-3 text-text-secondary">
-											{att.accuracyPercentage}% ({att.correctCount}/{att.answeredCount})
+										<td class="py-3 px-3 text-text-muted text-[11px] hidden md:table-cell">
+											{formatDate(attempt.startedAt)}
 										</td>
-										<td class="py-3 px-3 text-text-muted">
-											{formatSecondsToText(att.durationSecondsTaken)}
-										</td>
-										<td class="py-3 px-3 text-right space-x-1.5">
+										<td class="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
 											<button
 												type="button"
-												onclick={() => onviewattempt(att)}
-												class="neo-btn text-[10px] py-1 px-2.5"
+												onclick={() => onviewattempt(attempt)}
+												class="neo-btn text-xs py-1 px-2.5 font-bold"
 											>
-												View Scorecard
+												Review
 											</button>
 											<button
 												type="button"
-												onclick={() => ondeleteattempt(att.id)}
-												class="neo-btn text-[10px] py-1 px-2 text-rose-500 hover:bg-rose-600 hover:text-white"
-												title="Delete Attempt"
+												onclick={() => ondeleteattempt(attempt.id)}
+												class="neo-btn text-xs py-1 px-2 text-rose-500 hover:bg-rose-600 hover:text-white"
+												title="Delete attempt record"
 											>
 												🗑️
 											</button>
@@ -368,6 +376,17 @@ const filteredAttempts = $derived(
 				testFileName={test.testFileName}
 				onzoom={(z) => (zoomedImage = z)}
 			/>
+
+		{:else if dev && activeTab === 'trace'}
+			{#if loadedTrace}
+				<div class="border-2 border-border-color neo-box overflow-hidden">
+					<DevPipelineTraceViewer trace={loadedTrace} />
+				</div>
+			{:else}
+				<div class="neo-box p-8 text-center font-mono text-xs text-text-muted bg-surface">
+					No dev pipeline trace found for this test.
+				</div>
+			{/if}
 		{/if}
 	</div>
 

@@ -1,8 +1,12 @@
 <script lang="ts">
+import { dev } from '$app/environment';
 import favicon from '$lib/assets/favicon.svg';
+import DevPipelineHistoryModal from '$lib/components/dev/DevPipelineHistoryModal.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
+
+let isDevTraceModalOpen = $state(false);
 </script>
 
 <header class="sticky top-0 z-30 w-full border-b-2 border-border-color bg-surface/90 backdrop-blur-md transition-colors">
@@ -25,6 +29,20 @@ const app = getAppContext();
 
 		<!-- Action Controls -->
 		<div class="flex items-center gap-1.5 sm:gap-2.5">
+			<!-- Dev-Only Pipeline Inspector Button -->
+			{#if dev}
+				<button
+					type="button"
+					onclick={() => (isDevTraceModalOpen = true)}
+					class="neo-btn text-[11px] sm:text-xs py-1 px-2 sm:py-1.5 sm:px-2.5 flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-mono font-bold whitespace-nowrap"
+					aria-label="Open Dev Pipeline Trace Inspector"
+					title="Inspect all AI and PDF pipeline stages & IndexedDB traces"
+				>
+					<span>⚡</span>
+					<span class="hidden md:inline">Dev Pipeline</span>
+				</button>
+			{/if}
+
 			<!-- API Keys / Provider Credentials CTA -->
 			<button
 				type="button"
@@ -105,3 +123,11 @@ const app = getAppContext();
 		</div>
 	</div>
 </header>
+
+{#if dev}
+	<DevPipelineHistoryModal
+		bind:isOpen={isDevTraceModalOpen}
+		onclose={() => (isDevTraceModalOpen = false)}
+	/>
+{/if}
+

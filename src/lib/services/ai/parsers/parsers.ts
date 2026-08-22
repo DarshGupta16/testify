@@ -2,8 +2,10 @@
  * Testify - AI Response Parsing & Synthesis Service
  */
 
+import { dev } from '$app/environment';
 import type { AIGenerationPayload, AIGenerationResult, RawAIResponseSchema } from '$lib/types/ai';
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { DiagramResolutionDiagnostic } from '$lib/types/devTrace';
 import type { TokenUsageStats } from '$lib/types/test';
 import { normalizeQuestions } from './normalizer';
 
@@ -226,13 +228,19 @@ export function synthesizeAiResult(
 	modelName: string,
 	rawText: string,
 	payload: AIGenerationPayload,
-	tokenUsage?: TokenUsageStats
+	tokenUsage?: TokenUsageStats,
+	durationMs?: number
 ): AIGenerationResult {
+	const cleaned = cleanRawJsonText(rawText);
+	const sanitized = sanitizeLatexInJson(cleaned);
 	const parsedSchema = parseAIResponse(rawText);
+
+	const resolutionDiagnostics: DiagramResolutionDiagnostic[] = [];
 	const questions = normalizeQuestions(
 		parsedSchema.questions,
 		payload.diagrams,
-		payload.metadata?.defaultMarksPerQuestion || 4
+		payload.metadata?.defaultMarksPerQuestion || 4,
+		resolutionDiagnostics
 	);
 
 	let durationMinutes: number | null | undefined;
@@ -244,6 +252,22 @@ export function synthesizeAiResult(
 		durationMinutes = parsedSchema.estimatedDurationMinutes || 60;
 	}
 
+	const diagnostics = dev
+		? {
+				durationMs,
+				parser: {
+					cleanedJsonText: cleaned,
+					sanitizedJsonText: sanitized,
+					parsedSchema,
+				},
+				normalization: {
+					questionsCount: questions.length,
+					diagramResolutionLogs: resolutionDiagnostics,
+					finalQuestions: questions,
+				},
+			}
+		: undefined;
+
 	return {
 		provider,
 		model: modelName,
@@ -254,5 +278,6 @@ export function synthesizeAiResult(
 		questions,
 		rawResponse: rawText,
 		tokenUsage,
+		diagnostics,
 	};
 }

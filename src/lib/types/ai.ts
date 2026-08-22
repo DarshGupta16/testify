@@ -3,6 +3,7 @@
  */
 
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { NormalizationStageTrace, ParserStageTrace } from '$lib/types/devTrace';
 import type { QuestionPreview, TokenUsageStats } from '$lib/types/test';
 
 export interface AIDiagramAsset {
@@ -81,6 +82,11 @@ export interface AIGenerationResult {
 	questions: QuestionPreview[];
 	rawResponse?: string;
 	tokenUsage?: TokenUsageStats;
+	diagnostics?: {
+		durationMs?: number;
+		parser?: ParserStageTrace;
+		normalization?: NormalizationStageTrace;
+	};
 }
 
 export interface AIProviderAdapter {

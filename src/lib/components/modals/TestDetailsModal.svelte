@@ -2,15 +2,32 @@
 import { dev } from '$app/environment';
 import { goto } from '$app/navigation';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
+import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
 
 const app = getAppContext();
 
-let activeTab = $state<'questions' | 'diagrams' | 'pages'>('questions');
+let activeTab = $state<'questions' | 'diagrams' | 'pages' | 'trace'>('questions');
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
+let loadedTrace = $state<DevPipelineTrace | null>(null);
+
+$effect(() => {
+	if (dev && app.modals.isDetailsModalOpen && app.modals.selectedTest) {
+		const currentTest = app.modals.selectedTest;
+		if (currentTest.devPipelineTrace) {
+			loadedTrace = currentTest.devPipelineTrace;
+		} else {
+			db.getDevTrace(currentTest.id).then((t) => {
+				loadedTrace = t || null;
+			});
+		}
+	}
+});
 
 function handleStartPractice() {
 	if (app.modals.selectedTest) {
@@ -144,6 +161,13 @@ function handleKeyDown(e: KeyboardEvent) {
 					>
 						Rendered Pages ({allPages.length})
 					</button>
+					<button
+						type="button"
+						onclick={() => (activeTab = 'trace')}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
+					>
+						⚡ Pipeline Trace
+					</button>
 				</div>
 			{/if}
 
@@ -166,6 +190,16 @@ function handleKeyDown(e: KeyboardEvent) {
 						testFileName={test.testFileName}
 						onzoom={(item) => (zoomedImage = item)}
 					/>
+				{:else if activeTab === 'trace'}
+					{#if loadedTrace}
+						<div class="border-2 border-border-color neo-box h-full min-h-[480px]">
+							<DevPipelineTraceViewer trace={loadedTrace} />
+						</div>
+					{:else}
+						<div class="p-8 text-center font-mono text-xs text-text-muted border-2 border-dashed border-border-color bg-muted/10">
+							No dev pipeline trace found for this test. New tests created in dev mode will record complete pipeline traces.
+						</div>
+					{/if}
 				{/if}
 			</div>
 
