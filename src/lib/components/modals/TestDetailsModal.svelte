@@ -1,4 +1,5 @@
 <script lang="ts">
+import { dev } from '$app/environment';
 import { goto } from '$app/navigation';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
@@ -73,7 +74,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 							{app.subjects.getName(test.subjectId) || '?'}
 						</span>
-						{#if allDiagrams.length > 0}
+						{#if dev && allDiagrams.length > 0}
 							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 								🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Diagram' : 'Diagrams'}
 							</span>
@@ -119,34 +120,36 @@ function handleKeyDown(e: KeyboardEvent) {
 				</div>
 			</div>
 
-			<!-- Tab Navigation -->
-			<div class="flex items-center gap-1.5 sm:gap-2 border-b-2 border-border-color mb-3 sm:mb-4 pb-2 overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">
-				<button
-					type="button"
-					onclick={() => (activeTab = 'questions')}
-					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
-				>
-					Questions ({test.questions?.length || 0})
-				</button>
-				<button
-					type="button"
-					onclick={() => (activeTab = 'diagrams')}
-					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
-				>
-					Extracted Diagrams ({allDiagrams.length})
-				</button>
-				<button
-					type="button"
-					onclick={() => (activeTab = 'pages')}
-					class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
-				>
-					Rendered Pages ({allPages.length})
-				</button>
-			</div>
+			<!-- Tab Navigation (Dev Only) -->
+			{#if dev}
+				<div class="flex items-center gap-1.5 sm:gap-2 border-b-2 border-border-color mb-3 sm:mb-4 pb-2 overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">
+					<button
+						type="button"
+						onclick={() => (activeTab = 'questions')}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+					>
+						Questions ({test.questions?.length || 0})
+					</button>
+					<button
+						type="button"
+						onclick={() => (activeTab = 'diagrams')}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+					>
+						Extracted Diagrams ({allDiagrams.length})
+					</button>
+					<button
+						type="button"
+						onclick={() => (activeTab = 'pages')}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+					>
+						Rendered Pages ({allPages.length})
+					</button>
+				</div>
+			{/if}
 
 			<!-- Tab Contents -->
 			<div class="flex-1 min-h-0 overflow-y-auto pr-1 mb-4">
-				{#if activeTab === 'questions'}
+				{#if !dev || activeTab === 'questions'}
 					<QuestionsTab
 						questions={test.questions || []}
 						onzoom={(item) => (zoomedImage = item)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { dev } from '$app/environment';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
@@ -61,7 +62,7 @@ const filteredAttempts = $derived(
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 						{app.subjects.getName(test.subjectId) || '?'}
 					</span>
-					{#if allDiagrams.length > 0}
+					{#if dev && allDiagrams.length > 0}
 						<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 							🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Figure' : 'Figures'}
 						</span>
@@ -217,20 +218,22 @@ const filteredAttempts = $derived(
 		>
 			Questions Preview ({test.questions?.length || 0})
 		</button>
-		<button
-			type="button"
-			onclick={() => (activeTab = 'diagrams')}
-			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
-		>
-			Isolated Figures ({allDiagrams.length})
-		</button>
-		<button
-			type="button"
-			onclick={() => (activeTab = 'pages')}
-			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
-		>
-			Rendered Pages ({allPages.length})
-		</button>
+		{#if dev}
+			<button
+				type="button"
+				onclick={() => (activeTab = 'diagrams')}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+			>
+				Isolated Figures ({allDiagrams.length})
+			</button>
+			<button
+				type="button"
+				onclick={() => (activeTab = 'pages')}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+			>
+				Rendered Pages ({allPages.length})
+			</button>
+		{/if}
 	</div>
 
 	<!-- Tab Panels -->
@@ -352,14 +355,14 @@ const filteredAttempts = $derived(
 				onzoom={(z) => (zoomedImage = z)}
 			/>
 
-		{:else if activeTab === 'diagrams'}
+		{:else if dev && activeTab === 'diagrams'}
 			<DiagramsTab
 				diagrams={allDiagrams}
 				testTitle={test.title}
 				onzoom={(z) => (zoomedImage = z)}
 			/>
 
-		{:else if activeTab === 'pages'}
+		{:else if dev && activeTab === 'pages'}
 			<PagesTab
 				pages={allPages}
 				testFileName={test.testFileName}
