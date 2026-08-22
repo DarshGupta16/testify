@@ -31,6 +31,9 @@ export async function generateGoogleQuestions(
 	// 1. Attach Document Pages
 	for (const page of payload.pages) {
 		parts.push({
+			text: `--- Document Page ${page.pageNumber} ---`,
+		});
+		parts.push({
 			inlineData: {
 				mimeType: page.mimeType || 'image/png',
 				data: stripDataUrlHeader(page.dataUrl),
@@ -41,6 +44,9 @@ export async function generateGoogleQuestions(
 	// 2. Attach Answer Key Pages (if provided)
 	if (payload.answerKeyPages && payload.answerKeyPages.length > 0) {
 		for (const keyPage of payload.answerKeyPages) {
+			parts.push({
+				text: `--- Answer Key Page ${keyPage.pageNumber} ---`,
+			});
 			parts.push({
 				inlineData: {
 					mimeType: keyPage.mimeType || 'image/png',
@@ -53,6 +59,9 @@ export async function generateGoogleQuestions(
 	// 3. Attach Diagram Crops (if provided)
 	if (payload.diagrams && payload.diagrams.length > 0) {
 		for (const diag of payload.diagrams) {
+			parts.push({
+				text: `--- Diagram Crop ID: "${diag.id}" (Page ${diag.pageNumber}) ---`,
+			});
 			parts.push({
 				inlineData: {
 					mimeType: diag.mimeType || 'image/png',

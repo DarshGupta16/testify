@@ -17,8 +17,9 @@ export function filterVectorPaths(
 		const w = p.bounds[2] - p.bounds[0];
 		const h = p.bounds[3] - p.bounds[1];
 
-		// Filter out full-page borders or full-width divider rules
-		if (w >= pageWidth * 0.7 && h <= 12) return false;
+		// Filter out full-page borders or full-width/full-height divider rules
+		if (w >= pageWidth * 0.7 && h <= 14) return false;
+		if (h >= pageHeight * 0.35 && w <= 45) return false;
 		if (w >= pageWidth * 0.92 && h >= pageHeight * 0.92) return false;
 
 		// Filter out faint CMYK or light RGB watermark tint paths
@@ -154,8 +155,10 @@ export function classifyDiagramClusters(
 			continue;
 		}
 
-		// EXCLUSION A: Header/Footer separator lines (wide & paper-thin)
-		if (w > 200 && h <= 10) continue;
+		// EXCLUSION A: Header/Footer/Margin separator lines (wide/tall & paper-thin)
+		if (w > 200 && h <= 12) continue;
+		if (h > 150 && w <= 45) continue;
+		if (w <= 8 || h <= 8) continue;
 
 		// EXCLUSION B: Single flat 1D equation lines (fractions, underlines)
 		if (h <= 4) continue;
@@ -167,11 +170,11 @@ export function classifyDiagramClusters(
 		let isDiagram = false;
 
 		// TIER 1: Complex 2D Diagrams (Mechanics, Circuits, Multi-shape setups: >= 10 paths)
-		if (pathCount >= 10 && w >= 25 && h >= 25) {
+		if (pathCount >= 10 && w >= 25 && h >= 25 && aspectRatio >= 0.15 && aspectRatio <= 6.5) {
 			isDiagram = true;
 		}
 		// TIER 2: Moderate/Simple 2D Diagrams (4-9 paths: e.g. Free-body diagrams, Pendulum, Box on floor)
-		else if (pathCount >= 4 && w >= 24 && h >= 24 && aspectRatio <= 6.0) {
+		else if (pathCount >= 4 && w >= 24 && h >= 24 && aspectRatio >= 0.15 && aspectRatio <= 6.0) {
 			isDiagram = true;
 		}
 		// TIER 3: Minimal 2D Geometric Setups (2-3 paths: e.g. 3-line Triangle, 2-axis Coordinate Graph)
@@ -257,7 +260,7 @@ export function cropVectorDiagrams(
 
 			currentIdx++;
 			diagrams.push({
-				id: `p${pageNumber}_vdiag_${currentIdx}`,
+				id: `p${pageNumber}_diag_${currentIdx}`,
 				pageNumber,
 				imageIndex: currentIdx,
 				type: 'vector_diagram',

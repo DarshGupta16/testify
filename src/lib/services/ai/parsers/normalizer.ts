@@ -31,13 +31,15 @@ export interface DiagramMatchResult {
  * Multi-tier robust diagram resolver:
  * Reconciles raw AI diagram identifiers against the extracted diagram catalog using
  * exact lookup, normalized page/index regex parsing, contextual keyword detection,
- * and page-level fallback heuristics.
+ * explicit diagram mention scanning in text/explanation, and page-level fallback heuristics.
  */
 export function resolveDiagram(
 	rawDiagramId: string | null | undefined,
 	questionPage: number | undefined,
 	questionText: string,
-	diagrams?: AIDiagramAsset[]
+	diagrams?: AIDiagramAsset[],
+	explanationText?: string,
+	hintText?: string
 ): DiagramMatchResult | undefined {
 	if (!diagrams || diagrams.length === 0) return undefined;
 
@@ -46,13 +48,15 @@ export function resolveDiagram(
 		diagramMap.set(d.id.toLowerCase(), d);
 	}
 
-	const trimmedId = rawDiagramId?.trim();
-	const isInvalidId = !trimmedId || /^(?:null|undefined|none|n\/a|no|false|0)$/i.test(trimmedId);
-
+	const combinedContext = `${questionText} ${explanationText || ''} ${hintText || ''}`;
 	const mentionsFigure =
-		/(?:figure|diagram|shown\s+in|refer\s+to|graph|circuit|schematic|plot|illustration|given\s+in|curve|triangle|setup|represented\s+by)\b/i.test(
-			questionText
+		/(?:figure|diagram|shown\s+in|refer\s+to|graph|circuit|schematic|plot|illustration|given\s+in|curve|triangle|setup|represented\s+by|chart)\b/i.test(
+			combinedContext
 		);
+
+	const trimmedId = rawDiagramId?.trim();
+	const isInvalidId =
+		!trimmedId || /^(?:null|undefined|none|n\/a|no|false|0|""|'')$/i.test(trimmedId);
 
 	// 1. Direct exact / normalized ID lookup
 	if (!isInvalidId) {
@@ -67,20 +71,41 @@ export function resolveDiagram(
 		}
 
 		if (questionPage !== undefined) {
-			const pagePrefixed = `p${questionPage}_diag_${trimmedId}`.toLowerCase();
-			const matchPrefixed = diagramMap.get(pagePrefixed);
-			if (matchPrefixed) {
-				return {
-					diagramId: matchPrefixed.id,
-					diagramUrl: matchPrefixed.dataUrl,
-					matchedTier: 'Tier 1 (Page-Prefixed Match)',
-					mentionsFigure,
-				};
+			const candidateKeys = [
+				`p${questionPage}_diag_${trimmedId}`,
+				`p${questionPage}_img_${trimmedId}`,
+				`p${questionPage}_vdiag_${trimmedId}`,
+				`p${questionPage}_${trimmedId}`,
+			];
+			for (const key of candidateKeys) {
+				const matchPrefixed = diagramMap.get(key.toLowerCase());
+				if (matchPrefixed) {
+					return {
+						diagramId: matchPrefixed.id,
+						diagramUrl: matchPrefixed.dataUrl,
+						matchedTier: 'Tier 1 (Page-Prefixed Match)',
+						mentionsFigure,
+					};
+				}
 			}
 		}
 	}
 
-	// 2. Structured regex match on ID string (e.g. "diag_p1_0", "p1_vdiag_1", "p1_img_2", "p2_1", "figure_1")
+	// 2. Explicit Catalog ID Mention in Question Text / Explanation / Hint
+	// (e.g. AI wrote "From diagram p4_diag_1:" in explanation or question text)
+	for (const d of diagrams) {
+		const idPattern = new RegExp(`\\b${d.id}\\b`, 'i');
+		if (idPattern.test(combinedContext)) {
+			return {
+				diagramId: d.id,
+				diagramUrl: d.dataUrl,
+				matchedTier: 'Tier 2 (Explicit Catalog ID in Text/Explanation)',
+				mentionsFigure: true,
+			};
+		}
+	}
+
+	// 3. Structured regex match on ID string (e.g. "diag_p1_0", "p1_vdiag_1", "p1_img_2", "p2_1", "figure_1")
 	if (!isInvalidId) {
 		// Pattern A: Match page and index (e.g. "diag_p1_0", "p1_diag_1", "p1_1", "page 2 fig 1")
 		const pageIdxMatch = trimmedId.match(
@@ -98,7 +123,7 @@ export function resolveDiagram(
 					return {
 						diagramId: exactSuffix.id,
 						diagramUrl: exactSuffix.dataUrl,
-						matchedTier: `Tier 2 (Regex Exact Suffix: P${targetPage} #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex Exact Suffix: P${targetPage} #${targetIdx})`,
 						mentionsFigure,
 					};
 
@@ -107,7 +132,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[0].id,
 						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 2 (Regex 0-Based: P${targetPage} #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex 0-Based: P${targetPage} #${targetIdx})`,
 						mentionsFigure,
 					};
 				}
@@ -116,7 +141,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[targetIdx - 1].id,
 						diagramUrl: pageDiagrams[targetIdx - 1].dataUrl,
-						matchedTier: `Tier 2 (Regex 1-Based: P${targetPage} #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex 1-Based: P${targetPage} #${targetIdx})`,
 						mentionsFigure,
 					};
 				}
@@ -124,7 +149,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[0].id,
 						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 2 (Regex Single Page Diagram: P${targetPage})`,
+						matchedTier: `Tier 3 (Regex Single Page Diagram: P${targetPage})`,
 						mentionsFigure,
 					};
 				}
@@ -143,7 +168,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[0].id,
 						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 2 (Regex Index Only: #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex Index Only: #${targetIdx})`,
 						mentionsFigure,
 					};
 				}
@@ -151,7 +176,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[targetIdx - 1].id,
 						diagramUrl: pageDiagrams[targetIdx - 1].dataUrl,
-						matchedTier: `Tier 2 (Regex Index Only: #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex Index Only: #${targetIdx})`,
 						mentionsFigure,
 					};
 				}
@@ -159,7 +184,7 @@ export function resolveDiagram(
 					return {
 						diagramId: pageDiagrams[0].id,
 						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 2 (Regex Single Page Diagram: #${targetIdx})`,
+						matchedTier: `Tier 3 (Regex Single Page Diagram: #${targetIdx})`,
 						mentionsFigure,
 					};
 				}
@@ -176,13 +201,13 @@ export function resolveDiagram(
 			return {
 				diagramId: subMatch.id,
 				diagramUrl: subMatch.dataUrl,
-				matchedTier: `Tier 2 (Substring Match: "${trimmedId}")`,
+				matchedTier: `Tier 3 (Substring Match: "${trimmedId}")`,
 				mentionsFigure,
 			};
 		}
 	}
 
-	// 3. Contextual fallback: question text mentions visual cues and page has matching diagrams
+	// 4. Contextual fallback: question text mentions visual cues and page has matching diagrams
 	if (mentionsFigure) {
 		if (questionPage !== undefined) {
 			const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
@@ -190,13 +215,15 @@ export function resolveDiagram(
 				return {
 					diagramId: pageDiagrams[0].id,
 					diagramUrl: pageDiagrams[0].dataUrl,
-					matchedTier: 'Tier 3 (Contextual: Keyword + Single Diagram on Page)',
+					matchedTier: 'Tier 4 (Contextual: Keyword + Single Diagram on Page)',
 					mentionsFigure: true,
 				};
 			}
 			if (pageDiagrams.length > 1) {
 				// Check if question specifies Figure 1 or Figure 2
-				const figNum = questionText.match(/(?:figure|fig|diagram)\s*[:.]?\s*([1-9]\d*|[A-Za-z])/i);
+				const figNum = combinedContext.match(
+					/(?:figure|fig|diagram)\s*[:.]?\s*([1-9]\d*|[A-Za-z])/i
+				);
 				if (figNum?.[1]) {
 					const token = figNum[1].toUpperCase();
 					let idx = Number.parseInt(token, 10) - 1;
@@ -207,7 +234,7 @@ export function resolveDiagram(
 						return {
 							diagramId: pageDiagrams[idx].id,
 							diagramUrl: pageDiagrams[idx].dataUrl,
-							matchedTier: `Tier 3 (Contextual: Specific Figure Name "${token}")`,
+							matchedTier: `Tier 4 (Contextual: Specific Figure Name "${token}")`,
 							mentionsFigure: true,
 						};
 					}
@@ -215,7 +242,7 @@ export function resolveDiagram(
 				return {
 					diagramId: pageDiagrams[0].id,
 					diagramUrl: pageDiagrams[0].dataUrl,
-					matchedTier: 'Tier 3 (Contextual: Keyword + First Diagram on Page)',
+					matchedTier: 'Tier 4 (Contextual: Keyword + First Diagram on Page)',
 					mentionsFigure: true,
 				};
 			}
@@ -223,21 +250,22 @@ export function resolveDiagram(
 			return {
 				diagramId: diagrams[0].id,
 				diagramUrl: diagrams[0].dataUrl,
-				matchedTier: 'Tier 3 (Contextual: Keyword + Single Document Diagram)',
+				matchedTier: 'Tier 4 (Contextual: Keyword + Single Document Diagram)',
 				mentionsFigure: true,
 			};
 		}
 	}
 
-	// 4. Single diagram on page fallback if question is on that page
-	if (questionPage !== undefined) {
+	// 5. Single diagram on page fallback ONLY if question explicitly mentions visual figure cues
+	// (Prevents blindly auto-linking single-diagram page graphics to unrelated numerical questions)
+	if (mentionsFigure && questionPage !== undefined) {
 		const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
 		if (pageDiagrams.length === 1) {
 			return {
 				diagramId: pageDiagrams[0].id,
 				diagramUrl: pageDiagrams[0].dataUrl,
-				matchedTier: 'Tier 4 (Single Diagram Page Auto-Link)',
-				mentionsFigure,
+				matchedTier: 'Tier 5 (Single Diagram Page Auto-Link with Visual Cue)',
+				mentionsFigure: true,
 			};
 		}
 	}
@@ -453,7 +481,16 @@ export function normalizeQuestions(
 			// Resolve diagram URL from catalog
 			const questionPage = typeof q.pageNumber === 'number' ? q.pageNumber : undefined;
 			const qText = String(q.text || '');
-			const resolvedDiagram = resolveDiagram(q.associatedDiagramId, questionPage, qText, diagrams);
+			const qExplanation = q.explanation ? String(q.explanation) : undefined;
+			const qHint = q.hint ? String(q.hint) : undefined;
+			const resolvedDiagram = resolveDiagram(
+				q.associatedDiagramId,
+				questionPage,
+				qText,
+				diagrams,
+				qExplanation,
+				qHint
+			);
 			const associatedDiagramId = resolvedDiagram?.diagramId;
 			const associatedDiagramUrl = resolvedDiagram?.diagramUrl;
 

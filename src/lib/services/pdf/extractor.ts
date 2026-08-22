@@ -167,10 +167,12 @@ export async function extractPdfPagesAndImages(
 
 				embeddedImages.push(...vectorDiagrams);
 
-				// 4. Sort extracted diagrams in top-to-bottom reading order
+				// 4. Sort extracted diagrams in top-to-bottom reading order and re-index sequentially
 				embeddedImages.sort((a, b) => (a.position?.y ?? 0) - (b.position?.y ?? 0));
 				embeddedImages.forEach((img, idx) => {
-					img.imageIndex = idx + 1;
+					const seqIndex = idx + 1;
+					img.imageIndex = seqIndex;
+					img.id = `p${pageNumber}_diag_${seqIndex}`;
 				});
 
 				totalEmbeddedImages += embeddedImages.length;

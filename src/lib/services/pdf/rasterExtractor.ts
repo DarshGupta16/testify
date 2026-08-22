@@ -60,7 +60,7 @@ export function processRasterImage(
 
 				const nextIndex = ctx.embeddedImages.length + 1;
 				ctx.embeddedImages.push({
-					id: `p${ctx.pageNumber}_img_${nextIndex}`,
+					id: `p${ctx.pageNumber}_diag_${nextIndex}`,
 					pageNumber: ctx.pageNumber,
 					imageIndex: nextIndex,
 					type: 'raster_image',

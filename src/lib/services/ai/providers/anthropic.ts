@@ -44,6 +44,10 @@ export async function generateAnthropicQuestions(
 
 	// 1. Attach Document Pages
 	for (const page of payload.pages) {
+		userContent.push({
+			type: 'text',
+			text: `--- Document Page ${page.pageNumber} ---`,
+		});
 		const parsed = parseDataUrl(page.dataUrl);
 		userContent.push({
 			type: 'image',
@@ -58,6 +62,10 @@ export async function generateAnthropicQuestions(
 	// 2. Attach Answer Key Pages
 	if (payload.answerKeyPages && payload.answerKeyPages.length > 0) {
 		for (const keyPage of payload.answerKeyPages) {
+			userContent.push({
+				type: 'text',
+				text: `--- Answer Key Page ${keyPage.pageNumber} ---`,
+			});
 			const parsed = parseDataUrl(keyPage.dataUrl);
 			userContent.push({
 				type: 'image',
@@ -73,6 +81,10 @@ export async function generateAnthropicQuestions(
 	// 3. Attach Diagram Crops
 	if (payload.diagrams && payload.diagrams.length > 0) {
 		for (const diag of payload.diagrams) {
+			userContent.push({
+				type: 'text',
+				text: `--- Diagram Crop ID: "${diag.id}" (Page ${diag.pageNumber}) ---`,
+			});
 			const parsed = parseDataUrl(diag.dataUrl);
 			userContent.push({
 				type: 'image',

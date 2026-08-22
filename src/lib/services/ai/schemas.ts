@@ -91,7 +91,8 @@ export const GEMINI_ASSESSMENT_SCHEMA = {
 					},
 					associatedDiagramId: {
 						type: Type.STRING,
-						description: 'ID of the matching extracted diagram crop (e.g. diag_p1_0) or null',
+						description:
+							'Exact ID of the matching extracted diagram crop from catalog (e.g. p1_diag_1) or null',
 					},
 					pageNumber: {
 						type: Type.INTEGER,
@@ -108,6 +109,9 @@ export const GEMINI_ASSESSMENT_SCHEMA = {
 					'hint',
 					'explanation',
 					'marks',
+					'negativeMarks',
+					'associatedDiagramId',
+					'pageNumber',
 				],
 			},
 		},
@@ -233,7 +237,11 @@ export const ANTHROPIC_ASSESSMENT_TOOL = {
 						explanation: { type: 'string' },
 						marks: { type: 'number' },
 						negativeMarks: { type: 'number' },
-						associatedDiagramId: { type: 'string' },
+						associatedDiagramId: {
+							type: 'string',
+							description:
+								'Exact ID of the matching extracted diagram crop from catalog (e.g. p1_diag_1) or null',
+						},
 						pageNumber: { type: 'number' },
 					},
 					required: [
@@ -246,6 +254,9 @@ export const ANTHROPIC_ASSESSMENT_TOOL = {
 						'hint',
 						'explanation',
 						'marks',
+						'negativeMarks',
+						'associatedDiagramId',
+						'pageNumber',
 					],
 				},
 			},

@@ -36,6 +36,10 @@ export async function generateOpenAIQuestions(
 	// 1. Attach Document Pages
 	for (const page of payload.pages) {
 		userContent.push({
+			type: 'text',
+			text: `--- Document Page ${page.pageNumber} ---`,
+		});
+		userContent.push({
 			type: 'image_url',
 			image_url: {
 				url: page.dataUrl,
@@ -47,6 +51,10 @@ export async function generateOpenAIQuestions(
 	// 2. Attach Answer Key Pages
 	if (payload.answerKeyPages && payload.answerKeyPages.length > 0) {
 		for (const keyPage of payload.answerKeyPages) {
+			userContent.push({
+				type: 'text',
+				text: `--- Answer Key Page ${keyPage.pageNumber} ---`,
+			});
 			userContent.push({
 				type: 'image_url',
 				image_url: {
@@ -60,6 +68,10 @@ export async function generateOpenAIQuestions(
 	// 3. Attach Diagram Crops
 	if (payload.diagrams && payload.diagrams.length > 0) {
 		for (const diag of payload.diagrams) {
+			userContent.push({
+				type: 'text',
+				text: `--- Diagram Crop ID: "${diag.id}" (Page ${diag.pageNumber}) ---`,
+			});
 			userContent.push({
 				type: 'image_url',
 				image_url: {

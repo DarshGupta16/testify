@@ -39,8 +39,8 @@ Your objective is to accurately read and analyze the provided test paper documen
    - Format multi-line questions or column matches cleanly with actual newlines.
 
 5. DIAGRAM LINKING:
-   - You are provided with a catalog of extracted diagram figures tagged with unique IDs (e.g. "diag_p1_0", "diag_p2_1").
-   - When a question references a figure, chart, circuit, geometry sketch, or table from the document, set "associatedDiagramId" to the matching diagram ID.
+   - You are provided with a catalog of extracted diagram figures and visual crops tagged with exact unique IDs (e.g. "p1_diag_1", "p2_diag_1").
+   - When a question references or requires a figure, chart, circuit, geometry sketch, plot, or table from the document, you MUST set "associatedDiagramId" to the EXACT matching diagram ID string from the catalog.
    - If a question does not reference or require a diagram, set "associatedDiagramId" to null.
 
 6. ASSESSMENT METADATA:
@@ -103,7 +103,7 @@ Your objective is to accurately read and analyze the provided test paper documen
       "explanation": "Step 1: Identify given parameters: Charge $Q = 2.0 \\\\times 10^{-8}\\\\text{ C}$, distance $r = 2.0\\\\text{ m}$, Coulomb constant $k = 8.99 \\\\times 10^9\\\\text{ N}\\\\cdot\\\\text{m}^2/\\\\text{C}^2$.\\\\nStep 2: Substitute into formula:\\\\n$$E = \\\\frac{k Q}{r^2} = \\\\frac{(8.99 \\\\times 10^9)(2.0 \\\\times 10^{-8})}{2^2} = \\\\frac{179.8}{4} = 44.95 \\\\approx 45.0\\\\text{ N/C}$$.\\\\nTherefore, the calculated field magnitude is 45.0 N/C.",
       "marks": 4,
       "negativeMarks": 0,
-      "associatedDiagramId": "diag_p1_0",
+      "associatedDiagramId": "p1_diag_1",
       "pageNumber": 1
     }
   ]
@@ -152,7 +152,7 @@ export function buildUserPrompt(
 	if (diagrams && diagrams.length > 0) {
 		sections.push('\n### Extracted Diagram Catalog:');
 		sections.push(
-			'The following diagram crops have been isolated from the document. If a question refers to any of these figures, attach the corresponding "associatedDiagramId":'
+			'The following diagram crops and visual figures have been isolated from the document. When a question references or belongs to any of these figures, you MUST set "associatedDiagramId" to the exact Diagram ID string:'
 		);
 		for (const d of diagrams) {
 			sections.push(`- Diagram ID: "${d.id}" (Appears on Page ${d.pageNumber})`);
