@@ -1,42 +1,8 @@
-# sv
+# Testify
+Deliberate misnomer cuz why not 😝
+![Screenshot of Testify](screenshot.png)
+Testify is an app I built primarily for myself (but I decided to share it with everyone anyway of course haha) for the purpose of converting PDF assignments that I get from my coaching center into these CBT (Computer Based Test)-style tests that I can give.
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+I was mostly bored, and I thought this would be a cool idea and I wanted this for myself in order to not just be able to solve these assignments in the same style, but also to have this record of everything kept neatly on my machine, so I made it!
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-bun x sv@0.17.0 create --template minimal --types ts --add tailwindcss="plugins:typography,forms" --install bun testify
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+It's completely local-first as it is right now, completely free, it runs on your own machine and your data is kept on your own machine, it never leaves, and you bring your own API keys from your favourite providers in order to get it to work.
