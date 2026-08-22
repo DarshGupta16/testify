@@ -6,5 +6,6 @@
 export * from './extractor';
 export * from './geometry';
 export * from './rasterExtractor';
+export * from './sampleGenerator';
 export * from './types';
 export * from './vectorClassifier';
