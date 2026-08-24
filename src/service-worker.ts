@@ -64,7 +64,7 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
 	);
 });
 
-// Fetch: Strategy-based offline caching and offline SPA fallback
+// Fetch: 100% Local-First Stale-While-Revalidate with Fire-and-Forget Background Revalidation
 self.addEventListener('fetch', (event: FetchEvent) => {
 	const { request } = event;
 
@@ -73,8 +73,12 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 
 	const url = new URL(request.url);
 
-	// 1. Bypass AI provider endpoints and non-HTTP schemes
+	// 1. Bypass AI provider endpoints, connectivity pings, and non-HTTP schemes
 	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+		return;
+	}
+
+	if (url.searchParams.has('_ping')) {
 		return;
 	}
 
@@ -82,7 +86,9 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 		url.hostname.includes('api.openai.com') ||
 		url.hostname.includes('api.anthropic.com') ||
 		url.hostname.includes('generativelanguage.googleapis.com') ||
-		url.hostname.includes('api.groq.com')
+		url.hostname.includes('api.groq.com') ||
+		url.hostname.includes('google.com') ||
+		url.hostname === '1.1.1.1'
 	) {
 		return;
 	}
@@ -111,7 +117,6 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 					}
 					return networkResponse;
 				} catch {
-					// Offline fallback if font isn't in cache: return empty or let browser use system fonts
 					return new Response('', { status: 408, statusText: 'Offline Font Not Cached' });
 				}
 			})()
@@ -119,51 +124,101 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 		return;
 	}
 
-	// 3. Navigation requests (HTML pages): Network-first with Cache fallback to App Shell
+	// 3. Navigation requests (HTML pages & SPA routes like /test/...):
+	// Local-First: Serve cached app shell immediately (0ms delay), then fire-and-forget background revalidate
 	if (request.mode === 'navigate') {
 		event.respondWith(
 			(async () => {
+				const cache = await caches.open(CACHE_NAME);
+
+				// Fast retrieval of cached shell
+				const exactMatch = await cache.match(request);
+				const rootMatch = await cache.match('/', { ignoreSearch: true });
+				const globalMatch = await caches.match('/', { ignoreSearch: true });
+				const cachedShell = exactMatch || rootMatch || globalMatch;
+
+				// Background asynchronous fire-and-forget revalidation
+				const revalidatePromise = fetch(request)
+					.then(async (networkResponse) => {
+						if (networkResponse?.ok) {
+							const openCache = await caches.open(CACHE_NAME);
+							await openCache.put(request, networkResponse.clone());
+						}
+					})
+					.catch(() => {
+						// Offline or background network failure is silently caught
+					});
+
+				event.waitUntil(revalidatePromise);
+
+				// If local shell exists, serve it IMMEDIATELY without waiting for network
+				if (cachedShell) {
+					return cachedShell;
+				}
+
+				// Fallback for very first visit if not yet cached
 				try {
 					const networkResponse = await fetch(request);
 					if (networkResponse.ok) {
-						const cache = await caches.open(CACHE_NAME);
 						cache.put(request, networkResponse.clone());
-						return networkResponse;
 					}
-				} catch (networkError) {
-					console.warn(
-						'[ServiceWorker] Navigation fetch failed, falling back to cache:',
-						networkError
-					);
+					return networkResponse;
+				} catch {
+					return new Response('Offline — Testify application shell is not available in cache.', {
+						status: 503,
+						headers: { 'Content-Type': 'text/plain' },
+					});
 				}
+			})()
+		);
+		return;
+	}
 
-				// If network fails (offline), try exact URL match, then root SPA shell '/'
+	// 4. Immutable build assets (/_app/immutable/...): Cache-First (Never changes for a given hash)
+	if (url.pathname.startsWith('/_app/immutable/')) {
+		event.respondWith(
+			(async () => {
 				const cache = await caches.open(CACHE_NAME);
 				const cachedResponse = await cache.match(request);
 				if (cachedResponse) {
 					return cachedResponse;
 				}
 
-				const rootShell = await cache.match('/');
-				if (rootShell) {
-					return rootShell;
+				try {
+					const networkResponse = await fetch(request);
+					if (networkResponse.ok) {
+						cache.put(request, networkResponse.clone());
+					}
+					return networkResponse;
+				} catch (err) {
+					console.warn(`[ServiceWorker] Immutable asset fetch failed for "${url.pathname}":`, err);
+					throw err;
 				}
-
-				return new Response('Offline — Testify application shell is not available in cache.', {
-					status: 503,
-					headers: { 'Content-Type': 'text/plain' },
-				});
 			})()
 		);
 		return;
 	}
 
-	// 4. Static assets & build bundles: Cache-First with background revalidation
+	// 5. Pre-cached static files & bundles: Local-First Stale-While-Revalidate
 	if (ASSETS_TO_PRECACHE.includes(url.pathname)) {
 		event.respondWith(
 			(async () => {
 				const cache = await caches.open(CACHE_NAME);
 				const cachedResponse = await cache.match(request);
+
+				// Fire-and-forget background update
+				const bgUpdate = fetch(request)
+					.then(async (networkResponse) => {
+						if (networkResponse?.ok) {
+							const openCache = await caches.open(CACHE_NAME);
+							await openCache.put(request, networkResponse.clone());
+						}
+					})
+					.catch(() => {
+						// Offline
+					});
+				event.waitUntil(bgUpdate);
+
 				if (cachedResponse) {
 					return cachedResponse;
 				}
@@ -183,23 +238,38 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 		return;
 	}
 
-	// 5. Generic Same-Origin requests: Stale-While-Revalidate
+	// 6. Generic Same-Origin requests: Local-First Stale-While-Revalidate
 	if (url.origin === self.location.origin) {
 		event.respondWith(
 			(async () => {
 				const cache = await caches.open(CACHE_NAME);
 				const cachedResponse = await cache.match(request);
 
-				const fetchPromise = fetch(request)
-					.then((networkResponse) => {
-						if (networkResponse.ok) {
-							cache.put(request, networkResponse.clone());
+				const bgFetch = fetch(request)
+					.then(async (networkResponse) => {
+						if (networkResponse?.ok) {
+							const openCache = await caches.open(CACHE_NAME);
+							await openCache.put(request, networkResponse.clone());
 						}
-						return networkResponse;
 					})
-					.catch(() => cachedResponse);
+					.catch(() => {
+						// Offline
+					});
+				event.waitUntil(bgFetch);
 
-				return cachedResponse || (await fetchPromise);
+				if (cachedResponse) {
+					return cachedResponse;
+				}
+
+				try {
+					const networkResponse = await fetch(request);
+					if (networkResponse.ok) {
+						cache.put(request, networkResponse.clone());
+					}
+					return networkResponse;
+				} catch {
+					return cachedResponse || new Response('', { status: 503 });
+				}
 			})()
 		);
 	}
