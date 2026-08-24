@@ -74,7 +74,7 @@ const {
 
 					<!-- Question Statement -->
 					<div class="text-sm font-medium text-text-primary leading-relaxed">
-						<MathRenderer content={q.text} />
+						<MathRenderer content={q.text} preRenderedHtml={q.renderedTextHtml} />
 					</div>
 
 					<!-- Options list if multiple choice -->
@@ -86,7 +86,11 @@ const {
 										{String.fromCharCode(65 + optIdx)}.
 									</span>
 									<span class="text-text-primary break-words">
-										<MathRenderer content={opt.text} inline={true} />
+										<MathRenderer
+											content={opt.text}
+											preRenderedHtml={opt.renderedTextHtml}
+											inline={true}
+										/>
 									</span>
 								</div>
 							{/each}
@@ -99,7 +103,7 @@ const {
 							<span class="font-mono font-bold text-indigo-700 dark:text-indigo-300 block mb-0.5 text-[11px] uppercase">
 								💡 Practice Hint:
 							</span>
-							<MathRenderer content={q.hint} />
+							<MathRenderer content={q.hint} preRenderedHtml={q.renderedHintHtml} />
 						</div>
 					{/if}
 				</div>
@@ -107,3 +111,10 @@ const {
 		</div>
 	{/if}
 </div>
+
+<style>
+	:global(.neo-box) {
+		content-visibility: auto;
+		contain-intrinsic-size: 0 140px;
+	}
+</style>

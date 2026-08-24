@@ -6,6 +6,7 @@ import { dev } from '$app/environment';
 import { aiService, formatAiProviderError } from '$lib/services/ai';
 import { buildUserPrompt, TESTIFY_SYSTEM_PROMPT } from '$lib/services/ai/prompts';
 import { db, fireAndForget } from '$lib/services/db';
+import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
 import { extractPdfPagesAndImages, type PdfExtractionResult } from '$lib/services/pdf';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
@@ -125,7 +126,7 @@ export async function processTestUpload(
 			},
 		});
 
-		finalQuestions = aiResult.questions;
+		finalQuestions = precompileQuestionsMath(aiResult.questions);
 		tokenUsage = aiResult.tokenUsage;
 		aiRawResponseText = aiResult.rawResponse || '';
 		aiDurationMs = aiResult.diagnostics?.durationMs || 0;

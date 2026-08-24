@@ -12,6 +12,7 @@ export type QuestionType =
 export interface QuestionOption {
 	id: string; // e.g. "opt_a1b2"
 	text: string; // option text
+	renderedTextHtml?: string; // Pre-compiled KaTeX & Markdown HTML for 0ms rendering
 }
 
 export interface QuestionPreview {
@@ -19,11 +20,14 @@ export interface QuestionPreview {
 	questionNumber: number;
 	type: QuestionType;
 	text: string;
+	renderedTextHtml?: string; // Pre-compiled KaTeX & Markdown HTML
 	options?: QuestionOption[];
 	correctAnswer?: string; // option ID if single_choice, or calculated string if numerical
 	correctAnswers?: string[]; // array of option IDs if multi_choice
 	hint?: string; // Directional/conceptual hint for practice mode
+	renderedHintHtml?: string; // Pre-compiled KaTeX hint HTML
 	explanation?: string;
+	renderedExplanationHtml?: string; // Pre-compiled KaTeX explanation HTML
 	marks: number;
 	negativeMarks?: number;
 	associatedDiagramId?: string;

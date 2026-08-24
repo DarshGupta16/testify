@@ -1,6 +1,6 @@
 <script lang="ts">
 import { dev } from '$app/environment';
-import { goto } from '$app/navigation';
+import { goto, preloadCode } from '$app/navigation';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
 import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
@@ -208,6 +208,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 					<a
 						href={`/test/${test.id}`}
+						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={() => app.modals.closeDetails()}
 						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 font-bold text-center truncate"
 					>
@@ -215,6 +216,7 @@ function handleKeyDown(e: KeyboardEvent) {
 					</a>
 					<button
 						type="button"
+						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleEdit}
 						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
 					>
@@ -225,6 +227,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
 					<button
 						type="button"
+						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleStartPractice}
 						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate"
 					>
@@ -233,6 +236,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 					<button
 						type="button"
+						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleStartExam}
 						class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate"
 					>

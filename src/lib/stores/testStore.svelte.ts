@@ -1,4 +1,5 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
 import { processTestUpload } from '$lib/services/testUploader';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 
@@ -49,6 +50,38 @@ export class TestStore {
 						'Sanitizing legacy test tags and questionCount in Dexie'
 					);
 				}
+
+				// Background non-blocking precompilation for any legacy tests lacking pre-rendered HTML
+				const needsPrecompile = this.tests.some((t) =>
+					t.questions?.some((q) => !q.renderedTextHtml)
+				);
+				if (needsPrecompile) {
+					const runBackgroundMathCompilation = () => {
+						let modified = false;
+						this.tests = this.tests.map((t) => {
+							if (t.questions?.some((q) => !q.renderedTextHtml)) {
+								modified = true;
+								return {
+									...t,
+									questions: precompileQuestionsMath(t.questions),
+								};
+							}
+							return t;
+						});
+						if (modified) {
+							fireAndForget(
+								this.database.bulkSaveTests(this.tests),
+								'Persisting precompiled KaTeX HTML to Dexie'
+							);
+						}
+					};
+
+					if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+						window.requestIdleCallback(runBackgroundMathCompilation);
+					} else {
+						setTimeout(runBackgroundMathCompilation, 100);
+					}
+				}
 			}
 		} catch (err) {
 			console.error('[TestStore] Error initializing from Dexie:', err);
@@ -97,6 +130,11 @@ export class TestStore {
 	updateTest(updated: TestItem): void {
 		const index = this.tests.findIndex((t) => t.id === updated.id);
 		if (index !== -1) {
+			// Ensure modified questions have up-to-date pre-rendered KaTeX & Markdown HTML
+			if (updated.questions && updated.questions.length > 0) {
+				updated.questions = precompileQuestionsMath(updated.questions);
+			}
+
 			this.tests[index] = updated;
 			this.tests = [...this.tests];
 			fireAndForget(this.database.saveTest(updated), `Updating Test "${updated.title}" in Dexie`);

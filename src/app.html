@@ -128,7 +128,11 @@
 		</script>
 		%sveltekit.head%
 	</head>
-	<body class="min-h-screen bg-canvas text-canvas-text font-sans antialiased transition-colors duration-150">
+	<body
+		class="min-h-screen bg-canvas text-canvas-text font-sans antialiased transition-colors duration-150"
+		data-sveltekit-preload-code="hover"
+		data-sveltekit-preload-data="hover"
+	>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { goto } from '$app/navigation';
+import { goto, preloadCode } from '$app/navigation';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 import { formatDate } from '$lib/utils';
@@ -47,7 +47,10 @@ function handleDelete() {
 }
 </script>
 
-<article class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all">
+<article
+	onmouseenter={() => preloadCode(`/test/${test.id}`)}
+	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all"
+>
 	<!-- Card Top Section -->
 	<div>
 		<!-- Badges Row -->
@@ -125,6 +128,7 @@ function handleDelete() {
 		{:else}
 			<button
 				type="button"
+				onmouseenter={() => preloadCode(`/test/${test.id}`)}
 				onclick={handleStartClick}
 				class="neo-btn neo-btn-primary w-full text-xs py-2.5"
 			>
@@ -147,6 +151,7 @@ function handleDelete() {
 		<div class="flex items-center justify-between gap-2">
 			<button
 				type="button"
+				onmouseenter={() => preloadCode(`/test/${test.id}`)}
 				onclick={() => app.modals.openDetails(test)}
 				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
 			>

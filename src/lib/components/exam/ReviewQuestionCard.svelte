@@ -97,7 +97,7 @@ const userSelectedOptionIds = $derived<string[]>(
 
 	<!-- Question Text -->
 	<div class="text-sm font-medium text-text-primary leading-relaxed">
-		<MathRenderer content={q.text} />
+		<MathRenderer content={q.text} preRenderedHtml={q.renderedTextHtml} />
 	</div>
 
 	<!-- Options Review Display -->
@@ -131,7 +131,11 @@ const userSelectedOptionIds = $derived<string[]>(
 							{String.fromCharCode(65 + optIdx)}
 						</span>
 						<div class="pt-0.5 text-xs font-medium break-words">
-							<MathRenderer content={opt.text} inline={true} />
+							<MathRenderer
+								content={opt.text}
+								preRenderedHtml={opt.renderedTextHtml}
+								inline={true}
+							/>
 						</div>
 					</div>
 
@@ -177,7 +181,7 @@ const userSelectedOptionIds = $derived<string[]>(
 					<span class="font-mono font-bold text-indigo-700 dark:text-indigo-300 uppercase block text-[10px]">
 						💡 Concept Hint:
 					</span>
-					<MathRenderer content={q.hint} />
+					<MathRenderer content={q.hint} preRenderedHtml={q.renderedHintHtml} />
 				</div>
 			{/if}
 
@@ -187,7 +191,10 @@ const userSelectedOptionIds = $derived<string[]>(
 						📖 Step-by-Step Derivation & Explanation:
 					</span>
 					<div class="text-text-primary leading-relaxed">
-						<MathRenderer content={q.explanation} />
+						<MathRenderer
+							content={q.explanation}
+							preRenderedHtml={q.renderedExplanationHtml}
+						/>
 					</div>
 				</div>
 			{/if}

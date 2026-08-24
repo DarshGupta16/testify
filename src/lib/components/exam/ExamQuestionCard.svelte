@@ -130,7 +130,7 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 
 	<!-- Question Statement (KaTeX + Markdown with preserved linebreaks) -->
 	<div class="text-sm sm:text-base font-normal leading-relaxed text-text-primary">
-		<MathRenderer content={question.text} />
+		<MathRenderer content={question.text} preRenderedHtml={question.renderedTextHtml} />
 	</div>
 
 	<!-- Practice Mode: Hint & Solution Helpers -->
@@ -171,42 +171,52 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 						💡 Practice Hint:
 					</span>
 					<div class="text-text-primary pl-4 border-l-2 border-amber-500/40">
-						<MathRenderer content={question.hint} />
+						<MathRenderer content={question.hint} preRenderedHtml={question.renderedHintHtml} />
 					</div>
 				</div>
 			{/if}
 
 			<!-- Expandable Practice Solution Card -->
 			{#if showPracticeSolution}
-				<div class="p-4 bg-indigo-500/10 border-2 border-indigo-500/60 text-xs font-mono space-y-2 animate-slide-down">
-					<span class="font-bold text-indigo-700 dark:text-indigo-300 block">
-						✓ Solution & Step-by-Step Explanation:
+				<div class="p-3.5 bg-indigo-500/10 border-2 border-indigo-500/60 text-xs font-mono space-y-2 animate-slide-down">
+					<span class="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+						👁️ Practice Solution & Answer Key:
 					</span>
 
-					{#if isMulti}
-						{@const correctIds = question.correctAnswers || (question.correctAnswer ? [question.correctAnswer] : [])}
-						<div class="font-bold text-emerald-600 dark:text-emerald-400 space-y-1">
-							<span>Correct Options ({correctIds.length}):</span>
-							<div class="flex flex-wrap gap-1.5 pt-1">
-								{#each correctIds as cId}
-									{@const optObj = question.options?.find((o) => o.id === cId)}
-									<span class="px-2 py-0.5 border border-emerald-500/40 bg-emerald-500/10 text-xs">
-										<MathRenderer content={optObj ? optObj.text : cId} inline={true} />
-									</span>
+					{#if question.correctAnswers && question.correctAnswers.length > 0}
+						<div class="space-y-1">
+							<span class="font-bold text-emerald-600 dark:text-emerald-400">Correct Options:</span>
+							<ul class="list-disc pl-5 space-y-0.5">
+								{#each question.correctAnswers as ansId}
+									{@const optMatch = question.options?.find((o) => o.id === ansId)}
+									<li>
+										<MathRenderer
+											content={optMatch ? optMatch.text : ansId}
+											preRenderedHtml={optMatch?.renderedTextHtml}
+											inline={true}
+										/>
+									</li>
 								{/each}
-							</div>
+							</ul>
 						</div>
 					{:else if question.correctAnswer}
 						{@const matchingOpt = question.options?.find((o) => o.id === question.correctAnswer)}
 						<div class="font-bold text-emerald-600 dark:text-emerald-400 flex items-center flex-wrap gap-1">
 							<span>Correct Answer:</span>
-							<MathRenderer content={matchingOpt ? matchingOpt.text : question.correctAnswer} inline={true} />
+							<MathRenderer
+								content={matchingOpt ? matchingOpt.text : question.correctAnswer}
+								preRenderedHtml={matchingOpt?.renderedTextHtml}
+								inline={true}
+							/>
 						</div>
 					{/if}
 
 					{#if question.explanation}
 						<div class="text-text-primary pl-3 border-l-2 border-indigo-500/40 pt-1">
-							<MathRenderer content={question.explanation} />
+							<MathRenderer
+								content={question.explanation}
+								preRenderedHtml={question.renderedExplanationHtml}
+							/>
 						</div>
 					{/if}
 				</div>
@@ -253,7 +263,11 @@ const hasAnswer = $derived(hasResponseAnswer(response));
 								{isMulti ? (isSelected ? '✓' : letter) : letter}
 							</span>
 							<div class="flex-1 text-xs sm:text-sm pt-0.5 break-words">
-								<MathRenderer content={optText} inline={true} />
+								<MathRenderer
+									content={optText}
+									preRenderedHtml={typeof opt === 'object' ? opt.renderedTextHtml : undefined}
+									inline={true}
+								/>
 							</div>
 						</button>
 					{/each}
