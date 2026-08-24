@@ -29,6 +29,43 @@ let isDevTraceModalOpen = $state(false);
 
 		<!-- Action Controls -->
 		<div class="flex items-center gap-1.5 sm:gap-2.5">
+			<!-- Offline Connectivity Status Badge -->
+			{#if !app.network.isOnline}
+				<div
+					class="neo-badge bg-amber-500 text-black border-amber-600 font-mono text-[9px] sm:text-[10px] font-black tracking-wider flex items-center gap-1 sm:gap-1.5 animate-pulse"
+					title="Offline Mode: Testify is running locally from IndexedDB cache"
+				>
+					<span class="inline-block h-1.5 w-1.5 bg-black rounded-full"></span>
+					<span>OFFLINE</span>
+				</div>
+			{/if}
+
+			<!-- PWA Install Application CTA -->
+			{#if app.network.isInstallable}
+				<button
+					type="button"
+					onclick={() => app.network.promptInstall()}
+					class="neo-btn text-[11px] sm:text-xs py-1 px-2 sm:py-1.5 sm:px-2.5 flex items-center gap-1.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/25 font-bold whitespace-nowrap"
+					aria-label="Install Testify as an Application"
+					title="Install Testify as a desktop or mobile application"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="square"
+						class="h-3 w-3 sm:h-3.5 sm:w-3.5"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="7 10 12 15 17 10" />
+						<line x1="12" y1="15" x2="12" y2="3" />
+					</svg>
+					<span class="hidden md:inline">Install App</span>
+				</button>
+			{/if}
+
 			<!-- Dev-Only Pipeline Inspector Button -->
 			{#if dev}
 				<button

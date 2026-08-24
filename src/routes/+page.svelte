@@ -9,7 +9,7 @@ const app = getAppContext();
 </script>
 
 <svelte:head>
-	<title>Testify — Neobrutalist Test Engine & PDF Exam Simulator</title>
+	<title>Testify — Test Engine & PDF Exam Simulator</title>
 	<meta
 		name="description"
 		content="Convert any test or assignment PDF into an interactive, timed exam with KaTeX math rendering, MuPDF diagram extraction, and instant scorecards."

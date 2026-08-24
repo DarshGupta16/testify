@@ -103,6 +103,12 @@ function clearAnswerKeyFile() {
 async function handleSubmit(e: SubmitEvent) {
 	e.preventDefault();
 
+	if (!app.network.isOnline) {
+		formError =
+			'You are currently offline. AI test generation requires an active internet connection.';
+		return;
+	}
+
 	if (!testFile || !testFileObj) {
 		formError = 'Please choose a question paper PDF file to upload.';
 		return;
@@ -320,6 +326,28 @@ async function handleSubmit(e: SubmitEvent) {
 		onmodelchange={handleModelChange}
 	/>
 
+	<!-- Offline Alert Banner -->
+	{#if !app.network.isOnline}
+		<div class="neo-box p-4 bg-amber-500/15 border-2 border-amber-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
+			<div class="flex h-7 w-7 shrink-0 items-center justify-center bg-amber-500 text-white font-mono text-sm font-black">
+				⚡
+			</div>
+			<div class="space-y-1 text-xs">
+				<div class="flex items-center gap-2">
+					<p class="font-sans font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
+						Offline Mode Active
+					</p>
+					<span class="neo-badge bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/50 text-[9px] py-0 px-1.5 font-bold">
+						NO INTERNET
+					</span>
+				</div>
+				<p class="text-text-primary leading-relaxed">
+					AI test generation and PDF parsing require an active internet connection to contact AI models. You can still access, view, practice, and take all your previously saved tests offline.
+				</p>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Error Alert Banner -->
 	{#if formError}
 		<div class="neo-box p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
@@ -373,12 +401,15 @@ async function handleSubmit(e: SubmitEvent) {
 				</button>
 				<button
 					type="submit"
-					disabled={app.tests.isUploading}
+					disabled={app.tests.isUploading || !app.network.isOnline}
 					class="neo-btn neo-btn-primary text-xs h-9 px-3 sm:px-5 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-bold text-center truncate"
+					title={!app.network.isOnline ? 'Cannot generate tests while offline' : ''}
 				>
 					{#if app.tests.isUploading}
 						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
 						<span>Ingesting...</span>
+					{:else if !app.network.isOnline}
+						<span>⚡ Offline (Internet Required)</span>
 					{:else}
 						<span>Ingest & Create &rarr;</span>
 					{/if}
@@ -388,12 +419,15 @@ async function handleSubmit(e: SubmitEvent) {
 			<div class="flex items-center justify-end w-full">
 				<button
 					type="submit"
-					disabled={app.tests.isUploading}
+					disabled={app.tests.isUploading || !app.network.isOnline}
 					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-bold"
+					title={!app.network.isOnline ? 'Cannot generate tests while offline' : ''}
 				>
 					{#if app.tests.isUploading}
 						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
 						<span>Ingesting PDF...</span>
+					{:else if !app.network.isOnline}
+						<span>⚡ Offline (Internet Required)</span>
 					{:else}
 						<span>Generate Test &rarr;</span>
 					{/if}

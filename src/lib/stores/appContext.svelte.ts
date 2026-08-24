@@ -8,6 +8,7 @@ import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
 import { ModalStore } from './modalStore.svelte';
+import { NetworkStore } from './networkStore.svelte';
 import { SecurityStore } from './securityStore.svelte';
 import { SubjectStore } from './subjectStore.svelte';
 import { TestStore } from './testStore.svelte';
@@ -27,6 +28,7 @@ export class AppStore {
 	readonly toast = new ToastStore();
 	readonly security = new SecurityStore();
 	readonly apiKeys = new ApiKeyStore();
+	readonly network = new NetworkStore();
 
 	// Global extraction scale preference (1.0x, 1.25x, 1.5x, 2.0x)
 	selectedScale = $state<number>(1.25);
@@ -43,16 +45,26 @@ export class AppStore {
 		await this.tests.init();
 		await this.attempts.init();
 
-		// 2. Wire security session expiry hook to key purge
+		// 2. Initialize network & PWA installation status
+		this.network.init(
+			() => {
+				this.toast.show('Back online! Internet connection restored.', 'info', 4000);
+			},
+			() => {
+				this.toast.show('You are offline. Testify is running from local storage.', 'warning', 5000);
+			}
+		);
+
+		// 3. Wire security session expiry hook to key purge
 		this.security.setOnSessionExpire(() => {
 			this.apiKeys.purgeMemory();
 		});
 
-		// 3. Initialize security authentication state and API key records
+		// 4. Initialize security authentication state and API key records
 		await this.security.init();
 		await this.apiKeys.init(this.security.securityMode);
 
-		// 4. Load saved extraction scale from Dexie
+		// 5. Load saved extraction scale from Dexie
 		try {
 			const savedScale = await db.getSetting<number>(SETTINGS_KEYS.EXTRACTION_SCALE, 1.25);
 			if (typeof savedScale === 'number' && savedScale > 0) {
@@ -129,6 +141,11 @@ export class AppStore {
 
 	async handleAddTest(payload: TestUploadPayload): Promise<TestItem | undefined> {
 		try {
+			if (!this.network.isOnline) {
+				throw new Error(
+					'You are currently offline. AI test generation requires an internet connection.'
+				);
+			}
 			if (!payload.scale) {
 				payload.scale = this.selectedScale;
 			}
