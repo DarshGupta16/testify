@@ -4,14 +4,110 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
-		<title>Testify — Neobrutalist Test Engine</title>
-		<meta name="description" content="Convert any test or assignment PDF into an interactive, timed test." />
+
+		<!-- Primary Page Title & Search Engine Metadata -->
+		<title>Testify — Neobrutalist Test Engine & PDF Exam Simulator</title>
+		<meta
+			name="description"
+			content="Convert any test or assignment PDF into an interactive, timed exam. Features MuPDF diagram extraction, KaTeX math formulas, AI parsing, and instant scorecards."
+		/>
+		<meta
+			name="keywords"
+			content="PDF to test, exam simulator, online test engine, AI test parser, PDF question paper converter, interactive assessment, timed exam, LaTeX math test"
+		/>
+		<link rel="canonical" href="https://pdftotest.vercel.app/" />
+
+		<!-- Open Graph / Facebook / LinkedIn / Discord -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Testify" />
+		<meta property="og:url" content="https://pdftotest.vercel.app/" />
+		<meta property="og:title" content="Testify — Neobrutalist Test Engine & PDF Exam Simulator" />
+		<meta
+			property="og:description"
+			content="Convert any test or assignment PDF into an interactive, timed exam. Features MuPDF diagram extraction, KaTeX math formulas, AI parsing, and instant scorecards."
+		/>
+		<meta property="og:image" content="https://pdftotest.vercel.app/og-image.png" />
+		<meta property="og:image:width" content="1920" />
+		<meta property="og:image:height" content="1080" />
+		<meta property="og:image:alt" content="Testify Assessment Dashboard and Test Simulator Interface" />
+
+		<!-- Twitter / X Cards -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:url" content="https://pdftotest.vercel.app/" />
+		<meta name="twitter:title" content="Testify — Neobrutalist Test Engine & PDF Exam Simulator" />
+		<meta
+			name="twitter:description"
+			content="Convert any test or assignment PDF into an interactive, timed exam with KaTeX math rendering, diagram extraction, and instant scorecards."
+		/>
+		<meta name="twitter:image" content="https://pdftotest.vercel.app/og-image.png" />
+		<meta name="twitter:image:alt" content="Testify Assessment Dashboard Preview" />
+
+		<!-- Browser & Mobile Theme Colors -->
+		<meta name="theme-color" content="#121217" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#121217" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Testify" />
+
+		<!-- High-Priority Font Preconnections & Non-Blocking Asynchronous Font Loading -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
+			rel="preload"
+			as="style"
 			href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-			rel="stylesheet"
 		/>
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+			media="print"
+			onload="this.media='all'"
+		/>
+		<noscript>
+			<link
+				rel="stylesheet"
+				href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+			/>
+		</noscript>
+
+		<!-- Structured Data: Schema.org JSON-LD (WebApplication & WebSite) -->
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@graph": [
+				{
+					"@type": "WebApplication",
+					"@id": "https://pdftotest.vercel.app/#webapp",
+					"name": "Testify",
+					"url": "https://pdftotest.vercel.app/",
+					"description": "Convert any test or assignment PDF into an interactive, timed exam with KaTeX math rendering, diagram extraction, and instant scorecard analytics.",
+					"applicationCategory": "EducationalApplication",
+					"operatingSystem": "All",
+					"offers": {
+						"@type": "Offer",
+						"price": "0",
+						"priceCurrency": "USD"
+					},
+					"featureList": [
+						"PDF Question Paper OCR and Parsing",
+						"MuPDF Vector Diagram & Raster Extraction",
+						"KaTeX LaTeX Math Formula Rendering",
+						"Interactive Practice and Exam Modes",
+						"Instant Automated Scorecards & Analytics",
+						"100% Private Local-First Storage with IndexedDB"
+					]
+				},
+				{
+					"@type": "WebSite",
+					"@id": "https://pdftotest.vercel.app/#website",
+					"name": "Testify",
+					"url": "https://pdftotest.vercel.app/",
+					"description": "Neobrutalist Test Engine & PDF Exam Simulator"
+				}
+			]
+		}
+		</script>
+
 		<script>
 			// Prevent theme flicker on page load
 			try {

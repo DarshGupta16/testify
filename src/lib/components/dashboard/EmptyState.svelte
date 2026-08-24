@@ -12,10 +12,10 @@ import TestUploadForm from '$lib/components/forms/TestUploadForm.svelte';
 			</span>
 		</div>
 		<h1 class="text-2xl sm:text-5xl font-black uppercase tracking-tight text-text-primary">
-			No Tests Created Yet
+			Interactive Assessment & PDF Test Engine
 		</h1>
 		<p class="mt-2 max-w-xl mx-auto text-xs sm:text-base text-text-secondary">
-			Upload your question paper PDF to automatically extract pages, raster images, and vector diagrams with MuPDF.
+			Upload any question paper PDF to automatically extract pages, raster images, and vector diagrams with MuPDF into an interactive, timed exam.
 		</p>
 	</div>
 
