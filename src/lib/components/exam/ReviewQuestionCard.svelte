@@ -23,7 +23,7 @@ const userSelectedOptionIds = $derived<string[]>(
 );
 </script>
 
-<div class="neo-box p-4 sm:p-6 bg-surface space-y-4">
+<div class="neo-box review-card-container p-4 sm:p-6 bg-surface space-y-4">
 	<!-- Question Review Header -->
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-color/30 pb-3">
 		<div class="flex flex-wrap items-center gap-2 font-mono text-xs">
@@ -201,3 +201,10 @@ const userSelectedOptionIds = $derived<string[]>(
 		</div>
 	{/if}
 </div>
+
+<style>
+	.review-card-container {
+		content-visibility: auto;
+		contain-intrinsic-size: 0 140px;
+	}
+</style>

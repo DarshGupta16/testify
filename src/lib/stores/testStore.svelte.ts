@@ -1,10 +1,13 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
 import { processTestUpload } from '$lib/services/testUploader';
+import type { DevPipelineTrace } from '$lib/types/devTrace';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 
 export class TestStore {
 	private database: TestifyDatabase;
+	docAssetsCache = new Map<string, PdfExtractionResult>();
 
 	tests = $state<TestItem[]>([]);
 
@@ -43,6 +46,13 @@ export class TestStore {
 				});
 
 				this.tests = cleaned;
+
+				// Populate in-memory docAssetsCache from loaded tests
+				for (const t of cleaned) {
+					if (t.extractedData) {
+						this.docAssetsCache.set(t.id, t.extractedData);
+					}
+				}
 
 				if (hasLegacyFields) {
 					fireAndForget(
@@ -102,6 +112,10 @@ export class TestStore {
 				},
 			});
 
+			if (newTest.extractedData) {
+				this.docAssetsCache.set(newTest.id, newTest.extractedData);
+			}
+
 			// 1. In-memory update synchronously
 			this.tests = [newTest, ...this.tests];
 
@@ -118,6 +132,7 @@ export class TestStore {
 
 	deleteTest(id: string): TestItem | undefined {
 		const target = this.tests.find((t) => t.id === id);
+		this.docAssetsCache.delete(id);
 		// 1. In-memory update synchronously
 		this.tests = this.tests.filter((t) => t.id !== id);
 
@@ -135,17 +150,90 @@ export class TestStore {
 				updated.questions = precompileQuestionsMath(updated.questions);
 			}
 
+			if (updated.extractedData) {
+				this.docAssetsCache.set(updated.id, updated.extractedData);
+			}
+
 			this.tests[index] = updated;
-			this.tests = [...this.tests];
 			fireAndForget(this.database.saveTest(updated), `Updating Test "${updated.title}" in Dexie`);
 		}
 	}
 
+	/**
+	 * Domain method to reassign all tests associated with oldSubjectId to newSubjectId.
+	 */
+	reassignSubject(oldSubjectId: string, newSubjectId: string): void {
+		const affectedTests = this.tests.filter((t) => t.subjectId === oldSubjectId);
+		if (affectedTests.length === 0) return;
+
+		this.tests = this.tests.map((t) =>
+			t.subjectId === oldSubjectId ? { ...t, subjectId: newSubjectId } : t
+		);
+
+		for (const t of affectedTests) {
+			fireAndForget(
+				this.database.saveTest({ ...t, subjectId: newSubjectId }),
+				`Reassigning test "${t.title}" to subject "${newSubjectId}"`
+			);
+		}
+	}
+
 	clearAll() {
+		this.docAssetsCache.clear();
 		// 1. In-memory update synchronously
 		this.tests = [];
 
 		// 2. Fire-and-forget async Dexie clear
 		fireAndForget(this.database.clearAllTests(), 'Clearing all tests from Dexie');
+	}
+
+	/**
+	 * Optimistically prefetches and caches extracted PDF assets (pages, diagrams)
+	 * for a test to ensure instant 0ms tab switching and view rendering.
+	 */
+	async prefetchTestDocAssets(testId: string): Promise<PdfExtractionResult | undefined> {
+		if (this.docAssetsCache.has(testId)) {
+			return this.docAssetsCache.get(testId);
+		}
+
+		const inMemory = this.tests.find((t) => t.id === testId);
+		if (inMemory?.extractedData) {
+			this.docAssetsCache.set(testId, inMemory.extractedData);
+			return inMemory.extractedData;
+		}
+
+		try {
+			const dbTest = await this.database.tests.get(testId);
+			if (dbTest?.extractedData) {
+				this.docAssetsCache.set(testId, dbTest.extractedData);
+				if (inMemory && !inMemory.extractedData) {
+					inMemory.extractedData = dbTest.extractedData;
+				}
+				return dbTest.extractedData;
+			}
+		} catch (err) {
+			console.warn(`[TestStore] Failed to prefetch doc assets for "${testId}":`, err);
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Retrieves cached extracted PDF assets or loads them on demand from IndexedDB.
+	 */
+	async getTestDocAssets(testId: string): Promise<PdfExtractionResult | undefined> {
+		return this.prefetchTestDocAssets(testId);
+	}
+
+	/**
+	 * Optimistically prefetches dev-only AI pipeline trace from IndexedDB.
+	 */
+	async prefetchDevTrace(testId: string): Promise<DevPipelineTrace | undefined> {
+		try {
+			return await this.database.getDevTrace(testId);
+		} catch (err) {
+			console.warn(`[TestStore] Failed to prefetch dev trace for "${testId}":`, err);
+			return undefined;
+		}
 	}
 }

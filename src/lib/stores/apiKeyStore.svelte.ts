@@ -1,4 +1,11 @@
-import { decryptApiKey, encryptApiKey } from '$lib/services/crypto';
+import {
+	clearKeyDerivationCache,
+	decryptApiKey,
+	encryptApiKey,
+	encryptWithKey,
+	getDerivedCryptoKey,
+	uint8ArrayToBase64,
+} from '$lib/services/crypto';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import type { AIProvider, SecurityMode, StoredApiKeyRecord } from '$lib/types/apiKeys';
 
@@ -113,14 +120,14 @@ export class ApiKeyStore {
 	}
 
 	/**
-	 * Atomically decrypts all stored records into active memory cache using the master password.
+	 * Atomically decrypts all stored records in parallel into active memory cache using the single-derivation crypto workflow.
 	 * Throws if the master password fails authentication for any encrypted key.
 	 */
 	async decryptAllKeys(password: string): Promise<void> {
 		const records = await this.database.getAllApiKeys();
 		const unlockedMap: Partial<Record<AIProvider, string>> = {};
 
-		for (const record of records) {
+		const decryptionTasks = records.map(async (record) => {
 			if (record.isEncrypted && record.ciphertext && record.iv && record.salt) {
 				const decrypted = await decryptApiKey(
 					{
@@ -130,9 +137,18 @@ export class ApiKeyStore {
 					},
 					password
 				);
-				unlockedMap[record.provider] = decrypted;
-			} else if (record.plaintextKey) {
-				unlockedMap[record.provider] = record.plaintextKey;
+				return { provider: record.provider, key: decrypted };
+			}
+			if (record.plaintextKey) {
+				return { provider: record.provider, key: record.plaintextKey };
+			}
+			return null;
+		});
+
+		const results = await Promise.all(decryptionTasks);
+		for (const res of results) {
+			if (res) {
+				unlockedMap[res.provider] = res.key;
 			}
 		}
 
@@ -145,16 +161,20 @@ export class ApiKeyStore {
 	 */
 	async encryptAllKeys(password: string): Promise<void> {
 		const currentKeys = { ...this.memoryKeys };
+		const sharedSalt = crypto.getRandomValues(new Uint8Array(16));
+		const sharedSaltBase64 = uint8ArrayToBase64(sharedSalt);
+		const cryptoKey = await getDerivedCryptoKey(password, sharedSalt);
+
 		for (const [provider, rawKey] of Object.entries(currentKeys)) {
 			if (rawKey) {
-				const encrypted = await encryptApiKey(rawKey, password);
+				const { ciphertext, iv } = await encryptWithKey(rawKey, cryptoKey);
 				await this.database.saveApiKeyRecord({
 					provider: provider as AIProvider,
 					securityMode: 'strict',
 					isEncrypted: true,
-					ciphertext: encrypted.ciphertext,
-					iv: encrypted.iv,
-					salt: encrypted.salt,
+					ciphertext,
+					iv,
+					salt: sharedSaltBase64,
 					updatedAt: new Date().toISOString(),
 				});
 			}
@@ -184,6 +204,7 @@ export class ApiKeyStore {
 	 */
 	async clearAllKeys(): Promise<void> {
 		this.memoryKeys = {};
+		clearKeyDerivationCache();
 		this.configuredProviders = {
 			openai: false,
 			anthropic: false,
@@ -198,6 +219,7 @@ export class ApiKeyStore {
 	 */
 	purgeMemory(): void {
 		this.memoryKeys = {};
+		clearKeyDerivationCache();
 	}
 
 	/**

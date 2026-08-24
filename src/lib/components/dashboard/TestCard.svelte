@@ -48,7 +48,10 @@ function handleDelete() {
 </script>
 
 <article
-	onmouseenter={() => preloadCode(`/test/${test.id}`)}
+	onmouseenter={() => {
+		preloadCode(`/test/${test.id}`);
+		app.tests.prefetchTestDocAssets(test.id);
+	}}
 	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all"
 >
 	<!-- Card Top Section -->
@@ -110,6 +113,8 @@ function handleDelete() {
 			<div class="grid grid-cols-2 gap-2 animate-slide-down">
 				<button
 					type="button"
+					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectPractice}
 					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate"
 					title="Start in Practice Mode"
@@ -118,6 +123,8 @@ function handleDelete() {
 				</button>
 				<button
 					type="button"
+					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectExam}
 					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate"
 					title="Start Exam Simulation"
@@ -128,7 +135,14 @@ function handleDelete() {
 		{:else}
 			<button
 				type="button"
-				onmouseenter={() => preloadCode(`/test/${test.id}`)}
+				onmouseenter={() => {
+					preloadCode(`/test/${test.id}`);
+					app.tests.prefetchTestDocAssets(test.id);
+				}}
+				onfocus={() => {
+					preloadCode(`/test/${test.id}`);
+					app.tests.prefetchTestDocAssets(test.id);
+				}}
 				onclick={handleStartClick}
 				class="neo-btn neo-btn-primary w-full text-xs py-2.5"
 			>
@@ -151,7 +165,14 @@ function handleDelete() {
 		<div class="flex items-center justify-between gap-2">
 			<button
 				type="button"
-				onmouseenter={() => preloadCode(`/test/${test.id}`)}
+				onmouseenter={() => {
+					preloadCode(`/test/${test.id}`);
+					app.tests.prefetchTestDocAssets(test.id);
+				}}
+				onfocus={() => {
+					preloadCode(`/test/${test.id}`);
+					app.tests.prefetchTestDocAssets(test.id);
+				}}
 				onclick={() => app.modals.openDetails(test)}
 				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
 			>

@@ -9,12 +9,14 @@ import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
 import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 
 const app = getAppContext();
 
 let activeTab = $state<'questions' | 'diagrams' | 'pages' | 'trace'>('questions');
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
 let loadedTrace = $state<DevPipelineTrace | null>(null);
+let loadedDocAssets = $state<PdfExtractionResult | null>(null);
 
 $effect(() => {
 	if (dev && app.modals.isDetailsModalOpen && app.modals.selectedTest) {
@@ -26,6 +28,22 @@ $effect(() => {
 				loadedTrace = t || null;
 			});
 		}
+	}
+});
+
+$effect(() => {
+	if (app.modals.isDetailsModalOpen && app.modals.selectedTest) {
+		const currentTest = app.modals.selectedTest;
+		if (currentTest.extractedData) {
+			loadedDocAssets = currentTest.extractedData;
+		} else {
+			db.getTestDocAssets(currentTest.id).then((assets) => {
+				loadedDocAssets = assets || null;
+			});
+		}
+	} else if (!app.modals.isDetailsModalOpen) {
+		loadedDocAssets = null;
+		loadedTrace = null;
 	}
 });
 
@@ -64,8 +82,8 @@ function handleKeyDown(e: KeyboardEvent) {
 
 {#if app.modals.isDetailsModalOpen && app.modals.selectedTest}
 	{@const test = app.modals.selectedTest}
-	{@const allDiagrams = test.extractedData?.pages.flatMap((p) => p.embeddedImages) || []}
-	{@const allPages = test.extractedData?.pages || []}
+	{@const allDiagrams = (test.extractedData?.pages || loadedDocAssets?.pages)?.flatMap((p) => p.embeddedImages) || []}
+	{@const allPages = test.extractedData?.pages || loadedDocAssets?.pages || []}
 
 	<!-- Backdrop -->
 	<div
@@ -91,9 +109,9 @@ function handleKeyDown(e: KeyboardEvent) {
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 							{app.subjects.getName(test.subjectId) || '?'}
 						</span>
-						{#if dev && allDiagrams.length > 0}
+						{#if dev && (test.extractedDiagramsCount ? test.extractedDiagramsCount > 0 : allDiagrams.length > 0)}
 							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
-								🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Diagram' : 'Diagrams'}
+								🎨 {test.extractedDiagramsCount ?? allDiagrams.length} {(test.extractedDiagramsCount ?? allDiagrams.length) === 1 ? 'Diagram' : 'Diagrams'}
 							</span>
 						{/if}
 						{#if test.aiModel}
@@ -150,6 +168,8 @@ function handleKeyDown(e: KeyboardEvent) {
 					<button
 						type="button"
 						onclick={() => (activeTab = 'diagrams')}
+						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						Extracted Diagrams ({allDiagrams.length})
@@ -157,6 +177,8 @@ function handleKeyDown(e: KeyboardEvent) {
 					<button
 						type="button"
 						onclick={() => (activeTab = 'pages')}
+						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						Rendered Pages ({allPages.length})
@@ -164,6 +186,20 @@ function handleKeyDown(e: KeyboardEvent) {
 					<button
 						type="button"
 						onclick={() => (activeTab = 'trace')}
+						onmouseenter={() => {
+							if (!loadedTrace) {
+								app.tests.prefetchDevTrace(test.id).then((t) => {
+									if (t && !loadedTrace) loadedTrace = t;
+								});
+							}
+						}}
+						onfocus={() => {
+							if (!loadedTrace) {
+								app.tests.prefetchDevTrace(test.id).then((t) => {
+									if (t && !loadedTrace) loadedTrace = t;
+								});
+							}
+						}}
 						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						⚡ Pipeline Trace

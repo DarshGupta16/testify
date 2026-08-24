@@ -16,10 +16,6 @@ marked.use({
 	breaks: true,
 });
 
-// Module-level in-memory LRU cache for rendered KaTeX formulas
-const KATEX_CACHE = new Map<string, string>();
-const MAX_KATEX_CACHE_ENTRIES = 3000;
-
 /**
  * Sanitizes math content before sending to KaTeX:
  * 1. Replaces illegal ampersands outside matrices with \text{\char38}
@@ -66,32 +62,20 @@ function isPureMathExpression(str: string): boolean {
 	return false;
 }
 
-function renderCachedKatex(cleanMath: string, isBlock: boolean): string {
-	const cacheKey = `${isBlock ? 'B' : 'I'}:${cleanMath}`;
-	const cached = KATEX_CACHE.get(cacheKey);
-	if (cached !== undefined) {
-		return cached;
-	}
-
-	let html = '';
+/**
+ * Renders LaTeX formulas directly on demand via KaTeX.
+ */
+function renderKatex(cleanMath: string, isBlock: boolean): string {
 	try {
 		const katexHtml = katex.renderToString(cleanMath, {
 			displayMode: isBlock,
 			throwOnError: false,
 		});
-		html = isBlock ? `<div class="my-2 overflow-x-auto">${katexHtml}</div>` : katexHtml;
+		return isBlock ? `<div class="my-2 overflow-x-auto">${katexHtml}</div>` : katexHtml;
 	} catch (err) {
 		console.error('[MathHtmlCompiler] KaTeX error:', err);
-		html = isBlock ? `$$${cleanMath}$$` : `$${cleanMath}$`;
+		return isBlock ? `$$${cleanMath}$$` : `$${cleanMath}$`;
 	}
-
-	if (KATEX_CACHE.size >= MAX_KATEX_CACHE_ENTRIES) {
-		const oldestKey = KATEX_CACHE.keys().next().value;
-		if (oldestKey) KATEX_CACHE.delete(oldestKey);
-	}
-	KATEX_CACHE.set(cacheKey, html);
-
-	return html;
 }
 
 /**
@@ -107,7 +91,7 @@ export function compileMathAndMarkdown(content: string, inline = false): string 
 		function storeMath(mathStr: string, isBlock = false): string {
 			const id = `%%MATH_${isBlock ? 'BLOCK' : 'INLINE'}_${placeholderCount++}%%`;
 			const cleanMath = sanitizeMathForKatex(mathStr);
-			const html = renderCachedKatex(cleanMath, isBlock);
+			const html = renderKatex(cleanMath, isBlock);
 			mathPlaceholders.set(id, html);
 			return id;
 		}
@@ -156,16 +140,15 @@ export function compileMathAndMarkdown(content: string, inline = false): string 
 		processed = processed.replace(/\\n/g, '\n');
 
 		// 5. Parse Markdown
-		let parsedHtml = inline
+		const parsedHtml = inline
 			? (marked.parseInline(processed) as string)
 			: (marked.parse(processed) as string);
 
-		// 6. Restore Math HTML placeholders
-		for (const [placeholder, mathHtml] of mathPlaceholders.entries()) {
-			parsedHtml = parsedHtml.split(placeholder).join(mathHtml);
-		}
-
-		return parsedHtml;
+		// 6. Restore Math HTML placeholders using a single-pass regex replacement
+		return parsedHtml.replace(
+			/%%MATH_(?:BLOCK|INLINE)_\d+%%/g,
+			(id) => mathPlaceholders.get(id) || id
+		);
 	} catch (err) {
 		console.error('[MathHtmlCompiler] Compile error:', err);
 		return content;

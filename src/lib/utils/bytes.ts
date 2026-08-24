@@ -33,8 +33,55 @@ export function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 /**
+ * Registry of active Object/Blob URLs for memory lifecycle tracking and clean revocation.
+ */
+const activeBlobUrls = new Set<string>();
+
+/**
+ * Tracks an ephemeral Blob / Object URL for future batch revocation.
+ */
+export function trackBlobUrl(url: string): string {
+	if (url && typeof url === 'string') {
+		activeBlobUrls.add(url);
+	}
+	return url;
+}
+
+/**
+ * Revokes a single tracked Blob / Object URL and removes it from the tracking registry.
+ */
+export function revokeBlobUrl(url: string): void {
+	if (url && activeBlobUrls.has(url)) {
+		try {
+			URL.revokeObjectURL(url);
+		} catch {}
+		activeBlobUrls.delete(url);
+	}
+}
+
+/**
+ * Revokes all active Blob / Object URLs and clears the tracking registry to prevent memory leaks.
+ */
+export function revokeBlobUrls(): void {
+	for (const url of activeBlobUrls) {
+		try {
+			URL.revokeObjectURL(url);
+		} catch {}
+	}
+	activeBlobUrls.clear();
+}
+
+/**
+ * Returns the count of currently tracked active Blob URLs.
+ */
+export function getActiveBlobUrlCount(): number {
+	return activeBlobUrls.size;
+}
+
+/**
  * Converts raw PNG bytes into both a persistent Base64 Data URL
  * and an ephemeral Object URL for fast DOM rendering.
+ * Automatically registers the Blob URL with the tracking registry for memory management.
  */
 export function createPngUrls(pngBytes: Uint8Array): {
 	dataUrl: string;
@@ -45,6 +92,7 @@ export function createPngUrls(pngBytes: Uint8Array): {
 
 	const blob = new Blob([pngBytes as BlobPart], { type: 'image/png' });
 	const blobUrl = URL.createObjectURL(blob);
+	trackBlobUrl(blobUrl);
 
 	return { dataUrl, blobUrl };
 }

@@ -190,22 +190,9 @@ export class AppStore {
 
 		const fallbackId =
 			this.subjects.subjects.find((s) => s.id !== id)?.id || DEFAULT_SUBJECT_IDS.GENERAL;
-		const affectedTests = this.tests.tests.filter((t) => t.subjectId === id);
 
-		// Reassign affected tests in memory
-		if (affectedTests.length > 0) {
-			this.tests.tests = this.tests.tests.map((t) =>
-				t.subjectId === id ? { ...t, subjectId: fallbackId } : t
-			);
-
-			// Persist updated tests to Dexie
-			for (const t of affectedTests) {
-				fireAndForget(
-					db.saveTest({ ...t, subjectId: fallbackId }),
-					`Reassigning test "${t.title}" to subject "${fallbackId}"`
-				);
-			}
-		}
+		// Reassign affected tests using domain method
+		this.tests.reassignSubject(id, fallbackId);
 
 		// Reset filter if currently filtering on this deleted subject
 		if (

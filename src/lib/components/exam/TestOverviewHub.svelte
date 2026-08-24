@@ -9,7 +9,7 @@ import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestAttemptStats } from '$lib/stores/attemptStore.svelte';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
-import type { ExtractedEmbeddedImage, ExtractedPdfPage } from '$lib/types/pdf';
+import type { ExtractedEmbeddedImage, ExtractedPdfPage, PdfExtractionResult } from '$lib/types/pdf';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 import { formatDate, formatSecondsToText } from '$lib/utils';
 
@@ -42,6 +42,7 @@ let attemptFilter = $state<'all' | 'exam' | 'practice'>('all');
 let isConfirmingDelete = $state(false);
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
 let loadedTrace = $state<DevPipelineTrace | null>(null);
+let loadedDocAssets = $state<PdfExtractionResult | null>(null);
 
 $effect(() => {
 	if (dev && test) {
@@ -55,10 +56,26 @@ $effect(() => {
 	}
 });
 
+$effect(() => {
+	if (test) {
+		if (test.extractedData) {
+			loadedDocAssets = test.extractedData;
+		} else {
+			db.getTestDocAssets(test.id).then((assets) => {
+				loadedDocAssets = assets || null;
+			});
+		}
+	}
+});
+
 const allDiagrams = $derived<ExtractedEmbeddedImage[]>(
-	test.extractedData?.pages.flatMap((p: ExtractedPdfPage) => p.embeddedImages) || []
+	(test.extractedData?.pages || loadedDocAssets?.pages)?.flatMap(
+		(p: ExtractedPdfPage) => p.embeddedImages
+	) || []
 );
-const allPages = $derived<ExtractedPdfPage[]>(test.extractedData?.pages || []);
+const allPages = $derived<ExtractedPdfPage[]>(
+	test.extractedData?.pages || loadedDocAssets?.pages || []
+);
 
 const filteredAttempts = $derived(
 	attempts.filter((a) => attemptFilter === 'all' || a.mode === attemptFilter)
@@ -78,9 +95,9 @@ const filteredAttempts = $derived(
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 						{app.subjects.getName(test.subjectId) || '?'}
 					</span>
-					{#if dev && allDiagrams.length > 0}
+					{#if dev && (test.extractedDiagramsCount ? test.extractedDiagramsCount > 0 : allDiagrams.length > 0)}
 						<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
-							🎨 {allDiagrams.length} {allDiagrams.length === 1 ? 'Figure' : 'Figures'}
+							🎨 {test.extractedDiagramsCount ?? allDiagrams.length} {(test.extractedDiagramsCount ?? allDiagrams.length) === 1 ? 'Figure' : 'Figures'}
 						</span>
 					{/if}
 					{#if test.aiModel}
@@ -238,6 +255,8 @@ const filteredAttempts = $derived(
 			<button
 				type="button"
 				onclick={() => (activeTab = 'diagrams')}
+				onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+				onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				Isolated Figures ({allDiagrams.length})
@@ -245,6 +264,8 @@ const filteredAttempts = $derived(
 			<button
 				type="button"
 				onclick={() => (activeTab = 'pages')}
+				onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
+				onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				Rendered Pages ({allPages.length})
@@ -252,6 +273,20 @@ const filteredAttempts = $derived(
 			<button
 				type="button"
 				onclick={() => (activeTab = 'trace')}
+				onmouseenter={() => {
+					if (!loadedTrace) {
+						app.tests.prefetchDevTrace(test.id).then((t) => {
+							if (t && !loadedTrace) loadedTrace = t;
+						});
+					}
+				}}
+				onfocus={() => {
+					if (!loadedTrace) {
+						app.tests.prefetchDevTrace(test.id).then((t) => {
+							if (t && !loadedTrace) loadedTrace = t;
+						});
+					}
+				}}
 				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				⚡ AI Pipeline Trace

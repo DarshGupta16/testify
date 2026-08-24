@@ -41,7 +41,7 @@ function handleDownload(url: string, filename: string) {
 	{:else}
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			{#each pages as page (page.pageNumber)}
-				<div class="neo-box p-4 bg-surface space-y-3">
+				<div class="neo-box page-item-container p-4 bg-surface space-y-3">
 					<!-- Page Header Bar -->
 					<div class="flex items-center justify-between font-mono text-xs border-b border-border-color/30 pb-2">
 						<div class="flex items-center gap-2">
@@ -108,3 +108,10 @@ function handleDownload(url: string, filename: string) {
 		</div>
 	{/if}
 </div>
+
+<style>
+	.page-item-container {
+		content-visibility: auto;
+		contain-intrinsic-size: 0 140px;
+	}
+</style>

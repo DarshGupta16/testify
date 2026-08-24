@@ -41,7 +41,7 @@ function handleDownload(url: string, filename: string) {
 	{:else}
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 			{#each diagrams as diag, idx (diag.id)}
-				<div class="neo-box p-3.5 bg-surface flex flex-col justify-between space-y-3">
+				<div class="neo-box diagram-item-container p-3.5 bg-surface flex flex-col justify-between space-y-3">
 					<div>
 						<!-- Badge header -->
 						<div class="flex items-center justify-between font-mono text-[11px] border-b border-border-color/30 pb-2 mb-2">
@@ -104,3 +104,10 @@ function handleDownload(url: string, filename: string) {
 		</div>
 	{/if}
 </div>
+
+<style>
+	.diagram-item-container {
+		content-visibility: auto;
+		contain-intrinsic-size: 0 140px;
+	}
+</style>

@@ -5,6 +5,35 @@ import { doBoxesOverlapOrNear, isPointInside, unionBoxes } from './geometry';
 import type { BoundingBox, ExtractedEmbeddedImage, VectorPathRecord } from './types';
 
 /**
+ * Calculates standard perceptual luminance (0.0 to 1.0) from CMYK, RGB, or Grayscale color vectors.
+ */
+export function calculatePerceptualLuminance(color?: number[]): number | undefined {
+	if (!color || color.length === 0) return undefined;
+
+	// CMYK: [c, m, y, k] -> convert to RGB then perceptual luminance
+	if (color.length === 4) {
+		const [c, m, y, k] = color;
+		const r = (1 - c) * (1 - k);
+		const g = (1 - m) * (1 - k);
+		const b = (1 - y) * (1 - k);
+		return 0.299 * r + 0.587 * g + 0.114 * b;
+	}
+
+	// RGB: [r, g, b]
+	if (color.length === 3) {
+		const [r, g, b] = color;
+		return 0.299 * r + 0.587 * g + 0.114 * b;
+	}
+
+	// Grayscale: [gray]
+	if (color.length === 1) {
+		return color[0];
+	}
+
+	return undefined;
+}
+
+/**
  * Filters raw vector path commands to remove background watermarks,
  * full-page boundary boxes, and faint tint patterns.
  */
@@ -22,17 +51,14 @@ export function filterVectorPaths(
 		if (h >= pageHeight * 0.35 && w <= 45) return false;
 		if (w >= pageWidth * 0.92 && h >= pageHeight * 0.92) return false;
 
-		// Filter out faint CMYK or light RGB watermark tint paths
-		if (p.color && p.color.length === 4 && p.color[3] < 0.35) return false;
-		if (
-			p.color &&
-			p.color.length === 3 &&
-			p.color[0] > 0.72 &&
-			p.color[1] > 0.72 &&
-			p.color[2] > 0.72
-		) {
+		// Filter out faint watermarks by alpha or high luminance (light background tints)
+		if (p.alpha !== undefined && p.alpha < 0.35) return false;
+
+		const luminance = calculatePerceptualLuminance(p.color);
+		if (luminance !== undefined && luminance > 0.8) {
 			return false;
 		}
+
 		return true;
 	});
 }
@@ -56,8 +82,8 @@ export function clusterVectorPaths(
 	const cellW = 40;
 	const cellH = 24;
 
-	// 1. Populate the spatial hash grid: cellKey -> array of path indices
-	const grid = new Map<string, number[]>();
+	// 1. Populate the spatial hash grid: packed 32-bit integer cellKey -> array of path indices
+	const grid = new Map<number, number[]>();
 
 	for (let i = 0; i < n; i++) {
 		const [x0, y0, x1, y1] = paths[i].bounds;
@@ -68,7 +94,7 @@ export function clusterVectorPaths(
 
 		for (let r = minRow; r <= maxRow; r++) {
 			for (let c = minCol; c <= maxCol; c++) {
-				const key = `${c}:${r}`;
+				const key = ((r & 0xffff) << 16) | (c & 0xffff);
 				const cell = grid.get(key);
 				if (cell) {
 					cell.push(i);
@@ -89,7 +115,7 @@ export function clusterVectorPaths(
 
 		for (let r = qMinRow; r <= qMaxRow; r++) {
 			for (let c = qMinCol; c <= qMaxCol; c++) {
-				const key = `${c}:${r}`;
+				const key = ((r & 0xffff) << 16) | (c & 0xffff);
 				const cell = grid.get(key);
 				if (!cell) continue;
 

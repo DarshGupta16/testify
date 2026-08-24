@@ -97,11 +97,26 @@ export class SecurityStore {
 			this.activeMasterPassword = '';
 		}
 
-		this.startTicker();
+		if (this.securityMode === 'strict' && this.isUnlocked) {
+			this.startTicker();
+		} else {
+			this.stopTicker();
+		}
 	}
 
-	private startTicker() {
-		if (this.intervalTicker) clearInterval(this.intervalTicker);
+	private stopTicker(): void {
+		if (this.intervalTicker) {
+			clearInterval(this.intervalTicker);
+			this.intervalTicker = null;
+		}
+	}
+
+	private startTicker(): void {
+		this.stopTicker();
+		if (this.securityMode !== 'strict' || !this.isUnlocked) {
+			return;
+		}
+
 		this.intervalTicker = setInterval(() => {
 			this.currentTime = Date.now();
 			if (
@@ -128,6 +143,7 @@ export class SecurityStore {
 			this.securityMode = 'strict';
 			this.isUnlocked = true;
 			this.scheduleMemoryWipe();
+			this.startTicker();
 
 			fireAndForget(
 				(async () => {
@@ -150,6 +166,7 @@ export class SecurityStore {
 		this.hasMasterPassword = true;
 		this.isUnlocked = true;
 		this.scheduleMemoryWipe();
+		this.startTicker();
 	}
 
 	/**
@@ -162,6 +179,8 @@ export class SecurityStore {
 		this.activeMasterPassword = '';
 		this.decryptedAt = null;
 		this.expiresAt = null;
+
+		this.stopTicker();
 
 		if (this.wipeTimer) {
 			clearTimeout(this.wipeTimer);
@@ -187,6 +206,8 @@ export class SecurityStore {
 		this.isUnlocked = true;
 		this.decryptedAt = null;
 		this.expiresAt = null;
+
+		this.stopTicker();
 
 		if (this.wipeTimer) {
 			clearTimeout(this.wipeTimer);
@@ -221,6 +242,7 @@ export class SecurityStore {
 				this.activeMasterPassword = password;
 				this.isUnlocked = true;
 				this.scheduleMemoryWipe();
+				this.startTicker();
 
 				fireAndForget(
 					(async () => {
@@ -236,6 +258,7 @@ export class SecurityStore {
 				if (this.wipeTimer) clearTimeout(this.wipeTimer);
 				this.decryptedAt = null;
 				this.expiresAt = null;
+				this.stopTicker();
 
 				fireAndForget(
 					this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax'),
@@ -261,6 +284,6 @@ export class SecurityStore {
 
 	destroy() {
 		if (this.wipeTimer) clearTimeout(this.wipeTimer);
-		if (this.intervalTicker) clearInterval(this.intervalTicker);
+		this.stopTicker();
 	}
 }

@@ -159,13 +159,15 @@ export async function processTestUpload(
 	}
 
 	onProgress?.(98, 'Persisting assessment & diagram assets...');
-	await new Promise((r) => setTimeout(r, 100));
-
-	onProgress?.(100, 'Assessment Ready!');
 
 	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 	const chosenSubjectId = payload.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
 	const createdAtIso = new Date().toISOString();
+
+	// Persist extracted heavy document assets to dedicated Dexie table asynchronously
+	fireAndForget(db.saveTestDocAssets(newId, extractionResult), 'persisting test document assets');
+
+	onProgress?.(100, 'Assessment Ready!');
 
 	// Construct dev-only pipeline trace
 	let devPipelineTrace: DevPipelineTrace | undefined;
@@ -261,7 +263,6 @@ export async function processTestUpload(
 		createdAt: createdAtIso,
 		status: 'ready',
 		questions: finalQuestions,
-		extractedData: extractionResult,
 		extractedPagesCount: extractionResult.totalPages,
 		extractedDiagramsCount: allDiagrams.length,
 		renderScale: scale,

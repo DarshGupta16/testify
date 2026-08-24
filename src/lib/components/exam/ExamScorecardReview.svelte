@@ -6,8 +6,13 @@ import {
 	getEnrichedReviewQuestions,
 } from '$lib/services/assessmentEvaluator';
 import type { TestAttempt, TestItem } from '$lib/types/test';
-import { formatDate, formatSecondsToText } from '$lib/utils';
 import ReviewQuestionCard from './ReviewQuestionCard.svelte';
+import ReviewFilterBar, {
+	type ReviewSortOption,
+	type ReviewStatusFilter,
+	type ReviewTypeFilter,
+} from './scorecard/ReviewFilterBar.svelte';
+import ScorecardMetricsHero from './scorecard/ScorecardMetricsHero.svelte';
 
 const {
 	test,
@@ -32,13 +37,9 @@ let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(n
 const timingStats = $derived.by(() => calculateAttemptTimingStats(testQuestions, attempt));
 
 // Filter & Sort State
-let reviewStatusFilter = $state<
-	'all' | 'correct' | 'partial' | 'incorrect' | 'unattempted' | 'marked'
->('all');
-let reviewTypeFilter = $state<'all' | 'single_choice' | 'multi_choice' | 'numerical'>('all');
-let reviewSortBy = $state<
-	'question_asc' | 'question_desc' | 'time_desc' | 'time_asc' | 'marks_desc' | 'marks_asc'
->('question_asc');
+let reviewStatusFilter = $state<ReviewStatusFilter>('all');
+let reviewTypeFilter = $state<ReviewTypeFilter>('all');
+let reviewSortBy = $state<ReviewSortOption>('question_asc');
 let reviewSearchQuery = $state<string>('');
 
 // Enriched Question Catalog
@@ -156,247 +157,28 @@ function resetFilters() {
 </script>
 
 <div class="space-y-6 sm:space-y-8 animate-fade-in pb-12">
-	<!-- Scorecard Hero Card -->
-	<div class="neo-box-lg p-4 sm:p-8 bg-surface space-y-4 sm:space-y-6">
-		<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
-			<div>
-				<div class="flex items-center gap-2 mb-1.5 font-mono text-xs">
-					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
-						{attempt.mode === 'practice' ? '🌿 Practice Review' : '🎯 Exam Scorecard'}
-					</span>
-					<span class="text-text-muted text-[11px]">
-						{formatDate(attempt.completedAt || attempt.startedAt)}
-					</span>
-				</div>
-				<h2 class="text-lg sm:text-3xl font-black uppercase tracking-tight text-text-primary break-words">
-					{attempt.testTitle}
-				</h2>
-			</div>
-
-			<!-- Exit & Retake Actions -->
-			<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto mt-2 md:mt-0">
-				<button
-					type="button"
-					onclick={onexitreview}
-					class="neo-btn text-xs py-2 px-3 text-center truncate"
-				>
-					&larr; Return to Hub
-				</button>
-				<button
-					type="button"
-					onclick={onretakepractice}
-					class="neo-btn text-xs py-2 px-3 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 text-center truncate"
-				>
-					Retake Practice
-				</button>
-				<button
-					type="button"
-					onclick={onretakeexam}
-					class="neo-btn neo-btn-primary text-xs py-2 px-3 text-center truncate font-bold"
-				>
-					Retake Exam
-				</button>
-			</div>
-		</div>
-
-		<!-- High-Level Score Stats Grid -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 font-mono">
-			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
-				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Final Score</span>
-				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-xl sm:text-4xl font-black text-text-primary">{attempt.score}</span>
-					<span class="text-xs text-text-muted">/ {attempt.maxPossibleScore}</span>
-				</div>
-			</div>
-
-			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
-				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Percentage</span>
-				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400">
-						{attempt.maxPossibleScore > 0 ? Math.round((Math.max(0, attempt.score) / attempt.maxPossibleScore) * 100) : 0}%
-					</span>
-				</div>
-			</div>
-
-			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
-				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Accuracy</span>
-				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-xl sm:text-4xl font-black text-text-primary">{attempt.accuracyPercentage}%</span>
-					<span class="text-[10px] sm:text-[11px] text-text-muted font-bold">({attempt.correctCount}/{attempt.answeredCount})</span>
-				</div>
-			</div>
-
-			<div class="border-2 border-border-color bg-muted/40 p-3 sm:p-4">
-				<span class="text-[10px] sm:text-[11px] text-text-muted uppercase font-bold block">Time Taken</span>
-				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-lg sm:text-3xl font-black text-text-primary">
-						{formatSecondsToText(attempt.durationSecondsTaken)}
-					</span>
-				</div>
-			</div>
-		</div>
-
-		<!-- Question Result Breakdown Row -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-			<div class="p-3 border border-emerald-500/40 bg-emerald-500/10 flex items-center justify-between">
-				<span class="font-bold text-emerald-700 dark:text-emerald-300 uppercase">Correct:</span>
-				<span class="font-black text-base text-emerald-700 dark:text-emerald-300">{filterCounts.correct}</span>
-			</div>
-
-			<div class="p-3 border border-amber-500/40 bg-amber-500/10 flex items-center justify-between">
-				<span class="font-bold text-amber-700 dark:text-amber-300 uppercase">Partial:</span>
-				<span class="font-black text-base text-amber-700 dark:text-amber-300">{filterCounts.partial}</span>
-			</div>
-
-			<div class="p-3 border border-rose-500/40 bg-rose-500/10 flex items-center justify-between">
-				<span class="font-bold text-rose-700 dark:text-rose-300 uppercase">Incorrect:</span>
-				<span class="font-black text-base text-rose-700 dark:text-rose-300">{filterCounts.incorrect}</span>
-			</div>
-
-			<div class="p-3 border border-border-color/40 bg-muted/40 flex items-center justify-between">
-				<span class="font-bold text-text-muted uppercase">Unattempted:</span>
-				<span class="font-black text-base text-text-secondary">{filterCounts.unattempted}</span>
-			</div>
-		</div>
-
-		<!-- Per-Question Timing Analysis -->
-		{#if timingStats}
-			<div class="p-4 bg-muted/30 border-2 border-border-color/60 font-mono text-xs space-y-2">
-				<span class="font-bold uppercase text-text-primary block text-[11px]">
-					⏱️ Speed & Time Analytics
-				</span>
-				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-					<div>
-						<span class="text-[10px] text-text-muted uppercase block">Average Pace / Question</span>
-						<span class="font-bold text-text-primary">{formatSecondsToText(timingStats.avgSecs)}</span>
-					</div>
-					<div>
-						<span class="text-[10px] text-text-muted uppercase block">Fastest Question</span>
-						<span class="font-bold text-emerald-600 dark:text-emerald-400">
-							Q#{timingStats.fastestQNumber} ({formatSecondsToText(timingStats.fastestSecs)})
-						</span>
-					</div>
-					<div>
-						<span class="text-[10px] text-text-muted uppercase block">Longest Time Spent</span>
-						<span class="font-bold text-amber-600 dark:text-amber-400">
-							Q#{timingStats.slowestQNumber} ({formatSecondsToText(timingStats.slowestSecs)})
-						</span>
-					</div>
-				</div>
-			</div>
-		{/if}
-	</div>
+	<!-- Scorecard Hero Summary Card -->
+	<ScorecardMetricsHero
+		{attempt}
+		{timingStats}
+		{filterCounts}
+		{onexitreview}
+		{onretakepractice}
+		{onretakeexam}
+	/>
 
 	<!-- Review Filters & Sort Control Bar -->
-	<div class="neo-box p-3.5 sm:p-5 bg-surface space-y-3.5 sm:space-y-4">
-		<!-- Search & Sort Row -->
-		<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
-			<div class="relative flex-1">
-				<input
-					type="text"
-					placeholder="Filter questions by keywords, formulas, or question number..."
-					bind:value={reviewSearchQuery}
-					class="neo-input w-full text-xs pr-8"
-				/>
-				{#if reviewSearchQuery}
-					<button
-						type="button"
-						onclick={() => (reviewSearchQuery = '')}
-						class="absolute inset-y-0 right-0 flex items-center pr-3 font-mono text-xs font-bold text-text-muted hover:text-text-primary"
-					>
-						✕
-					</button>
-				{/if}
-			</div>
-
-			<div class="flex items-center justify-between sm:justify-start gap-2 shrink-0">
-				<label for="review-sort" class="font-mono text-xs font-bold uppercase text-text-muted shrink-0">
-					Sort:
-				</label>
-				<select
-					id="review-sort"
-					bind:value={reviewSortBy}
-					class="neo-input text-xs font-mono py-1.5 pr-8 flex-1 sm:flex-initial"
-				>
-					<option value="question_asc">Question Number (Ascending)</option>
-					<option value="question_desc">Question Number (Descending)</option>
-					<option value="time_desc">Time Spent (High to Low)</option>
-					<option value="time_asc">Time Spent (Low to High)</option>
-					<option value="marks_desc">Marks Awarded (High to Low)</option>
-					<option value="marks_asc">Marks Awarded (Low to High)</option>
-				</select>
-			</div>
-		</div>
-
-		<!-- Filter Pills Row -->
-		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border-color/20 font-mono text-xs">
-			<div class="flex flex-wrap items-center gap-1.5">
-				<span class="font-bold text-text-muted text-[11px] uppercase mr-1">Status:</span>
-
-				<button
-					type="button"
-					onclick={() => (reviewStatusFilter = 'all')}
-					class={`neo-badge cursor-pointer ${reviewStatusFilter === 'all' ? 'bg-accent-contrast text-accent-contrast-text' : 'bg-muted'}`}
-				>
-					All ({filterCounts.total})
-				</button>
-				<button
-					type="button"
-					onclick={() => (reviewStatusFilter = 'correct')}
-					class={`neo-badge cursor-pointer ${reviewStatusFilter === 'correct' ? 'bg-emerald-600 text-white' : 'bg-muted'}`}
-				>
-					Correct ({filterCounts.correct})
-				</button>
-				{#if filterCounts.partial > 0}
-					<button
-						type="button"
-						onclick={() => (reviewStatusFilter = 'partial')}
-						class={`neo-badge cursor-pointer ${reviewStatusFilter === 'partial' ? 'bg-amber-500 text-white' : 'bg-muted'}`}
-					>
-						Partial ({filterCounts.partial})
-					</button>
-				{/if}
-				<button
-					type="button"
-					onclick={() => (reviewStatusFilter = 'incorrect')}
-					class={`neo-badge cursor-pointer ${reviewStatusFilter === 'incorrect' ? 'bg-rose-600 text-white' : 'bg-muted'}`}
-				>
-					Incorrect ({filterCounts.incorrect})
-				</button>
-				<button
-					type="button"
-					onclick={() => (reviewStatusFilter = 'unattempted')}
-					class={`neo-badge cursor-pointer ${reviewStatusFilter === 'unattempted' ? 'bg-accent-contrast text-accent-contrast-text' : 'bg-muted'}`}
-				>
-					Unattempted ({filterCounts.unattempted})
-				</button>
-				{#if filterCounts.marked > 0}
-					<button
-						type="button"
-						onclick={() => (reviewStatusFilter = 'marked')}
-						class={`neo-badge cursor-pointer ${reviewStatusFilter === 'marked' ? 'bg-amber-500 text-white' : 'bg-muted'}`}
-					>
-						Marked ({filterCounts.marked})
-					</button>
-				{/if}
-			</div>
-
-			<div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-				{#if hasActiveFilters}
-					<button
-						type="button"
-						onclick={resetFilters}
-						class="text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
-					>
-						Reset Filters
-					</button>
-				{/if}
-				<span class="font-bold text-text-secondary text-[11px]">
-					Showing {displayedQuestions.length} of {testQuestions.length}
-				</span>
-			</div>
-		</div>
-	</div>
+	<ReviewFilterBar
+		bind:reviewSearchQuery
+		bind:reviewSortBy
+		bind:reviewStatusFilter
+		bind:reviewTypeFilter
+		{filterCounts}
+		totalQuestions={testQuestions.length}
+		displayedCount={displayedQuestions.length}
+		{hasActiveFilters}
+		onresetfilters={resetFilters}
+	/>
 
 	<!-- Questions Detailed Review List -->
 	{#if displayedQuestions.length === 0}
@@ -405,7 +187,7 @@ function resetFilters() {
 			<button
 				type="button"
 				onclick={resetFilters}
-				class="neo-btn text-xs py-1.5 px-3"
+				class="neo-btn text-xs py-1.5 px-3 cursor-pointer"
 			>
 				Reset Filters
 			</button>

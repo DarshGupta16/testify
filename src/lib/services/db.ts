@@ -2,13 +2,20 @@ import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import { dev } from '$app/environment';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 import type { SubjectItem } from '$lib/types/subject';
 import type { TestAttempt, TestItem } from '$lib/types/test';
+import { toCloneable } from '$lib/utils/snapshot.svelte';
 
 export interface AppSettingRecord {
 	key: string;
 	value: unknown;
 	updatedAt: string;
+}
+
+export interface TestDocAssetRecord {
+	testId: string;
+	extractedData: PdfExtractionResult;
 }
 
 /**
@@ -21,26 +28,8 @@ export interface AppSettingRecord {
  * 4. AI Provider Credentials (`apiKeys`)
  * 5. User Exam Session Attempts (`attempts`)
  * 6. Dev-Only AI Pipeline Traces (`devTraces`)
+ * 7. Heavy Extracted PDF Document Assets (`testDocAssets`)
  */
-/**
- * Strips reactive proxies (e.g. Svelte 5 $state proxies) so that records
- * can be safely serialized by browser IndexedDB Structured Clone algorithm.
- * Uses native Svelte 5 $state.snapshot() with fallback.
- */
-export function toCloneable<T>(data: T): T {
-	if (data === null || typeof data !== 'object') {
-		return data;
-	}
-	try {
-		if (typeof $state !== 'undefined' && typeof $state.snapshot === 'function') {
-			return $state.snapshot(data) as T;
-		}
-	} catch {
-		// Fallback to JSON clone
-	}
-	return JSON.parse(JSON.stringify(data));
-}
-
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
 	subjects!: EntityTable<SubjectItem, 'id'>;
@@ -48,6 +37,7 @@ export class TestifyDatabase extends Dexie {
 	apiKeys!: EntityTable<StoredApiKeyRecord, 'provider'>;
 	attempts!: EntityTable<TestAttempt, 'id'>;
 	devTraces!: EntityTable<DevPipelineTrace, 'id'>;
+	testDocAssets!: EntityTable<TestDocAssetRecord, 'testId'>;
 
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
@@ -112,6 +102,47 @@ export class TestifyDatabase extends Dexie {
 			attempts: 'id, testId, status, startedAt, completedAt, score',
 			devTraces: 'id, testId, testTitle, createdAt, provider, model',
 		});
+
+		// Version 5 Migration: Decouple heavy extractedData assets from tests into dedicated testDocAssets store
+		this.version(5)
+			.stores({
+				tests: 'id, title, subjectId, createdAt, status',
+				subjects: 'id, name, createdAt',
+				settings: 'key, updatedAt',
+				apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+				attempts: 'id, testId, status, startedAt, completedAt, score',
+				devTraces: 'id, testId, testTitle, createdAt, provider, model',
+				testDocAssets: 'testId',
+			})
+			.upgrade(async (tx) => {
+				const testsTable = tx.table('tests');
+				const testDocAssetsTable = tx.table('testDocAssets');
+				const allTests = await testsTable.toArray();
+				if (allTests.length > 0) {
+					const testsToUpdate: Record<string, unknown>[] = [];
+					const assetsToSave: { testId: string; extractedData: unknown }[] = [];
+
+					for (const t of allTests) {
+						const testRecord = t as Record<string, unknown>;
+						if (testRecord.extractedData) {
+							assetsToSave.push({
+								testId: String(testRecord.id),
+								extractedData: testRecord.extractedData,
+							});
+							const clone = { ...testRecord };
+							delete clone.extractedData;
+							testsToUpdate.push(clone);
+						}
+					}
+
+					if (assetsToSave.length > 0) {
+						await testDocAssetsTable.bulkPut(assetsToSave);
+					}
+					if (testsToUpdate.length > 0) {
+						await testsTable.bulkPut(testsToUpdate);
+					}
+				}
+			});
 	}
 
 	// --- Subjects CRUD Operations ---
@@ -164,10 +195,21 @@ export class TestifyDatabase extends Dexie {
 		await this.tests.delete(id);
 		// Cascade delete attempts for this test
 		await this.deleteAttemptsByTestId(id);
+		// Cascade delete heavy document assets for this test
+		await this.deleteTestDocAssets(id);
+		// Cascade delete dev pipeline trace if present
+		if (dev) {
+			await this.deleteDevTrace(id);
+		}
 	}
 
 	async clearAllTests(): Promise<void> {
 		await this.tests.clear();
+		try {
+			await this.testDocAssets.clear();
+		} catch (err) {
+			console.error('[DB] Failed to clear test document assets:', err);
+		}
 	}
 
 	// --- Attempts CRUD Operations ---
@@ -313,6 +355,35 @@ export class TestifyDatabase extends Dexie {
 			await this.devTraces.clear();
 		} catch (err) {
 			console.warn('[DB] Failed to clear dev pipeline traces:', err);
+		}
+	}
+
+	// --- Test Document Assets CRUD Operations ---
+
+	async getTestDocAssets(testId: string): Promise<PdfExtractionResult | undefined> {
+		try {
+			const record = await this.testDocAssets.get(testId);
+			return record ? record.extractedData : undefined;
+		} catch (err) {
+			console.error(`[DB] Failed to get test document assets for "${testId}":`, err);
+			return undefined;
+		}
+	}
+
+	async saveTestDocAssets(testId: string, assets: PdfExtractionResult): Promise<void> {
+		await this.testDocAssets.put(
+			toCloneable({
+				testId,
+				extractedData: assets,
+			})
+		);
+	}
+
+	async deleteTestDocAssets(testId: string): Promise<void> {
+		try {
+			await this.testDocAssets.delete(testId);
+		} catch (err) {
+			console.error(`[DB] Failed to delete test document assets for "${testId}":`, err);
 		}
 	}
 }

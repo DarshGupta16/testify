@@ -30,6 +30,9 @@ function toArrayBuffer(view: Uint8Array): ArrayBuffer {
 	return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
+// In-memory Promise-cached session KEK derivations to guarantee Argon2id runs once per (password, salt) pair
+const keyDerivationCache = new Map<string, Promise<CryptoKey>>();
+
 /**
  * Derives a 256-bit symmetric encryption key from a master password and salt using Argon2id.
  */
@@ -55,11 +58,56 @@ export async function deriveArgon2Key(password: string, salt: Uint8Array): Promi
 }
 
 /**
+ * Derives (or returns cached) WebCrypto AES-256-GCM CryptoKey from password and salt.
+ * Ensures Argon2id computation only runs once even when multiple keys are decrypted in parallel.
+ * Immediately zeroes the raw key byte buffer in memory with rawKey.fill(0) after WebCrypto import.
+ */
+export function getDerivedCryptoKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+	const saltBase64 = uint8ArrayToBase64(salt);
+	const cacheKey = `${password}:${saltBase64}`;
+
+	const cached = keyDerivationCache.get(cacheKey);
+	if (cached) {
+		return cached;
+	}
+
+	const derivationPromise = (async () => {
+		const rawKey = await deriveArgon2Key(password, salt);
+		const rawKeyBuffer = toArrayBuffer(rawKey);
+
+		try {
+			const cryptoKey = await crypto.subtle.importKey(
+				'raw',
+				rawKeyBuffer,
+				{ name: AES_ALGORITHM },
+				false,
+				['encrypt', 'decrypt']
+			);
+			return cryptoKey;
+		} finally {
+			// Zero out the raw key byte buffer immediately after WebCrypto import
+			rawKey.fill(0);
+		}
+	})();
+
+	keyDerivationCache.set(cacheKey, derivationPromise);
+	return derivationPromise;
+}
+
+/**
+ * Clears the in-memory derived CryptoKey cache.
+ */
+export function clearKeyDerivationCache(): void {
+	keyDerivationCache.clear();
+}
+
+/**
  * Encrypts a plaintext API key string using AES-256-GCM with a key derived via Argon2id.
  */
 export async function encryptApiKey(
 	plaintext: string,
-	password: string
+	password: string,
+	customSalt?: Uint8Array
 ): Promise<{ ciphertext: string; iv: string; salt: string }> {
 	if (!plaintext) {
 		throw new Error('Cannot encrypt empty plaintext key.');
@@ -68,24 +116,14 @@ export async function encryptApiKey(
 		throw new Error('Master password is required for encryption.');
 	}
 
-	// 1. Generate cryptographically secure random salt and IV
-	const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTE_LENGTH));
+	// 1. Generate cryptographically secure random salt (or use supplied) and IV
+	const salt = customSalt || crypto.getRandomValues(new Uint8Array(SALT_BYTE_LENGTH));
 	const iv = crypto.getRandomValues(new Uint8Array(IV_BYTE_LENGTH));
 
-	// 2. Derive 256-bit key from password using Argon2id
-	const rawKey = await deriveArgon2Key(password, salt);
-	const rawKeyBuffer = toArrayBuffer(rawKey);
+	// 2. Derive 256-bit key from password using Argon2id (cached per session/salt)
+	const cryptoKey = await getDerivedCryptoKey(password, salt);
 
-	// 3. Import raw key into Web Crypto API
-	const cryptoKey = await crypto.subtle.importKey(
-		'raw',
-		rawKeyBuffer,
-		{ name: AES_ALGORITHM },
-		false,
-		['encrypt']
-	);
-
-	// 4. Encrypt with AES-GCM
+	// 3. Encrypt with AES-GCM
 	const encoder = new TextEncoder();
 	const plaintextBytes = encoder.encode(plaintext);
 	const ivBuffer = toArrayBuffer(iv);
@@ -123,20 +161,10 @@ export async function decryptApiKey(
 		const iv = base64ToUint8Array(encrypted.iv);
 		const ciphertextBytes = base64ToUint8Array(encrypted.ciphertext);
 
-		// 1. Re-derive key using Argon2id with stored salt
-		const rawKey = await deriveArgon2Key(password, salt);
-		const rawKeyBuffer = toArrayBuffer(rawKey);
+		// 1. Re-derive or retrieve cached WebCrypto key
+		const cryptoKey = await getDerivedCryptoKey(password, salt);
 
-		// 2. Import into Web Crypto API
-		const cryptoKey = await crypto.subtle.importKey(
-			'raw',
-			rawKeyBuffer,
-			{ name: AES_ALGORITHM },
-			false,
-			['decrypt']
-		);
-
-		// 3. Decrypt ciphertext
+		// 2. Decrypt ciphertext
 		const ivBuffer = toArrayBuffer(iv);
 		const ciphertextBuffer = toArrayBuffer(ciphertextBytes);
 
@@ -153,4 +181,48 @@ export async function decryptApiKey(
 		console.warn('[Crypto] Decryption failed - invalid password or corrupted data');
 		throw new Error('Invalid master password or corrupted key data.');
 	}
+}
+
+/**
+ * Encrypts directly using an existing WebCrypto CryptoKey.
+ */
+export async function encryptWithKey(
+	plaintext: string,
+	cryptoKey: CryptoKey
+): Promise<{ ciphertext: string; iv: string }> {
+	const iv = crypto.getRandomValues(new Uint8Array(IV_BYTE_LENGTH));
+	const encoder = new TextEncoder();
+	const plaintextBytes = encoder.encode(plaintext);
+
+	const encryptedBuffer = await crypto.subtle.encrypt(
+		{ name: AES_ALGORITHM, iv: toArrayBuffer(iv) },
+		cryptoKey,
+		plaintextBytes
+	);
+
+	return {
+		ciphertext: uint8ArrayToBase64(new Uint8Array(encryptedBuffer)),
+		iv: uint8ArrayToBase64(iv),
+	};
+}
+
+/**
+ * Decrypts directly using an existing WebCrypto CryptoKey.
+ */
+export async function decryptWithKey(
+	ciphertext: string,
+	iv: string,
+	cryptoKey: CryptoKey
+): Promise<string> {
+	const ivBytes = base64ToUint8Array(iv);
+	const ciphertextBytes = base64ToUint8Array(ciphertext);
+
+	const decryptedBuffer = await crypto.subtle.decrypt(
+		{ name: AES_ALGORITHM, iv: toArrayBuffer(ivBytes) },
+		cryptoKey,
+		toArrayBuffer(ciphertextBytes)
+	);
+
+	const decoder = new TextDecoder();
+	return decoder.decode(decryptedBuffer);
 }
