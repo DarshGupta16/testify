@@ -1,11 +1,13 @@
 <script lang="ts">
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import { AI_PROVIDERS, type AIProvider } from '$lib/types/apiKeys';
+import type { BatchGenerationConfig, BatchUploadItem, QueueMode } from '$lib/types/queue';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
-import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
 import AiProviderSelector from './AiProviderSelector.svelte';
+import BatchPaperList, { type BatchFormEntry } from './BatchPaperList.svelte';
 import PdfDropzone from './PdfDropzone.svelte';
+import QueueConfigBar from './QueueConfigBar.svelte';
 
 const {
 	isModal = false,
@@ -14,18 +16,22 @@ const {
 }: {
 	isModal?: boolean;
 	oncancel?: () => void;
-	onsuccess?: (test?: TestItem) => void;
+	onsuccess?: () => void;
 } = $props();
 
 const app = getAppContext();
 
-// Form State
-let autoTitle = $state(false);
-let title = $state('');
+// Batch Items State
+let batchItems = $state<BatchFormEntry[]>([]);
 let selectedSubjectId = $state(app.subjects.subjects[0]?.id || DEFAULT_SUBJECT_IDS.STEM);
 let autoDuration = $state(false);
 let durationMinutes = $state(60);
+let globalAutoTitle = $state(false);
 let formError = $state<string | null>(null);
+
+// Queue Mode & Concurrency Settings
+let queueMode = $state<QueueMode>(app.queue.mode || 'sequential');
+let concurrencyValue = $state<number>(app.queue.concurrency || 1);
 
 // Ensure a valid subject ID is selected once subjects load
 $effect(() => {
@@ -42,7 +48,7 @@ const currentProviderMeta = $derived(
 	AI_PROVIDERS.find((p) => p.id === selectedProvider) || AI_PROVIDERS[0]
 );
 
-// Auto-switch to first configured provider if available and current isn't configured
+// Auto-switch to first configured provider if current isn't configured
 $effect(() => {
 	if (!app.apiKeys.configuredProviders[selectedProvider]) {
 		const firstConfigured = AI_PROVIDERS.find((p) => app.apiKeys.configuredProviders[p.id]);
@@ -53,64 +59,62 @@ $effect(() => {
 	}
 });
 
-function handleProviderChange(provider: AIProvider, defaultModel: string) {
-	selectedProvider = provider;
-	modelName = defaultModel;
+function handlePrimaryFilesSelect(files: File[]) {
+	formError = null;
+	const newEntries: BatchFormEntry[] = files.map((file, idx) => ({
+		id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}_${idx}`,
+		title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+		autoTitle: globalAutoTitle,
+		testFile: {
+			name: file.name,
+			size: file.size,
+			formattedSize: formatBytes(file.size),
+			rawFile: file,
+		},
+		answerKeyFile: null,
+	}));
+
+	batchItems = [...batchItems, ...newEntries];
 }
 
-function handleModelChange(model: string) {
-	modelName = model;
+function handleRemoveBatchItem(id: string) {
+	batchItems = batchItems.filter((item) => item.id !== id);
 }
 
-// File state
-let testFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
-let testFileObj = $state<File | null>(null);
-
-let answerKeyFile = $state<{ name: string; size: number; formattedSize: string } | null>(null);
-let answerKeyFileObj = $state<File | null>(null);
-
-function handleTestFileSelect(file: File) {
-	testFileObj = file;
-	testFile = {
-		name: file.name,
-		size: file.size,
-		formattedSize: formatBytes(file.size),
-	};
-	if (!title && !autoTitle) {
-		title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-	}
+function handleToggleTitle(id: string, autoTitle: boolean) {
+	batchItems = batchItems.map((item) => (item.id === id ? { ...item, autoTitle } : item));
 }
 
-function handleAnswerKeyFileSelect(file: File) {
-	answerKeyFileObj = file;
-	answerKeyFile = {
-		name: file.name,
-		size: file.size,
-		formattedSize: formatBytes(file.size),
-	};
+function handleSelectKey(id: string, file: File) {
+	batchItems = batchItems.map((item) =>
+		item.id === id
+			? {
+					...item,
+					answerKeyFile: {
+						name: file.name,
+						size: file.size,
+						formattedSize: formatBytes(file.size),
+						rawFile: file,
+					},
+				}
+			: item
+	);
 }
 
-function clearTestFile() {
-	testFile = null;
-	testFileObj = null;
-}
-
-function clearAnswerKeyFile() {
-	answerKeyFile = null;
-	answerKeyFileObj = null;
+function handleRemoveKey(id: string) {
+	batchItems = batchItems.map((item) => (item.id === id ? { ...item, answerKeyFile: null } : item));
 }
 
 async function handleSubmit(e: SubmitEvent) {
 	e.preventDefault();
 
-	if (!app.network.isOnline) {
-		formError =
-			'You are currently offline. AI test generation requires an active internet connection.';
+	if (batchItems.length === 0) {
+		formError = 'Please choose or drop at least one question paper PDF.';
 		return;
 	}
 
-	if (!testFile || !testFileObj) {
-		formError = 'Please choose a question paper PDF file to upload.';
+	if (!app.network.isOnline) {
+		formError = 'You are currently offline. AI test generation requires an active internet connection.';
 		return;
 	}
 
@@ -119,87 +123,84 @@ async function handleSubmit(e: SubmitEvent) {
 		return;
 	}
 
-	const payload: TestUploadPayload = {
-		title: autoTitle
-			? undefined
-			: title.trim() || testFile.name.replace(/\.[^/.]+$/, '') || 'General Assessment',
-		autoTitle,
+	const batchPayloads: BatchUploadItem[] = batchItems.map((item) => ({
+		id: item.id,
+		title: item.autoTitle ? '' : item.title.trim() || item.testFile.name.replace(/\.[^/.]+$/, ''),
+		autoTitle: item.autoTitle,
+		testFile: item.testFile,
+		answerKeyFile: item.answerKeyFile,
+	}));
+
+	const config: BatchGenerationConfig = {
 		subjectId: selectedSubjectId || app.subjects.subjects[0]?.id || 'general',
-		durationMinutes: autoDuration ? null : Number(durationMinutes) || 60,
-		autoDuration,
-		scale: Number(app.selectedScale) || 1.25,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
-		testFile: {
-			...testFile,
-			rawFile: testFileObj,
-		},
-		answerKeyFile: answerKeyFile
-			? {
-					...answerKeyFile,
-					rawFile: answerKeyFileObj || undefined,
-				}
-			: null,
+		scale: Number(app.selectedScale) || 1.25,
+		durationMinutes: autoDuration ? null : Number(durationMinutes) || 60,
+		autoDuration,
+		isUntimed: false,
+		mode: queueMode,
+		concurrency: queueMode === 'sequential' ? 1 : Math.max(1, Math.floor(concurrencyValue) || 1),
 	};
 
-	formError = null;
-
 	try {
-		const createdTest = await app.handleAddTest(payload);
-		if (createdTest) {
-			title = '';
-			autoTitle = false;
-			clearTestFile();
-			clearAnswerKeyFile();
-			onsuccess?.(createdTest);
-		}
+		await app.queue.enqueueBatch(batchPayloads, config);
+		app.toast.show(
+			`Enqueued ${batchPayloads.length} ${batchPayloads.length === 1 ? 'paper' : 'papers'} for background generation!`,
+			'info'
+		);
+		app.queue.toggleDrawer(true);
+		batchItems = [];
+		onsuccess?.();
 	} catch (err) {
 		formError = err instanceof Error ? err.message : String(err);
-		console.error('[TestUploadForm] Assessment creation error:', err);
+		console.error('[TestUploadForm] Enqueue error:', err);
 	}
 }
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-5">
-	<!-- PDF Documents Header -->
-	<div class="pb-1">
-		<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-muted">
-			PDF Documents
-		</span>
-	</div>
+	<!-- 1. Question Papers Ingestion -->
+	<div class="space-y-3">
+		<div class="flex items-center justify-between pb-1">
+			<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-muted">
+				1. Question Paper PDFs ({batchItems.length} selected)
+			</span>
+			{#if batchItems.length > 0}
+				<button
+					type="button"
+					onclick={() => (batchItems = [])}
+					class="text-[11px] font-mono text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+				>
+					Clear All ({batchItems.length})
+				</button>
+			{/if}
+		</div>
 
-	<!-- Dual File Pickers Grid -->
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-		<!-- 1. Question Paper PDF -->
 		<PdfDropzone
-			id="form-test-file"
-			label="1. Test / Assignment PDF"
-			file={testFile}
-			required={true}
-			disabled={app.tests.isUploading}
-			badgeText="PDF"
-			badgeColor="bg-accent-contrast text-accent-contrast-text"
-			subtitle="Exam sheets, practice tests (.pdf)"
-			onchange={handleTestFileSelect}
-			onclear={clearTestFile}
+			id="form-batch-test-files"
+			label="Question Paper PDF(s)"
+			multiple={true}
+			subtitle="Drop 1 or multiple exam papers (.pdf) to generate in parallel or sequentially"
+			onfileschange={handlePrimaryFilesSelect}
+			onchange={(f) => handlePrimaryFilesSelect([f])}
 		/>
 
-		<!-- 2. Answer Key PDF (Optional) -->
-		<PdfDropzone
-			id="form-key-file"
-			label="2. Answer Key PDF"
-			file={answerKeyFile}
-			optionalBadge={true}
-			disabled={app.tests.isUploading}
-			badgeText="KEY"
-			badgeColor="bg-emerald-500 text-white"
-			subtitle="Enables instant auto-scoring"
-			onchange={handleAnswerKeyFileSelect}
-			onclear={clearAnswerKeyFile}
-		/>
+		{#if batchItems.length > 0}
+			<BatchPaperList
+				items={batchItems}
+				onremoveitem={handleRemoveBatchItem}
+				ontoggletitle={handleToggleTitle}
+				onselectkey={handleSelectKey}
+				onremovekey={handleRemoveKey}
+			/>
+		{/if}
 	</div>
 
-	<!-- Scale Preset Selector -->
+	<!-- 2. Queue Mode & Concurrency Bar -->
+	<QueueConfigBar bind:mode={queueMode} bind:concurrency={concurrencyValue} />
+
+	<!-- 3. Extraction Resolution Scale -->
 	<div class="p-3.5 bg-muted/30 border-2 border-border-color/60">
 		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
 			<div>
@@ -217,7 +218,6 @@ async function handleSubmit(e: SubmitEvent) {
 			<select
 				id="form-scale-select"
 				bind:value={app.selectedScale}
-				disabled={app.tests.isUploading}
 				class="neo-input text-xs font-mono py-1.5 px-2.5 bg-surface"
 			>
 				<option value={1.0}>1.0× (Standard - Compact)</option>
@@ -228,48 +228,15 @@ async function handleSubmit(e: SubmitEvent) {
 		</div>
 	</div>
 
-	<!-- Metadata Fields: Title, Subject, Duration -->
-	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t-2 border-border-color/20">
-		<!-- 1. Assessment Title -->
-		<div class="sm:col-span-3 space-y-1.5">
-			<div class="flex items-center justify-between">
-				<label for="form-title" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-					Assessment Title
-				</label>
-				<label class="flex items-center gap-1.5 cursor-pointer select-none">
-					<input
-						type="checkbox"
-						bind:checked={autoTitle}
-						disabled={app.tests.isUploading}
-						class="accent-accent-contrast h-3.5 w-3.5"
-					/>
-					<span class="font-mono text-[11px] font-bold text-accent-contrast">
-						✨ Auto-Detect from PDF
-					</span>
-				</label>
-			</div>
-
-			<input
-				id="form-title"
-				type="text"
-				bind:value={title}
-				disabled={app.tests.isUploading || autoTitle}
-				placeholder={autoTitle ? 'Auto-detected from document header...' : 'e.g. Physics Midterm Examination 2026'}
-				class={`neo-input w-full h-10 text-sm ${
-					autoTitle ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
-				}`}
-			/>
-		</div>
-
-		<!-- 2. Subject / Field Category -->
+	<!-- 4. Metadata: Subject & Duration -->
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t-2 border-border-color/20">
 		<div class="space-y-1.5">
 			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-				Subject / Field
+				Academic Subject
 			</label>
 			<select
 				id="form-subject"
 				bind:value={selectedSubjectId}
-				disabled={app.tests.isUploading}
 				class="neo-input w-full h-10 text-sm font-sans bg-surface"
 			>
 				{#each app.subjects.subjects as sub (sub.id)}
@@ -278,21 +245,19 @@ async function handleSubmit(e: SubmitEvent) {
 			</select>
 		</div>
 
-		<!-- 3. Duration Input & Auto Mode -->
-		<div class="sm:col-span-2 space-y-1.5">
+		<div class="space-y-1.5">
 			<div class="flex items-center justify-between">
 				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-					Exam Duration
+					Default Duration
 				</label>
 				<label class="flex items-center gap-1.5 cursor-pointer select-none">
 					<input
 						type="checkbox"
 						bind:checked={autoDuration}
-						disabled={app.tests.isUploading}
 						class="accent-accent-contrast h-3.5 w-3.5"
 					/>
 					<span class="font-mono text-[11px] font-bold text-accent-contrast">
-						✨ Let AI Decide (Auto)
+						✨ AI Auto-Estimate
 					</span>
 				</label>
 			</div>
@@ -304,8 +269,8 @@ async function handleSubmit(e: SubmitEvent) {
 					min="5"
 					max="360"
 					bind:value={durationMinutes}
-					disabled={app.tests.isUploading || autoDuration}
-					placeholder={autoDuration ? 'Auto-estimated by AI model...' : '60'}
+					disabled={autoDuration}
+					placeholder={autoDuration ? 'Auto-estimated by AI...' : '60'}
 					class={`neo-input w-full h-10 text-sm font-mono pr-14 ${
 						autoDuration ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
 					}`}
@@ -317,38 +282,31 @@ async function handleSubmit(e: SubmitEvent) {
 		</div>
 	</div>
 
-	<!-- AI Provider & Vision Model Section -->
+	<!-- 5. AI Provider & Model -->
 	<AiProviderSelector
 		{selectedProvider}
 		{modelName}
-		disabled={app.tests.isUploading}
-		onproviderchange={handleProviderChange}
-		onmodelchange={handleModelChange}
+		onproviderchange={(p, m) => { selectedProvider = p; modelName = m; }}
+		onmodelchange={(m) => { modelName = m; }}
 	/>
 
-	<!-- Offline Alert Banner -->
+	<!-- 6. Alerts -->
 	{#if !app.network.isOnline}
 		<div class="neo-box p-4 bg-amber-500/15 border-2 border-amber-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
 			<div class="flex h-7 w-7 shrink-0 items-center justify-center bg-amber-500 text-white font-mono text-sm font-black">
 				⚡
 			</div>
 			<div class="space-y-1 text-xs">
-				<div class="flex items-center gap-2">
-					<p class="font-sans font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
-						Offline Mode Active
-					</p>
-					<span class="neo-badge bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/50 text-[9px] py-0 px-1.5 font-bold">
-						NO INTERNET
-					</span>
-				</div>
+				<p class="font-sans font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
+					Offline Mode Active
+				</p>
 				<p class="text-text-primary leading-relaxed">
-					AI test generation and PDF parsing require an active internet connection to contact AI models. You can still access, view, practice, and take all your previously saved tests offline.
+					AI test generation requires an active internet connection. You can still practice existing tests offline.
 				</p>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Error Alert Banner -->
 	{#if formError}
 		<div class="neo-box p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
 			<div class="flex h-7 w-7 shrink-0 items-center justify-center bg-rose-600 text-white font-mono text-sm font-black">
@@ -356,81 +314,52 @@ async function handleSubmit(e: SubmitEvent) {
 			</div>
 			<div class="space-y-1 text-xs">
 				<p class="font-sans font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
-					Assessment Generation Failed
+					Cannot Enqueue Assessment
 				</p>
 				<p class="text-text-primary leading-relaxed font-mono text-[11px]">
 					{formError}
 				</p>
-				<p class="font-mono text-[10px] text-text-muted pt-1">
-					💡 Tip: Verify your API key, check model image limits (e.g. Groq max 3 images), or switch to Google Gemini.
-				</p>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Live AI & MuPDF Progress Bar -->
-	{#if app.tests.isUploading}
-		<div class="neo-box p-4 bg-muted/40 animate-slide-down border-2 border-border-color space-y-2">
-			<div class="flex items-center justify-between text-xs font-mono font-bold">
-				<span class="flex items-center gap-2 text-text-primary truncate">
-					<span class="h-2.5 w-2.5 bg-accent-contrast animate-pulse"></span>
-					<span class="truncate">{app.tests.uploadStatusText || 'Extracting pages & diagrams...'}</span>
-				</span>
-				<span class="font-mono text-accent-contrast ml-2">{app.tests.uploadProgress}%</span>
-			</div>
-			<div class="h-3 w-full border-2 border-border-color bg-surface overflow-hidden">
-				<div
-					class="h-full bg-accent-contrast transition-all duration-300 ease-out"
-					style={`width: ${app.tests.uploadProgress}%`}
-				></div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Form Action Buttons -->
+	<!-- 7. Actions -->
 	<div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color/20 mt-2">
 		{#if isModal}
 			<div class="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-2.5 w-full">
 				<button
 					type="button"
 					onclick={oncancel}
-					disabled={app.tests.isUploading}
-					class="neo-btn text-xs h-9 px-3 sm:px-4 disabled:opacity-40 text-center truncate"
+					class="neo-btn text-xs h-9 px-3 sm:px-4 text-center truncate"
 				>
 					Cancel
 				</button>
 				<button
 					type="submit"
-					disabled={app.tests.isUploading || !app.network.isOnline}
+					disabled={batchItems.length === 0 || !app.network.isOnline}
 					class="neo-btn neo-btn-primary text-xs h-9 px-3 sm:px-5 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-bold text-center truncate"
 					title={!app.network.isOnline ? 'Cannot generate tests while offline' : ''}
 				>
-					{#if app.tests.isUploading}
-						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
-						<span>Ingesting...</span>
-					{:else if !app.network.isOnline}
-						<span>⚡ Offline (Internet Required)</span>
-					{:else}
-						<span>Ingest & Create &rarr;</span>
-					{/if}
+					<span>
+						{batchItems.length > 1
+							? `Enqueue ${batchItems.length} Papers →`
+							: 'Enqueue & Generate →'}
+					</span>
 				</button>
 			</div>
 		{:else}
 			<div class="flex items-center justify-end w-full">
 				<button
 					type="submit"
-					disabled={app.tests.isUploading || !app.network.isOnline}
+					disabled={batchItems.length === 0 || !app.network.isOnline}
 					class="neo-btn neo-btn-primary text-sm py-3 px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-bold"
 					title={!app.network.isOnline ? 'Cannot generate tests while offline' : ''}
 				>
-					{#if app.tests.isUploading}
-						<span class="inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent animate-spin"></span>
-						<span>Ingesting PDF...</span>
-					{:else if !app.network.isOnline}
-						<span>⚡ Offline (Internet Required)</span>
-					{:else}
-						<span>Generate Test &rarr;</span>
-					{/if}
+					<span>
+						{batchItems.length > 1
+							? `Enqueue ${batchItems.length} Papers →`
+							: 'Enqueue & Generate →'}
+					</span>
 				</button>
 			</div>
 		{/if}

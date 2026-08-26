@@ -2,12 +2,14 @@ import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
+import type { StoredGenerationJob } from '$lib/types/queue';
 import type { SubjectItem } from '$lib/types/subject';
 import type { TestAttempt, TestItem } from '$lib/types/test';
 import * as apiKeysRepo from './apiKeys';
 import * as attemptsRepo from './attempts';
 import * as devTracesRepo from './devTraces';
 import * as docAssetsRepo from './docAssets';
+import * as generationJobsRepo from './generationJobs';
 import * as settingsRepo from './settings';
 import * as subjectsRepo from './subjects';
 import * as testsRepo from './tests';
@@ -24,6 +26,7 @@ import type { AppSettingRecord, TestDocAssetRecord } from './types';
  * 5. User Exam Session Attempts (`attempts`)
  * 6. Dev-Only AI Pipeline Traces (`devTraces`)
  * 7. Heavy Extracted PDF Document Assets (`testDocAssets`)
+ * 8. Background Test Generation Jobs (`generationJobs`)
  */
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
@@ -33,6 +36,7 @@ export class TestifyDatabase extends Dexie {
 	attempts!: EntityTable<TestAttempt, 'id'>;
 	devTraces!: EntityTable<DevPipelineTrace, 'id'>;
 	testDocAssets!: EntityTable<TestDocAssetRecord, 'testId'>;
+	generationJobs!: EntityTable<StoredGenerationJob, 'id'>;
 
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
@@ -138,6 +142,18 @@ export class TestifyDatabase extends Dexie {
 					}
 				}
 			});
+
+		// Version 6 Migration: Add generationJobs table for persistent async generation queue
+		this.version(6).stores({
+			tests: 'id, title, subjectId, createdAt, status',
+			subjects: 'id, name, createdAt',
+			settings: 'key, updatedAt',
+			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+			attempts: 'id, testId, status, startedAt, completedAt, score',
+			devTraces: 'id, testId, testTitle, createdAt, provider, model',
+			testDocAssets: 'testId',
+			generationJobs: 'id, status, createdAt, completedAt',
+		});
 	}
 
 	// --- Subjects Operations ---
@@ -245,5 +261,31 @@ export class TestifyDatabase extends Dexie {
 	}
 	deleteTestDocAssets(testId: string): Promise<void> {
 		return docAssetsRepo.deleteTestDocAssets(this, testId);
+	}
+
+	// --- Generation Jobs Operations ---
+	getAllGenerationJobs(): Promise<StoredGenerationJob[]> {
+		return generationJobsRepo.getAllJobs(this);
+	}
+	getIncompleteGenerationJobs(): Promise<StoredGenerationJob[]> {
+		return generationJobsRepo.getIncompleteJobs(this);
+	}
+	saveGenerationJob(job: StoredGenerationJob): Promise<void> {
+		return generationJobsRepo.saveJob(this, job);
+	}
+	bulkSaveGenerationJobs(jobs: StoredGenerationJob[]): Promise<void> {
+		return generationJobsRepo.bulkSaveJobs(this, jobs);
+	}
+	updateGenerationJob(id: string, updates: Partial<StoredGenerationJob>): Promise<void> {
+		return generationJobsRepo.updateJob(this, id, updates);
+	}
+	deleteGenerationJob(id: string): Promise<void> {
+		return generationJobsRepo.deleteJob(this, id);
+	}
+	clearCompletedGenerationJobs(): Promise<void> {
+		return generationJobsRepo.clearCompletedJobs(this);
+	}
+	clearAllGenerationJobs(): Promise<void> {
+		return generationJobsRepo.clearAllJobs(this);
 	}
 }

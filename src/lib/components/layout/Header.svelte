@@ -80,6 +80,33 @@ let isDevTraceModalOpen = $state(false);
 				</button>
 			{/if}
 
+			<!-- Background Generation Queue Trigger -->
+			{#if app.queue.jobs.length > 0}
+				<button
+					type="button"
+					onclick={() => app.queue.toggleDrawer()}
+					class={`neo-btn text-[11px] sm:text-xs py-1 px-2 sm:py-1.5 sm:px-2.5 flex items-center gap-1.5 font-mono font-bold whitespace-nowrap ${
+						app.queue.activeCount > 0
+							? 'bg-accent-contrast text-accent-contrast-text animate-pulse'
+							: app.queue.failedJobs.length > 0
+								? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/50'
+								: 'bg-muted/40'
+					}`}
+					aria-label="Toggle Generation Queue"
+					title={`Background Queue: ${app.queue.activeCount} active, ${app.queue.queuedCount} queued`}
+				>
+					{#if app.queue.activeCount > 0}
+						<span class="inline-block h-2 w-2 bg-current rounded-full animate-ping"></span>
+						<span>Queue ({app.queue.activeCount}/{app.queue.incompleteCount})</span>
+					{:else if app.queue.failedJobs.length > 0}
+						<span class="text-rose-500">✕</span>
+						<span>Queue ({app.queue.failedJobs.length} Failed)</span>
+					{:else}
+						<span>⚡ Queue ({app.queue.jobs.length})</span>
+					{/if}
+				</button>
+			{/if}
+
 			<!-- API Keys / Provider Credentials CTA -->
 			<button
 				type="button"

@@ -106,19 +106,25 @@ export interface TestItem {
 	devPipelineTrace?: DevPipelineTrace;
 }
 
-export interface TestUploadPayload {
-	title?: string;
-	autoTitle?: boolean;
+/**
+ * Common configuration metadata shared across upload payloads, batch items, and queue jobs
+ */
+export interface BaseAssessmentConfig {
 	subjectId?: string;
+	aiProvider?: AIProvider;
+	aiModel?: string;
+	scale?: number;
 	durationMinutes?: number | null;
+	autoTitle?: boolean;
 	autoDuration?: boolean;
 	isUntimed?: boolean;
 	questionCount?: number;
 	totalMarks?: number;
 	description?: string;
-	scale?: number;
-	aiProvider?: AIProvider;
-	aiModel?: string;
+}
+
+export interface TestUploadPayload extends BaseAssessmentConfig {
+	title?: string;
 	testFile: {
 		name: string;
 		size: number;

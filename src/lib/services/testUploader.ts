@@ -16,11 +16,12 @@ export type UploadProgressCallback = (progress: number, statusText: string) => v
 
 export interface ProcessUploadOptions {
 	apiKey?: string;
+	signal?: AbortSignal;
 	onProgress?: UploadProgressCallback;
 }
 
 /**
- * Service to handle PDF ingestion, MuPDF rasterization, vector diagram extraction,
+ * Service to handle PDF ingestion, document processing, vector diagram extraction,
  * and AI-powered test generation across Google, OpenAI, Anthropic, and Groq.
  */
 export async function processTestUpload(
@@ -31,6 +32,11 @@ export async function processTestUpload(
 	const onProgress: UploadProgressCallback | undefined =
 		typeof options === 'function' ? options : options?.onProgress;
 	const apiKey: string | undefined = typeof options === 'object' ? options.apiKey : undefined;
+	const signal: AbortSignal | undefined = typeof options === 'object' ? options.signal : undefined;
+
+	if (signal?.aborted) {
+		throw new DOMException('Operation cancelled by user', 'AbortError');
+	}
 
 	const rawTestFile = payload.testFile?.rawFile;
 	if (!rawTestFile) {
@@ -49,18 +55,28 @@ export async function processTestUpload(
 	let answerKeyExtractionResult: PdfExtractionResult | null = null;
 
 	// Stage 1 & 2: Extract pages, bitmap images, and vector diagrams via MuPDF
-	onProgress?.(5, 'Reading and rasterizing question paper PDF...');
+	onProgress?.(5, 'Processing question paper PDF...');
+
+	if (signal?.aborted) {
+		throw new DOMException('Operation cancelled by user', 'AbortError');
+	}
 
 	const extractionStartTime = performance.now();
 	try {
 		extractionResult = await extractPdfPagesAndImages(rawTestFile, {
 			scale,
 			onProgress: (p) => {
+				if (signal?.aborted) {
+					throw new DOMException('Operation cancelled by user', 'AbortError');
+				}
 				const pct = Math.min(40, Math.round(5 + (p.currentPage / Math.max(1, p.totalPages)) * 35));
-				onProgress?.(pct, `[PDF] ${p.statusText}`);
+				onProgress?.(pct, `[PDF] Page ${p.currentPage}/${p.totalPages} processed`);
 			},
 		});
 	} catch (err) {
+		if ((err as Error).name === 'AbortError' || signal?.aborted) {
+			throw new DOMException('Operation cancelled by user', 'AbortError');
+		}
 		console.error('[TestUploader] PDF extraction error:', err);
 		throw new Error(`Failed to parse question paper PDF: ${(err as Error).message}`);
 	}
@@ -70,19 +86,33 @@ export async function processTestUpload(
 		throw new Error('Could not render any pages from the question paper PDF.');
 	}
 
+	if (signal?.aborted) {
+		throw new DOMException('Operation cancelled by user', 'AbortError');
+	}
+
 	// Stage 3: Extract separate Answer Key PDF if supplied
 	if (payload.answerKeyFile?.rawFile) {
-		onProgress?.(42, 'Rasterizing separate Answer Key document...');
+		onProgress?.(42, 'Processing separate Answer Key document...');
 		try {
 			answerKeyExtractionResult = await extractPdfPagesAndImages(payload.answerKeyFile.rawFile, {
 				scale: 1.0,
 				onProgress: (p) => {
+					if (signal?.aborted) {
+						throw new DOMException('Operation cancelled by user', 'AbortError');
+					}
 					onProgress?.(45, `[Key PDF] Page ${p.currentPage}/${p.totalPages}...`);
 				},
 			});
 		} catch (err) {
+			if ((err as Error).name === 'AbortError' || signal?.aborted) {
+				throw new DOMException('Operation cancelled by user', 'AbortError');
+			}
 			console.warn('[TestUploader] Answer key PDF extraction failed:', err);
 		}
+	}
+
+	if (signal?.aborted) {
+		throw new DOMException('Operation cancelled by user', 'AbortError');
 	}
 
 	// Stage 4: AI Testification Execution

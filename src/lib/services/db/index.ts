@@ -5,6 +5,7 @@ export * from './attempts';
 export * from './database';
 export * from './devTraces';
 export * from './docAssets';
+export * from './generationJobs';
 export * from './helpers';
 export * from './settings';
 export * from './subjects';

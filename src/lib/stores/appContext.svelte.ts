@@ -7,6 +7,7 @@ import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
+import { GenerationQueueStore } from './generationQueueStore.svelte';
 import { ModalStore } from './modalStore.svelte';
 import { NetworkStore } from './networkStore.svelte';
 import { SecurityStore } from './securityStore.svelte';
@@ -29,6 +30,7 @@ export class AppStore {
 	readonly security = new SecurityStore();
 	readonly apiKeys = new ApiKeyStore();
 	readonly network = new NetworkStore();
+	readonly queue = new GenerationQueueStore();
 
 	// Global extraction scale preference (1.0x, 1.25x, 1.5x, 2.0x)
 	selectedScale = $state<number>(1.25);
@@ -64,7 +66,10 @@ export class AppStore {
 		await this.security.init();
 		await this.apiKeys.init(this.security.securityMode);
 
-		// 5. Load saved extraction scale from Dexie
+		// 5. Initialize background generation queue worker & restore session jobs
+		await this.queue.init(this);
+
+		// 6. Load saved extraction scale from Dexie
 		try {
 			const savedScale = await db.getSetting<number>(SETTINGS_KEYS.EXTRACTION_SCALE, 1.25);
 			if (typeof savedScale === 'number' && savedScale > 0) {

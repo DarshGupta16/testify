@@ -14,37 +14,82 @@ const {
 	required = false,
 	optionalBadge = false,
 	disabled = false,
+	multiple = false,
 	badgeText = 'PDF',
 	badgeColor = 'bg-accent-contrast text-accent-contrast-text',
 	subtitle = 'Exam sheets, practice tests (.pdf)',
 	onchange,
+	onfileschange,
 	onclear,
 }: {
 	id: string;
 	label: string;
-	file: SelectedFileInfo | null;
+	file?: SelectedFileInfo | null;
 	required?: boolean;
 	optionalBadge?: boolean;
 	disabled?: boolean;
+	multiple?: boolean;
 	badgeText?: string;
 	badgeColor?: string;
 	subtitle?: string;
-	onchange: (file: File) => void;
-	onclear: () => void;
+	onchange?: (file: File) => void;
+	onfileschange?: (files: File[]) => void;
+	onclear?: () => void;
 } = $props();
 
 let inputRef = $state<HTMLInputElement | null>(null);
+let isDragging = $state(false);
 
 function handleFileChange(event: Event) {
 	const input = event.target as HTMLInputElement;
-	if (input.files?.[0]) {
-		onchange(input.files[0]);
+	if (input.files && input.files.length > 0) {
+		if (multiple && onfileschange) {
+			const validFiles = Array.from(input.files).filter((f) =>
+				f.name.toLowerCase().endsWith('.pdf')
+			);
+			if (validFiles.length > 0) {
+				onfileschange(validFiles);
+			}
+		} else if (input.files[0] && onchange) {
+			onchange(input.files[0]);
+		}
+	}
+}
+
+function handleDragOver(e: DragEvent) {
+	if (disabled) return;
+	e.preventDefault();
+	isDragging = true;
+}
+
+function handleDragLeave(e: DragEvent) {
+	if (disabled) return;
+	e.preventDefault();
+	isDragging = false;
+}
+
+function handleDrop(e: DragEvent) {
+	if (disabled) return;
+	e.preventDefault();
+	isDragging = false;
+
+	if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+		const pdfFiles = Array.from(e.dataTransfer.files).filter((f) =>
+			f.name.toLowerCase().endsWith('.pdf')
+		);
+		if (pdfFiles.length === 0) return;
+
+		if (multiple && onfileschange) {
+			onfileschange(pdfFiles);
+		} else if (pdfFiles[0] && onchange) {
+			onchange(pdfFiles[0]);
+		}
 	}
 }
 
 function handleClearClick() {
 	if (inputRef) inputRef.value = '';
-	onclear();
+	onclear?.();
 }
 </script>
 
@@ -64,6 +109,7 @@ function handleClearClick() {
 		{id}
 		type="file"
 		accept=".pdf"
+		{multiple}
 		bind:this={inputRef}
 		onchange={handleFileChange}
 		{disabled}
@@ -71,9 +117,9 @@ function handleClearClick() {
 	/>
 
 	{#if file}
-		<div class="neo-box-sm p-3.5 flex items-center justify-between bg-muted/40">
-			<div class="flex items-center gap-3 truncate pr-2">
-				<div class={`flex h-8 w-8 shrink-0 items-center justify-center border-2 border-border-color font-mono text-xs font-bold ${badgeColor}`}>
+		<div class="neo-box-sm p-3 flex items-center justify-between bg-muted/40">
+			<div class="flex items-center gap-2.5 truncate pr-2">
+				<div class={`flex h-7 w-7 shrink-0 items-center justify-center border-2 border-border-color font-mono text-[11px] font-bold ${badgeColor}`}>
 					{badgeText}
 				</div>
 				<div class="truncate">
@@ -95,10 +141,17 @@ function handleClearClick() {
 		<button
 			type="button"
 			onclick={() => inputRef?.click()}
+			ondragover={handleDragOver}
+			ondragleave={handleDragLeave}
+			ondrop={handleDrop}
 			{disabled}
-			class="w-full flex flex-col items-center justify-center border-2 border-dashed border-border-color p-5 text-center bg-surface hover:bg-muted/30 transition-colors cursor-pointer group disabled:opacity-50"
+			class={`w-full flex flex-col items-center justify-center border-2 border-dashed p-4 sm:p-5 text-center transition-all cursor-pointer group disabled:opacity-50 ${
+				isDragging
+					? 'border-accent-contrast bg-accent-contrast/10 scale-[0.99]'
+					: 'border-border-color bg-surface hover:bg-muted/30'
+			}`}
 		>
-			<div class="mb-2 flex h-9 w-9 items-center justify-center border-2 border-border-color bg-surface group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-transform">
+			<div class="mb-2 flex h-8 w-8 items-center justify-center border-2 border-border-color bg-surface group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-transform">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 24 24"
@@ -114,7 +167,7 @@ function handleClearClick() {
 				</svg>
 			</div>
 			<span class="text-xs font-bold uppercase tracking-wider text-text-primary">
-				Select {label}
+				{multiple ? 'Choose or Drop PDF(s)' : `Select ${label}`}
 			</span>
 			<span class="font-mono text-[10px] text-text-muted mt-0.5">
 				{subtitle}

@@ -9,6 +9,7 @@ import SubjectsModal from '$lib/components/modals/SubjectsModal.svelte';
 import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
 import TestEditModal from '$lib/components/modals/TestEditModal.svelte';
 import UploadModal from '$lib/components/modals/UploadModal.svelte';
+import GenerationQueueDock from '$lib/components/queue/GenerationQueueDock.svelte';
 import { AppStore, setAppContext } from '$lib/stores/appContext.svelte';
 import './layout.css';
 
@@ -46,5 +47,6 @@ onMount(() => {
 	<ApiKeysModal />
 	<MasterPasswordModal />
 	<SubjectsModal />
+	<GenerationQueueDock />
 	<Toast />
 </div>
