@@ -30,8 +30,8 @@ export interface DiagramMatchResult {
 /**
  * Multi-tier robust diagram resolver:
  * Reconciles raw AI diagram identifiers against the extracted diagram catalog using
- * exact lookup, normalized page/index regex parsing, contextual keyword detection,
- * explicit diagram mention scanning in text/explanation, and page-level fallback heuristics.
+ * exact lookup, page-prefixed lookup, explicit catalog ID mentions in question text,
+ * and structured index regex parsing. Does NOT blindly fall back to first/unrelated diagrams.
  */
 export function resolveDiagram(
 	rawDiagramId: string | null | undefined,
@@ -145,14 +145,6 @@ export function resolveDiagram(
 						mentionsFigure,
 					};
 				}
-				if (pageDiagrams.length === 1) {
-					return {
-						diagramId: pageDiagrams[0].id,
-						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 3 (Regex Single Page Diagram: P${targetPage})`,
-						mentionsFigure,
-					};
-				}
 			}
 		}
 
@@ -180,14 +172,6 @@ export function resolveDiagram(
 						mentionsFigure,
 					};
 				}
-				if (pageDiagrams.length === 1) {
-					return {
-						diagramId: pageDiagrams[0].id,
-						diagramUrl: pageDiagrams[0].dataUrl,
-						matchedTier: `Tier 3 (Regex Single Page Diagram: #${targetIdx})`,
-						mentionsFigure,
-					};
-				}
 			}
 		}
 
@@ -203,69 +187,6 @@ export function resolveDiagram(
 				diagramUrl: subMatch.dataUrl,
 				matchedTier: `Tier 3 (Substring Match: "${trimmedId}")`,
 				mentionsFigure,
-			};
-		}
-	}
-
-	// 4. Contextual fallback: question text mentions visual cues and page has matching diagrams
-	if (mentionsFigure) {
-		if (questionPage !== undefined) {
-			const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
-			if (pageDiagrams.length === 1) {
-				return {
-					diagramId: pageDiagrams[0].id,
-					diagramUrl: pageDiagrams[0].dataUrl,
-					matchedTier: 'Tier 4 (Contextual: Keyword + Single Diagram on Page)',
-					mentionsFigure: true,
-				};
-			}
-			if (pageDiagrams.length > 1) {
-				// Check if question specifies Figure 1 or Figure 2
-				const figNum = combinedContext.match(
-					/(?:figure|fig|diagram)\s*[:.]?\s*([1-9]\d*|[A-Za-z])/i
-				);
-				if (figNum?.[1]) {
-					const token = figNum[1].toUpperCase();
-					let idx = Number.parseInt(token, 10) - 1;
-					if (Number.isNaN(idx)) {
-						idx = token.charCodeAt(0) - 65; // A -> 0, B -> 1
-					}
-					if (idx >= 0 && idx < pageDiagrams.length) {
-						return {
-							diagramId: pageDiagrams[idx].id,
-							diagramUrl: pageDiagrams[idx].dataUrl,
-							matchedTier: `Tier 4 (Contextual: Specific Figure Name "${token}")`,
-							mentionsFigure: true,
-						};
-					}
-				}
-				return {
-					diagramId: pageDiagrams[0].id,
-					diagramUrl: pageDiagrams[0].dataUrl,
-					matchedTier: 'Tier 4 (Contextual: Keyword + First Diagram on Page)',
-					mentionsFigure: true,
-				};
-			}
-		} else if (diagrams.length === 1) {
-			return {
-				diagramId: diagrams[0].id,
-				diagramUrl: diagrams[0].dataUrl,
-				matchedTier: 'Tier 4 (Contextual: Keyword + Single Document Diagram)',
-				mentionsFigure: true,
-			};
-		}
-	}
-
-	// 5. Single diagram on page fallback ONLY if question explicitly mentions visual figure cues
-	// (Prevents blindly auto-linking single-diagram page graphics to unrelated numerical questions)
-	if (mentionsFigure && questionPage !== undefined) {
-		const pageDiagrams = diagrams.filter((d) => d.pageNumber === questionPage);
-		if (pageDiagrams.length === 1) {
-			return {
-				diagramId: pageDiagrams[0].id,
-				diagramUrl: pageDiagrams[0].dataUrl,
-				matchedTier: 'Tier 5 (Single Diagram Page Auto-Link with Visual Cue)',
-				mentionsFigure: true,
 			};
 		}
 	}

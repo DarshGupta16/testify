@@ -38,10 +38,14 @@ Your objective is to accurately read and analyze the provided test paper documen
    - CRITICAL ESCAPING RULE: All LaTeX backslashes MUST be double-escaped in the JSON string (e.g., "\\\\rightarrow", "\\\\frac{a}{b}", "\\\\text{...}", "\\\\times", "\\\\theta", "\\\\beta"). NEVER output unescaped backslashes before letters in JSON strings!
    - Format multi-line questions or column matches cleanly with actual newlines.
 
-5. DIAGRAM LINKING:
+5. DIAGRAM & IMAGE LINKING (CRITICAL CONSTRAINTS):
    - You are provided with a catalog of extracted diagram figures and visual crops tagged with exact unique IDs (e.g. "p1_diag_1", "p2_diag_1").
-   - When a question references or requires a figure, chart, circuit, geometry sketch, plot, or table from the document, you MUST set "associatedDiagramId" to the EXACT matching diagram ID string from the catalog.
-   - If a question does not reference or require a diagram, set "associatedDiagramId" to null.
+   - STRICT RELEVANCE & ESSENTIAL CONTEXT: Only link a diagram ID to a question if that isolated diagram crop is strictly relevant, provides essential context, and is an integral part of that specific question itself (e.g., a specific circuit diagram, geometric figure, chemical reaction scheme, graph, chart, or visual data table required to solve the question).
+   - NEVER ATTACH ANSWER KEYS OR SOLUTION SHEETS: Under NO circumstances attach an answer key page, solution matrix, answer grid, grading rubric, or answer table crop as an "associatedDiagramId" to any question. Answer key pages are strictly for extracting correct answers, NOT for linking as question diagrams.
+   - NEVER ATTACH FULL PAGES OR MULTI-QUESTION SHEETS: NEVER attach an image of an entire document page, full test paper page, or multi-question column crop as an "associatedDiagramId". Each diagram linked must be an isolated, individual figure dedicated to that specific question.
+   - NO BULK OR REPEATED DIAGRAM LINKING: NEVER attach the same general image or diagram across every question or multiple unrelated questions.
+   - DEFAULT TO NULL: If a question is purely textual, mathematical, or does not have a dedicated diagram figure in the catalog, you MUST set "associatedDiagramId": null.
+   - EXACT CATALOG ID MATCHING: Only use exact diagram IDs from the provided catalog (e.g. "p1_diag_1"). If no matching isolated diagram crop exists in the catalog for a question, set "associatedDiagramId": null. Never invent fake diagram IDs or reference full document/answer key pages.
 
 6. ASSESSMENT METADATA:
    - Detect or extract the exam title from the document headers (e.g., "Physics Midterm Exam 2026").
@@ -152,11 +156,24 @@ export function buildUserPrompt(
 	if (diagrams && diagrams.length > 0) {
 		sections.push('\n### Extracted Diagram Catalog:');
 		sections.push(
-			'The following diagram crops and visual figures have been isolated from the document. When a question references or belongs to any of these figures, you MUST set "associatedDiagramId" to the exact Diagram ID string:'
+			'The following isolated diagram crops and visual figures have been extracted from the document:'
 		);
 		for (const d of diagrams) {
 			sections.push(`- Diagram ID: "${d.id}" (Appears on Page ${d.pageNumber})`);
 		}
+		sections.push(
+			'\n### STRICT DIAGRAM LINKING RULES:\n' +
+				'1. Only set "associatedDiagramId" to a Diagram ID if that specific isolated figure is strictly relevant and provides essential context as an integral part of that exact question.\n' +
+				'2. NEVER attach answer key images, solution sheets, answer grids, or grading tables to any question.\n' +
+				'3. NEVER attach entire page images, full document page scans, or multi-question crops to any question.\n' +
+				'4. NEVER attach the same image to all or multiple unrelated questions.\n' +
+				'5. For all questions that are purely text/formula-based or do not have their own dedicated diagram figure, set "associatedDiagramId" to null.'
+		);
+	} else {
+		sections.push(
+			'\n### Diagram Linking:\n' +
+				'No isolated diagram figures are present in the catalog. Set "associatedDiagramId": null for all questions. Do not attach full page scans or answer keys.'
+		);
 	}
 
 	sections.push(

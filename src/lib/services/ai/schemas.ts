@@ -92,7 +92,7 @@ export const GEMINI_ASSESSMENT_SCHEMA = {
 					associatedDiagramId: {
 						type: Type.STRING,
 						description:
-							'Exact ID of the matching extracted diagram crop from catalog (e.g. p1_diag_1) or null',
+							'Exact ID of the specific diagram crop strictly belonging to this question from the catalog (e.g. p1_diag_1), or null if the question has no dedicated diagram. NEVER attach full page scans or answer keys.',
 					},
 					pageNumber: {
 						type: Type.INTEGER,
@@ -240,7 +240,7 @@ export const ANTHROPIC_ASSESSMENT_TOOL = {
 						associatedDiagramId: {
 							type: 'string',
 							description:
-								'Exact ID of the matching extracted diagram crop from catalog (e.g. p1_diag_1) or null',
+								'Exact ID of the specific diagram crop strictly belonging to this question from the catalog (e.g. p1_diag_1), or null if the question has no dedicated diagram. NEVER attach full page scans or answer keys.',
 						},
 						pageNumber: { type: 'number' },
 					},
