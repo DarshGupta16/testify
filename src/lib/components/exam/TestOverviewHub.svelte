@@ -139,6 +139,16 @@ const filteredAttempts = $derived(
 					✏️ Edit Test
 				</button>
 
+				<button
+					type="button"
+					onclick={() => app.modals.openSimilarPaperModal(test)}
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5"
+					title="Generate a similar assessment using AI blueprinting"
+				>
+					<span>✨</span>
+					<span>Generate Similar</span>
+				</button>
+
 				{#if isConfirmingDelete}
 					<div class="flex items-center gap-1">
 						<button

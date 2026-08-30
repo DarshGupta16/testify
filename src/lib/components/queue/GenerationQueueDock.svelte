@@ -119,7 +119,11 @@ function handleViewTest(job: GenerationJob) {
 										{job.title || job.testFileName}
 									</p>
 									<p class="font-mono text-[10px] text-text-muted truncate">
-										{job.testFileName} • {job.testFileSizeFormatted}
+										{#if job.jobType === 'similar_paper'}
+											{job.sourceTestTitle ? `From "${job.sourceTestTitle}"` : 'Similar Paper'} • {job.targetQuestionCount ? `${job.targetQuestionCount} Questions` : 'Biphasic AI'}
+										{:else}
+											{job.testFileName || 'Document'} • {job.testFileSizeFormatted || 'PDF'}
+										{/if}
 									</p>
 								</div>
 

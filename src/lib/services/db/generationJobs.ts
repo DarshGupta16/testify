@@ -2,6 +2,7 @@
  * Generation Jobs Dexie IndexedDB Repository
  */
 
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { StoredGenerationJob } from '$lib/types/queue';
 import type { TestifyDatabase } from './database';
 
@@ -10,6 +11,16 @@ import type { TestifyDatabase } from './database';
  */
 export async function saveJob(db: TestifyDatabase, job: StoredGenerationJob): Promise<void> {
 	await db.generationJobs.put(job);
+}
+
+/**
+ * Get a single generation job by ID
+ */
+export async function getJobById(
+	db: TestifyDatabase,
+	id: string
+): Promise<StoredGenerationJob | undefined> {
+	return await db.generationJobs.get(id);
 }
 
 /**
@@ -47,6 +58,17 @@ export async function updateJob(
 	updates: Partial<StoredGenerationJob>
 ): Promise<void> {
 	await db.generationJobs.update(id, updates);
+}
+
+/**
+ * Update the blueprint cache on a specific generation job
+ */
+export async function updateJobBlueprintCache(
+	db: TestifyDatabase,
+	id: string,
+	blueprint: PaperBlueprint
+): Promise<void> {
+	await db.generationJobs.update(id, { blueprintCache: blueprint });
 }
 
 /**

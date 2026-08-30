@@ -155,13 +155,14 @@ Do not make the correct answer identifiable merely through option construction.
 
 ---
 
-# Use of Assets
+# Use of Assets and Visual Setups
 
-When the blueprint indicates that the source paper meaningfully uses diagrams, graphs, tables, images, or other visual assets, reproduce the **functional role** of those assets in new questions where appropriate.
+When the blueprint indicates that the source paper meaningfully uses diagrams, graphs, circuits, geometric figures, tables, or other visual assets, reproduce the **functional role and cognitive demand** of those setups in new questions:
 
-Create genuinely new visual contexts rather than reproducing source visuals.
-
-If an asset is unnecessary for the underlying question pattern, do not add one merely for superficial similarity.
+* **Textual and Tabular Descriptions:** Because no external image generator is attached, you must describe any physical configuration, circuit topology, geometric arrangement, graph data, or experimental apparatus **directly within the question text in a clear, unambiguous, and concise textual manner**.
+* **Self-Contained Problems:** Ensure all required dimensions, orientations, coordinate systems, connection topologies, data points, and boundary conditions are explicitly stated so the problem is completely solvable without needing an external image asset.
+* **No Phantom Asset References:** Do not reference non-existent diagram IDs, external image files, or phrases like "as shown in the figure above" without providing the full descriptive specification of that figure in text.
+* If an asset or visual setup is unnecessary for the underlying question pattern, do not add one merely for superficial complexity.
 
 ---
 

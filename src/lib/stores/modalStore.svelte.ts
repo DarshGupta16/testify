@@ -9,10 +9,24 @@ export class ModalStore {
 	isMasterPasswordModalOpen = $state<boolean>(false);
 	isSubjectsModalOpen = $state<boolean>(false);
 	isEditModalOpen = $state<boolean>(false);
+	isSimilarPaperOpen = $state<boolean>(false);
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
 	selectedTest = $state<TestItem | null>(null);
 	editingTest = $state<TestItem | null>(null);
+	similarPaperSourceTest = $state<TestItem | null>(null);
+
+	openSimilarPaperModal(test: TestItem) {
+		this.similarPaperSourceTest = test;
+		this.isSimilarPaperOpen = true;
+	}
+
+	closeSimilarPaperModal(force = false) {
+		if (force || this.isSimilarPaperOpen) {
+			this.isSimilarPaperOpen = false;
+			this.similarPaperSourceTest = null;
+		}
+	}
 
 	openEdit(test: TestItem) {
 		// Deep clone to ensure edits are completely isolated until explicitly saved

@@ -161,8 +161,8 @@ function handleDelete() {
 			</button>
 		{/if}
 
-		<!-- Sub Actions: Details & Delete -->
-		<div class="flex items-center justify-between gap-2">
+		<!-- Sub Actions: Details, Similar Paper & Delete -->
+		<div class="flex items-center justify-between gap-1.5 sm:gap-2">
 			<button
 				type="button"
 				onmouseenter={() => {
@@ -174,9 +174,20 @@ function handleDelete() {
 					app.tests.prefetchTestDocAssets(test.id);
 				}}
 				onclick={() => app.modals.openDetails(test)}
-				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
+				class="neo-btn text-xs py-1.5 px-2.5 flex-1 text-center truncate font-bold"
 			>
-				View Details
+				Details
+			</button>
+
+			<button
+				type="button"
+				onclick={() => app.modals.openSimilarPaperModal(test)}
+				class="neo-btn text-xs py-1.5 px-2.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold flex items-center justify-center gap-1 truncate shrink-0"
+				title="Generate Similar Paper with AI"
+				aria-label="Generate Similar Paper"
+			>
+				<span>✨</span>
+				<span class="hidden xs:inline sm:inline">Similar</span>
 			</button>
 
 			{#if isConfirmingDelete}

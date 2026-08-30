@@ -9,12 +9,14 @@ import { SvelteMap } from 'svelte/reactivity';
 import { db, fireAndForget } from '$lib/services/db';
 import { executeGenerationJob } from '$lib/services/jobExecutor';
 import { SETTINGS_KEYS } from '$lib/services/settings';
+import type { AIProvider } from '$lib/types/apiKeys';
 import type {
 	BatchGenerationConfig,
 	BatchUploadItem,
 	GenerationJob,
 	QueueMode,
 } from '$lib/types/queue';
+import type { TestItem } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
 import type { AppStore } from './appContext.svelte';
 
@@ -235,6 +237,97 @@ export class GenerationQueueStore {
 
 		this.pump();
 		return newJobs;
+	}
+
+	/**
+	 * Enqueue a similar paper generation job
+	 */
+	async enqueueSimilarPaperJob(options: {
+		sourceTest: TestItem;
+		subjectId?: string;
+		title?: string;
+		customInstructions?: string;
+		targetQuestionCount?: number;
+		questionCount?: number;
+		durationMinutes?: number | null;
+		isUntimed?: boolean;
+		totalMarks?: number;
+		description?: string;
+		aiProvider?: AIProvider;
+		aiModel?: string;
+	}): Promise<GenerationJob> {
+		const { sourceTest } = options;
+		const jobId = `job_similar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+		const createdAtIso = new Date().toISOString();
+		const jobTitle = options.title?.trim() || `${sourceTest.title} (Similar)`;
+		const targetCount =
+			options.targetQuestionCount ||
+			options.questionCount ||
+			sourceTest.questions?.length ||
+			10;
+		const chosenProvider = options.aiProvider || sourceTest.aiProvider || 'google';
+		const chosenModel = options.aiModel || sourceTest.aiModel || 'gemini-3.7-flash';
+		const chosenSubjectId = options.subjectId || sourceTest.subjectId;
+
+		const newJob: GenerationJob = {
+			id: jobId,
+			title: jobTitle,
+			subjectId: chosenSubjectId,
+			status: 'queued',
+			progress: 0,
+			statusText: 'Queued for similar paper generation...',
+			aiProvider: chosenProvider,
+			aiModel: chosenModel,
+			scale: this.app?.selectedScale || 1.25,
+			durationMinutes: options.durationMinutes ?? sourceTest.durationMinutes,
+			autoDuration: false,
+			isUntimed: options.isUntimed ?? (sourceTest.durationMinutes === null),
+			questionCount: targetCount,
+			totalMarks: options.totalMarks ?? sourceTest.totalMarks,
+			description: options.description,
+			retryCount: 0,
+			maxRetries: 3,
+			createdAt: createdAtIso,
+			jobType: 'similar_paper',
+			sourceTestId: sourceTest.id,
+			sourceTestTitle: sourceTest.title,
+			customInstructions: options.customInstructions,
+			targetQuestionCount: targetCount,
+			blueprintCache: sourceTest.blueprint,
+			sourceTest,
+		};
+
+		this.jobsMap.set(newJob.id, newJob);
+		this.persistJobUpdate(newJob);
+
+		this.pump();
+		return newJob;
+	}
+
+	/**
+	 * Backward compatibility helper for enqueueSimilarPaper
+	 */
+	async enqueueSimilarPaper(
+		sourceTest: TestItem,
+		config: {
+			questionCount: number;
+			durationMinutes: number | null;
+			isUntimed: boolean;
+			customInstructions?: string;
+			aiProvider: AIProvider;
+			aiModel: string;
+		}
+	): Promise<GenerationJob> {
+		return this.enqueueSimilarPaperJob({
+			sourceTest,
+			questionCount: config.questionCount,
+			targetQuestionCount: config.questionCount,
+			durationMinutes: config.durationMinutes,
+			isUntimed: config.isUntimed,
+			customInstructions: config.customInstructions,
+			aiProvider: config.aiProvider,
+			aiModel: config.aiModel,
+		});
 	}
 
 	/**

@@ -241,7 +241,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 			<!-- Footer Action Buttons -->
 			<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color shrink-0">
-				<div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
+				<div class="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2">
 					<a
 						href={`/test/${test.id}`}
 						onmouseenter={() => preloadCode(`/test/${test.id}`)}
@@ -257,6 +257,21 @@ function handleKeyDown(e: KeyboardEvent) {
 						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
 					>
 						✏️ Edit Test
+					</button>
+					<button
+						type="button"
+						onclick={() => {
+							const current = app.modals.selectedTest;
+							if (current) {
+								app.modals.closeDetails();
+								app.modals.openSimilarPaperModal(current);
+							}
+						}}
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5"
+						title="Generate a similar assessment using AI blueprinting"
+					>
+						<span>✨</span>
+						<span>Generate Similar</span>
 					</button>
 				</div>
 

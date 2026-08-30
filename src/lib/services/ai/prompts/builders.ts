@@ -2,7 +2,12 @@
  * Testify - AI Prompt Builders
  */
 
-import type { AIDiagramAsset, AIGenerationMetadataHints } from '../types';
+import type {
+	AIDiagramAsset,
+	AIGenerationMetadataHints,
+	PaperBlueprintPayload,
+	SimilarPaperGenerationPayload,
+} from '../types';
 
 /**
  * Builds the dynamic user prompt tailored to the specific upload metadata and diagram inventory.
@@ -73,3 +78,83 @@ export function buildUserPrompt(
 
 	return sections.join('\n');
 }
+
+/**
+ * Builds the user prompt for Phase 1 Blueprint Extraction containing the structured source paper questions and catalog.
+ */
+export function buildBlueprintUserPrompt(payload: PaperBlueprintPayload): string {
+	const sections: string[] = [];
+
+	sections.push('# Source Paper for Blueprint Analysis');
+	if (payload.title) {
+		sections.push(`**Title**: ${payload.title}`);
+	}
+	if (payload.instructions) {
+		sections.push(`**Instructions**: ${payload.instructions}`);
+	}
+
+	sections.push('\n## Structured Questions Data:');
+	sections.push(JSON.stringify(payload.questions, null, 2));
+
+	if (payload.diagrams && payload.diagrams.length > 0) {
+		sections.push('\n## Associated Diagram Catalog:');
+		for (const d of payload.diagrams) {
+			sections.push(`- Diagram ID: "${d.id}" (Page ${d.pageNumber})`);
+		}
+	}
+
+	sections.push(
+		'\nAnalyze the provided question paper across all analytical dimensions and return ONLY the complete, structured Paper Blueprint JSON.'
+	);
+
+	return sections.join('\n');
+}
+
+/**
+ * Builds the user prompt for Phase 2 Similar Paper Generation containing the blueprint, user instructions, and target constraints.
+ */
+export function buildSimilarPaperUserPrompt(payload: SimilarPaperGenerationPayload): string {
+	const sections: string[] = [];
+
+	sections.push('# Paper Generation Task: Similar Paper');
+	sections.push(
+		'Generate a completely new, high-fidelity question paper based on the attached Paper Blueprint.'
+	);
+
+	sections.push('\n## Paper Blueprint Specification (from Phase 1 Analysis):');
+	sections.push(JSON.stringify(payload.blueprint, null, 2));
+
+	if (payload.userInstructions && payload.userInstructions.trim().length > 0) {
+		sections.push('\n## User Instructions & Custom Constraints:');
+		sections.push(payload.userInstructions.trim());
+	}
+
+	if (payload.questionCount && payload.questionCount > 0) {
+		sections.push(
+			`\n## Target Question Count:\nGenerate exactly ${payload.questionCount} questions matching the blueprint archetype distribution.`
+		);
+	} else if (payload.metadata?.questionCountHint && payload.metadata.questionCountHint > 0) {
+		sections.push(
+			`\n## Target Question Count:\nGenerate exactly ${payload.metadata.questionCountHint} questions matching the blueprint archetype distribution.`
+		);
+	}
+
+	if (payload.metadata?.titleHint && !payload.metadata.autoTitle) {
+		sections.push(`\n## Assessment Title Hint:\nUse "${payload.metadata.titleHint}".`);
+	}
+
+	if (payload.metadata?.isUntimed) {
+		sections.push('\n## Duration:\nThe user has marked this generated assessment as Untimed.');
+	} else if (payload.metadata?.defaultDurationMinutes && !payload.metadata.autoDuration) {
+		sections.push(
+			`\n## Duration:\nSet duration to ${payload.metadata.defaultDurationMinutes} minutes.`
+		);
+	}
+
+	sections.push(
+		'\nGenerate the complete similar assessment now. Return the assessment matching the required schema.'
+	);
+
+	return sections.join('\n');
+}
+

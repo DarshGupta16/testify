@@ -1,5 +1,6 @@
 import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 import type { StoredGenerationJob } from '$lib/types/queue';
@@ -177,8 +178,20 @@ export class TestifyDatabase extends Dexie {
 	getAllTests(): Promise<TestItem[]> {
 		return testsRepo.getAllTests(this);
 	}
+	getTest(id: string): Promise<TestItem | undefined> {
+		return testsRepo.getTestById(this, id);
+	}
 	saveTest(test: TestItem): Promise<void> {
 		return testsRepo.saveTest(this, test);
+	}
+	saveSimilarPaperTest(test: TestItem): Promise<void> {
+		return testsRepo.saveSimilarPaperTest(this, test);
+	}
+	updateTest(id: string, updates: Partial<TestItem>): Promise<void> {
+		return testsRepo.updateTest(this, id, updates);
+	}
+	updateTestBlueprint(id: string, blueprint: PaperBlueprint): Promise<void> {
+		return testsRepo.updateTestBlueprint(this, id, blueprint);
 	}
 	bulkSaveTests(testsList: TestItem[]): Promise<void> {
 		return testsRepo.bulkSaveTests(this, testsList);
@@ -267,6 +280,9 @@ export class TestifyDatabase extends Dexie {
 	getAllGenerationJobs(): Promise<StoredGenerationJob[]> {
 		return generationJobsRepo.getAllJobs(this);
 	}
+	getGenerationJob(id: string): Promise<StoredGenerationJob | undefined> {
+		return generationJobsRepo.getJobById(this, id);
+	}
 	getIncompleteGenerationJobs(): Promise<StoredGenerationJob[]> {
 		return generationJobsRepo.getIncompleteJobs(this);
 	}
@@ -278,6 +294,9 @@ export class TestifyDatabase extends Dexie {
 	}
 	updateGenerationJob(id: string, updates: Partial<StoredGenerationJob>): Promise<void> {
 		return generationJobsRepo.updateJob(this, id, updates);
+	}
+	updateJobBlueprintCache(id: string, blueprint: PaperBlueprint): Promise<void> {
+		return generationJobsRepo.updateJobBlueprintCache(this, id, blueprint);
 	}
 	deleteGenerationJob(id: string): Promise<void> {
 		return generationJobsRepo.deleteJob(this, id);

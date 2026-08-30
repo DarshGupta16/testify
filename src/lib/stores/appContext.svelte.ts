@@ -217,6 +217,40 @@ export class AppStore {
 		this.modals.closeDetails();
 		this.toast.show('All tests cleared.', 'warning');
 	}
+
+	openSimilarPaperModal(test: TestItem): void {
+		this.modals.openSimilarPaperModal(test);
+	}
+
+	async handleCreateSimilarPaperJob(payload: {
+		sourceTest: TestItem;
+		questionCount: number;
+		durationMinutes: number | null;
+		isUntimed: boolean;
+		customInstructions?: string;
+		aiProvider: AIProvider;
+		aiModel: string;
+	}): Promise<void> {
+		if (!this.network.isOnline) {
+			this.toast.show(
+				'You are offline. Similar paper generation requires an internet connection.',
+				'error'
+			);
+			return;
+		}
+
+		await this.queue.enqueueSimilarPaper(payload.sourceTest, {
+			questionCount: payload.questionCount,
+			durationMinutes: payload.durationMinutes,
+			isUntimed: payload.isUntimed,
+			customInstructions: payload.customInstructions,
+			aiProvider: payload.aiProvider,
+			aiModel: payload.aiModel,
+		});
+
+		this.toast.show('Similar paper generation queued', 'success');
+		this.modals.closeSimilarPaperModal(true);
+	}
 }
 
 /**
