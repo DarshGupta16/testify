@@ -226,6 +226,7 @@ export class AppStore {
 		sourceTest: TestItem;
 		questionCount: number;
 		durationMinutes: number | null;
+		autoDuration?: boolean;
 		isUntimed: boolean;
 		customInstructions?: string;
 		aiProvider: AIProvider;
@@ -242,6 +243,7 @@ export class AppStore {
 		await this.queue.enqueueSimilarPaper(payload.sourceTest, {
 			questionCount: payload.questionCount,
 			durationMinutes: payload.durationMinutes,
+			autoDuration: payload.autoDuration,
 			isUntimed: payload.isUntimed,
 			customInstructions: payload.customInstructions,
 			aiProvider: payload.aiProvider,

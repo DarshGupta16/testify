@@ -1,6 +1,7 @@
 <script lang="ts">
 import { dev } from '$app/environment';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import DevBlueprintViewer from '$lib/components/dev/DevBlueprintViewer.svelte';
 import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
@@ -37,7 +38,7 @@ const {
 	ondeletetest: () => void;
 } = $props();
 
-let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace'>('attempts');
+let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>('attempts');
 let attemptFilter = $state<'all' | 'exam' | 'practice'>('all');
 let isConfirmingDelete = $state(false);
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
@@ -106,26 +107,30 @@ const filteredAttempts = $derived(
 						</span>
 					{/if}
 				</div>
-
-				<h1 class="text-xl sm:text-4xl font-black uppercase tracking-tight text-text-primary break-words">
+				<h1 class="text-xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
 					{test.title}
 				</h1>
+				{#if test.description}
+					<p class="text-xs sm:text-sm text-text-secondary mt-1">
+						{test.description}
+					</p>
+				{/if}
 			</div>
 
-			<!-- Start Actions & Delete CTA -->
-			<div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
+			<!-- Action Buttons Group -->
+			<div class="flex flex-wrap items-center gap-2 shrink-0">
 				<button
 					type="button"
 					onclick={onstartpractice}
-					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate"
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate cursor-pointer"
 				>
-					🌿 Practice Mode
+					🌿 Practice
 				</button>
 
 				<button
 					type="button"
 					onclick={onstartexam}
-					class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate"
+					class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate cursor-pointer"
 				>
 					🎯 Exam Sim
 				</button>
@@ -133,7 +138,7 @@ const filteredAttempts = $derived(
 				<button
 					type="button"
 					onclick={onopenedit}
-					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate cursor-pointer"
 					title="Edit Assessment & Questions"
 				>
 					✏️ Edit Test
@@ -142,7 +147,7 @@ const filteredAttempts = $derived(
 				<button
 					type="button"
 					onclick={() => app.modals.openSimilarPaperModal(test)}
-					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5"
+					class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5 cursor-pointer"
 					title="Generate a similar assessment using AI blueprinting"
 				>
 					<span>✨</span>
@@ -154,14 +159,14 @@ const filteredAttempts = $derived(
 						<button
 							type="button"
 							onclick={ondeletetest}
-							class="neo-btn neo-btn-danger text-xs py-2 px-2.5 sm:py-2.5 sm:px-3"
+							class="neo-btn neo-btn-danger text-xs py-2 px-2.5 sm:py-2.5 sm:px-3 cursor-pointer"
 						>
 							Confirm
 						</button>
 						<button
 							type="button"
 							onclick={() => (isConfirmingDelete = false)}
-							class="neo-btn text-xs py-2 px-2 sm:py-2.5 sm:px-2.5"
+							class="neo-btn text-xs py-2 px-2 sm:py-2.5 sm:px-2.5 cursor-pointer"
 						>
 							✕
 						</button>
@@ -170,7 +175,7 @@ const filteredAttempts = $derived(
 					<button
 						type="button"
 						onclick={() => (isConfirmingDelete = true)}
-						class="neo-btn text-xs py-2 px-3 sm:py-2.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white flex items-center justify-center"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white flex items-center justify-center cursor-pointer"
 						title="Delete Assessment"
 					>
 						🗑️
@@ -179,14 +184,8 @@ const filteredAttempts = $derived(
 			</div>
 		</div>
 
-		{#if test.description}
-			<p class="text-xs sm:text-sm text-text-secondary">
-				{test.description}
-			</p>
-		{/if}
-
-		<!-- Specs Grid -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 font-mono text-xs">
+		<!-- Specs Metric Cards Grid -->
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 font-mono">
 			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Duration</span>
 				<span class="text-sm sm:text-lg font-black text-text-primary">
@@ -194,8 +193,10 @@ const filteredAttempts = $derived(
 				</span>
 			</div>
 			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
-				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Items</span>
-				<span class="text-sm sm:text-lg font-black text-text-primary">{test.questions?.length || 0} Questions</span>
+				<span class="text-[10px] text-text-muted uppercase font-bold block">Questions</span>
+				<span class="text-sm sm:text-lg font-black text-text-primary">
+					{test.questions?.length || 0} Questions
+				</span>
 			</div>
 			<div class="border-2 border-border-color bg-muted/40 p-2.5 sm:p-3.5">
 				<span class="text-[10px] text-text-muted uppercase font-bold block">Total Marks</span>
@@ -250,24 +251,31 @@ const filteredAttempts = $derived(
 		<button
 			type="button"
 			onclick={() => (activeTab = 'attempts')}
-			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'attempts' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'attempts' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Attempt History ({attempts.length})
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'questions')}
-			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+			class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
 		>
 			Questions Preview ({test.questions?.length || 0})
 		</button>
 		{#if dev}
 			<button
 				type="button"
+				onclick={() => (activeTab = 'blueprint')}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'blueprint' ? 'neo-btn-primary' : 'bg-surface'}`}
+			>
+				📐 Blueprint {#if test.blueprint}✓{/if}
+			</button>
+			<button
+				type="button"
 				onclick={() => (activeTab = 'diagrams')}
 				onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 				onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				Isolated Figures ({allDiagrams.length})
 			</button>
@@ -276,7 +284,7 @@ const filteredAttempts = $derived(
 				onclick={() => (activeTab = 'pages')}
 				onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 				onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				Rendered Pages ({allPages.length})
 			</button>
@@ -297,7 +305,7 @@ const filteredAttempts = $derived(
 						});
 					}
 				}}
-				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
+				class={`neo-btn text-xs py-1.5 px-3 sm:py-2 sm:px-4 shrink-0 cursor-pointer ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
 			>
 				⚡ AI Pipeline Trace
 			</button>
@@ -381,14 +389,14 @@ const filteredAttempts = $derived(
 											<button
 												type="button"
 												onclick={() => onviewattempt(attempt)}
-												class="neo-btn text-xs py-1 px-2.5 font-bold"
+												class="neo-btn text-xs py-1 px-2.5 font-bold cursor-pointer"
 											>
 												Review
 											</button>
 											<button
 												type="button"
 												onclick={() => ondeleteattempt(attempt.id)}
-												class="neo-btn text-xs py-1 px-2 text-rose-500 hover:bg-rose-600 hover:text-white"
+												class="neo-btn text-xs py-1 px-2 text-rose-500 hover:bg-rose-600 hover:text-white cursor-pointer"
 												title="Delete attempt record"
 											>
 												🗑️
@@ -407,6 +415,25 @@ const filteredAttempts = $derived(
 				questions={test.questions || []}
 				onzoom={(z) => (zoomedImage = z)}
 			/>
+
+		{:else if dev && activeTab === 'blueprint'}
+			{#if test.blueprint}
+				<div class="border-2 border-border-color neo-box overflow-hidden">
+					<DevBlueprintViewer blueprint={test.blueprint} testTitle={test.title} />
+				</div>
+			{:else}
+				<div class="neo-box p-8 text-center font-mono text-xs text-text-muted bg-surface space-y-3">
+					<p>No Phase 1 blueprint has been extracted for this assessment yet.</p>
+					<button
+						type="button"
+						onclick={() => app.modals.openSimilarPaperModal(test)}
+						class="neo-btn neo-btn-primary text-xs py-1.5 px-3 font-bold cursor-pointer inline-flex items-center gap-1.5"
+					>
+						<span>✨</span>
+						<span>Generate Similar Assessment to Extract Blueprint</span>
+					</button>
+				</div>
+			{/if}
 
 		{:else if dev && activeTab === 'diagrams'}
 			<DiagramsTab

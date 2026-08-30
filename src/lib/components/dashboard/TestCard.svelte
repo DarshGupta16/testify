@@ -9,7 +9,14 @@ const app = getAppContext();
 
 let isSelectingMode = $state(false);
 let isConfirmingDelete = $state(false);
+let isMenuOpen = $state(false);
+let isRenaming = $state(false);
+let renameTitle = $state('');
 let modeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function focusOnMount(node: HTMLElement) {
+	node.focus();
+}
 
 function handleStartClick() {
 	isSelectingMode = true;
@@ -45,34 +52,184 @@ function handleDelete() {
 	}
 	app.handleDeleteTest(test.id);
 }
+
+function handleStartRename() {
+	renameTitle = test.title;
+	isRenaming = true;
+	isMenuOpen = false;
+}
+
+function handleSaveRename() {
+	const trimmed = renameTitle.trim();
+	if (!trimmed) {
+		app.toast.show('Title cannot be empty', 'warning');
+		return;
+	}
+	if (trimmed !== test.title) {
+		const updated: TestItem = { ...test, title: trimmed };
+		app.tests.updateTest(updated);
+		app.toast.show(`Renamed to "${trimmed}"`, 'success');
+	}
+	isRenaming = false;
+}
+
+function handleOpenSimilar() {
+	isMenuOpen = false;
+	app.modals.openSimilarPaperModal(test);
+}
+
+function handleOpenEdit() {
+	isMenuOpen = false;
+	app.modals.openEdit(test);
+}
 </script>
+
+<svelte:window
+	onclick={(e) => {
+		if (isMenuOpen) {
+			const target = e.target as HTMLElement | null;
+			if (!target?.closest('.test-card-menu-container')) {
+				isMenuOpen = false;
+			}
+		}
+	}}
+/>
 
 <article
 	onmouseenter={() => {
 		preloadCode(`/test/${test.id}`);
 		app.tests.prefetchTestDocAssets(test.id);
 	}}
-	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all"
+	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all relative"
 >
 	<!-- Card Top Section -->
 	<div>
-		<!-- Badges Row -->
-		<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+		<!-- Badges & Actions Row -->
+		<div class="flex items-center justify-between gap-2 mb-3">
 			<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 				{app.subjects.getName(test.subjectId) || '?'}
 			</span>
 
-			<div class="flex flex-wrap items-center gap-1.5">
+			<div class="flex items-center gap-1.5">
 				<span class="font-mono text-[11px] text-text-muted">
 					{formatDate(test.createdAt)}
 				</span>
+
+				<!-- Three Dots Dropdown Menu -->
+				<div class="relative test-card-menu-container">
+					<button
+						type="button"
+						onclick={(e) => {
+							e.stopPropagation();
+							isMenuOpen = !isMenuOpen;
+						}}
+						class="flex h-7 w-7 items-center justify-center border border-border-color bg-surface hover:bg-muted/70 text-text-secondary hover:text-text-primary transition-colors cursor-pointer font-bold text-sm"
+						title="Options"
+						aria-label="Test options menu"
+						aria-expanded={isMenuOpen}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							class="h-4 w-4"
+						>
+							<circle cx="12" cy="5" r="2" />
+							<circle cx="12" cy="12" r="2" />
+							<circle cx="12" cy="19" r="2" />
+						</svg>
+					</button>
+
+					{#if isMenuOpen}
+						<div
+							class="absolute right-0 top-full mt-1 z-30 w-44 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-fade-in"
+							role="menu"
+						>
+							<button
+								type="button"
+								onclick={handleStartRename}
+								class="w-full text-left px-3 py-2 hover:bg-muted/60 flex items-center gap-2 text-text-primary font-bold cursor-pointer transition-colors"
+								role="menuitem"
+							>
+								<span>✏️</span>
+								<span>Rename</span>
+							</button>
+							<button
+								type="button"
+								onclick={handleOpenSimilar}
+								class="w-full text-left px-3 py-2 hover:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								role="menuitem"
+							>
+								<span>✨</span>
+								<span>Generate Similar</span>
+							</button>
+							<button
+								type="button"
+								onclick={handleOpenEdit}
+								class="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								role="menuitem"
+							>
+								<span>📝</span>
+								<span>Full Edit</span>
+							</button>
+							<div class="my-1 border-t border-border-color/30"></div>
+							<button
+								type="button"
+								onclick={() => {
+									isMenuOpen = false;
+									isConfirmingDelete = true;
+								}}
+								class="w-full text-left px-3 py-2 hover:bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								role="menuitem"
+							>
+								<span>🗑️</span>
+								<span>Delete Test</span>
+							</button>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 
-		<!-- Title & Description -->
-		<h3 class="text-base sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
-			{test.title}
-		</h3>
+		<!-- Title & Description (or Inline Rename) -->
+		{#if isRenaming}
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSaveRename();
+				}}
+				class="mb-2 space-y-1.5 animate-slide-down"
+			>
+				<input
+					type="text"
+					bind:value={renameTitle}
+					use:focusOnMount
+					class="neo-input w-full text-sm font-bold p-1.5 bg-surface border-2 border-border-color"
+					onkeydown={(e) => {
+						if (e.key === 'Escape') isRenaming = false;
+					}}
+				/>
+				<div class="flex items-center gap-1.5">
+					<button
+						type="submit"
+						class="neo-btn neo-btn-primary text-[11px] py-1 px-2.5 font-bold cursor-pointer"
+					>
+						Save
+					</button>
+					<button
+						type="button"
+						onclick={() => (isRenaming = false)}
+						class="neo-btn text-[11px] py-1 px-2 cursor-pointer"
+					>
+						Cancel
+					</button>
+				</div>
+			</form>
+		{:else}
+			<h3 class="text-base sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
+				{test.title}
+			</h3>
+		{/if}
 
 		{#if test.description}
 			<p class="text-xs text-text-secondary line-clamp-2 mb-3 sm:mb-4">
@@ -116,7 +273,7 @@ function handleDelete() {
 					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectPractice}
-					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate"
+					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate cursor-pointer"
 					title="Start in Practice Mode"
 				>
 					🌿 Practice
@@ -126,7 +283,7 @@ function handleDelete() {
 					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectExam}
-					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate"
+					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate cursor-pointer"
 					title="Start Exam Simulation"
 				>
 					🎯 Exam Sim
@@ -144,7 +301,7 @@ function handleDelete() {
 					app.tests.prefetchTestDocAssets(test.id);
 				}}
 				onclick={handleStartClick}
-				class="neo-btn neo-btn-primary w-full text-xs py-2.5"
+				class="neo-btn neo-btn-primary w-full text-xs py-2.5 cursor-pointer"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -161,7 +318,7 @@ function handleDelete() {
 			</button>
 		{/if}
 
-		<!-- Sub Actions: Details, Similar Paper & Delete -->
+		<!-- Sub Actions: View Details & Delete -->
 		<div class="flex items-center justify-between gap-1.5 sm:gap-2">
 			<button
 				type="button"
@@ -174,35 +331,24 @@ function handleDelete() {
 					app.tests.prefetchTestDocAssets(test.id);
 				}}
 				onclick={() => app.modals.openDetails(test)}
-				class="neo-btn text-xs py-1.5 px-2.5 flex-1 text-center truncate font-bold"
+				class="neo-btn text-xs py-2 px-3 flex-1 text-center font-bold truncate cursor-pointer"
 			>
-				Details
-			</button>
-
-			<button
-				type="button"
-				onclick={() => app.modals.openSimilarPaperModal(test)}
-				class="neo-btn text-xs py-1.5 px-2.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold flex items-center justify-center gap-1 truncate shrink-0"
-				title="Generate Similar Paper with AI"
-				aria-label="Generate Similar Paper"
-			>
-				<span>✨</span>
-				<span class="hidden xs:inline sm:inline">Similar</span>
+				View Details
 			</button>
 
 			{#if isConfirmingDelete}
-				<div class="flex items-center gap-1 flex-1">
+				<div class="flex items-center gap-1">
 					<button
 						type="button"
 						onclick={handleDelete}
-						class="neo-btn neo-btn-danger text-xs py-1.5 px-2 flex-1"
+						class="neo-btn neo-btn-danger text-xs py-2 px-3 font-bold cursor-pointer"
 					>
 						Confirm
 					</button>
 					<button
 						type="button"
 						onclick={() => (isConfirmingDelete = false)}
-						class="neo-btn text-xs py-1.5 px-2"
+						class="neo-btn text-xs py-2 px-2 cursor-pointer"
 						title="Cancel delete"
 					>
 						✕
@@ -212,7 +358,7 @@ function handleDelete() {
 				<button
 					type="button"
 					onclick={handleDelete}
-					class="neo-btn text-xs py-1.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
+					class="neo-btn text-xs py-2 px-3 text-rose-500 hover:bg-rose-600 hover:text-white shrink-0 cursor-pointer"
 					title="Delete this test"
 				>
 					<svg

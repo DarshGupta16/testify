@@ -7,7 +7,7 @@ const app = getAppContext();
 
 // Form State
 let targetQuestionCount = $state<number>(10);
-let isUntimed = $state<boolean>(false);
+let durationMode = $state<'auto' | 'untimed' | 'custom'>('auto');
 let durationMinutes = $state<number>(60);
 let customInstructions = $state<string>('');
 let selectedProvider = $state<AIProvider>('google');
@@ -17,12 +17,10 @@ let formError = $state<string | null>(null);
 let lastSourceTestId: string | null = null;
 
 const PROMPT_SUGGESTIONS = [
-	'Focus on Thermodynamics',
 	'Increase numerical question ratio',
 	'Make questions more conceptual',
 	'Emphasize multi-concept integration',
 	'Add challenging derivation-style problems',
-	'Focus on high-yield exam patterns',
 ];
 
 const currentProviderMeta = $derived(
@@ -44,16 +42,19 @@ $effect(() => {
 			lastSourceTestId = test.id;
 			formError = null;
 
-			// Initialize question count based on source test
+			// Initialize question count based on source test (no upper cap)
 			const sourceCount = test.questions?.length || 10;
-			targetQuestionCount = Math.min(100, Math.max(1, sourceCount));
+			targetQuestionCount = Math.max(1, sourceCount);
 
-			// Initialize duration
+			// Initialize duration mode
 			if (test.durationMinutes && test.durationMinutes > 0) {
-				isUntimed = false;
+				durationMode = 'custom';
 				durationMinutes = test.durationMinutes;
+			} else if (test.durationMinutes === null) {
+				durationMode = 'untimed';
+				durationMinutes = 60;
 			} else {
-				isUntimed = true;
+				durationMode = 'auto';
 				durationMinutes = 60;
 			}
 
@@ -61,11 +62,9 @@ $effect(() => {
 
 			// Select provider: prefer first configured or source test's provider
 			if (app.apiKeys.configuredProviders[selectedProvider]) {
-				// Keep current
+				// Keep current configured selection
 			} else {
-				const firstConfigured = AI_PROVIDERS.find(
-					(p) => app.apiKeys.configuredProviders[p.id]
-				);
+				const firstConfigured = AI_PROVIDERS.find((p) => app.apiKeys.configuredProviders[p.id]);
 				if (firstConfigured) {
 					selectedProvider = firstConfigured.id;
 					modelName = firstConfigured.defaultModel;
@@ -111,14 +110,15 @@ async function handleSubmit(e: SubmitEvent) {
 	}
 
 	if (!app.network.isOnline) {
-		formError = 'You are currently offline. AI paper generation requires an active internet connection.';
+		formError =
+			'You are currently offline. AI paper generation requires an active internet connection.';
 		return;
 	}
 
-	// Validate Question Count
+	// Validate Question Count (no upper limit)
 	const count = Math.floor(Number(targetQuestionCount));
-	if (isNaN(count) || count < 1 || count > 100) {
-		formError = 'Target question count must be between 1 and 100.';
+	if (isNaN(count) || count < 1) {
+		formError = 'Target question count must be at least 1.';
 		return;
 	}
 
@@ -136,8 +136,9 @@ async function handleSubmit(e: SubmitEvent) {
 		await app.handleCreateSimilarPaperJob({
 			sourceTest,
 			questionCount: count,
-			durationMinutes: isUntimed ? null : Number(durationMinutes) || 60,
-			isUntimed,
+			durationMinutes: durationMode === 'custom' ? Number(durationMinutes) || 60 : null,
+			autoDuration: durationMode === 'auto',
+			isUntimed: durationMode === 'untimed',
 			customInstructions: customInstructions.trim() || undefined,
 			aiProvider: selectedProvider,
 			aiModel: modelName.trim() || currentProviderMeta.defaultModel,
@@ -174,11 +175,16 @@ async function handleSubmit(e: SubmitEvent) {
 			<!-- Header -->
 			<div class="flex items-start justify-between border-b-2 border-border-color pb-3 sm:pb-4 mb-4 shrink-0">
 				<div class="flex items-center gap-2.5 sm:gap-3">
-					<div class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)] shrink-0 font-mono text-sm sm:text-base font-bold">
+					<div
+						class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)] shrink-0 font-mono text-sm sm:text-base font-bold"
+					>
 						✨
 					</div>
 					<div>
-						<h2 id="similar-paper-modal-title" class="text-base sm:text-xl font-black uppercase tracking-tight text-text-primary">
+						<h2
+							id="similar-paper-modal-title"
+							class="text-base sm:text-xl font-black uppercase tracking-tight text-text-primary"
+						>
 							Generate Similar Assessment
 						</h2>
 						<p class="font-mono text-xs text-text-muted">
@@ -190,7 +196,7 @@ async function handleSubmit(e: SubmitEvent) {
 				<button
 					type="button"
 					onclick={handleClose}
-					class="neo-btn text-xs py-1 px-2.5 ml-2"
+					class="neo-btn text-xs py-1 px-2.5 ml-2 cursor-pointer"
 					aria-label="Close modal"
 				>
 					✕
@@ -223,7 +229,9 @@ async function handleSubmit(e: SubmitEvent) {
 						</div>
 						<div>
 							<span class="text-[10px] text-text-muted uppercase block">Duration</span>
-							<span class="font-bold text-text-primary">{source.durationMinutes ? `${source.durationMinutes} Mins` : 'Untimed'}</span>
+							<span class="font-bold text-text-primary">
+								{source.durationMinutes ? `${source.durationMinutes} Mins` : 'Untimed'}
+							</span>
 						</div>
 						<div>
 							<span class="text-[10px] text-text-muted uppercase block">Total Marks</span>
@@ -234,14 +242,17 @@ async function handleSubmit(e: SubmitEvent) {
 
 				<!-- Section: Generation Parameters (Question Count & Duration) -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<!-- 1. Question Count -->
+					<!-- 1. Question Count (No upper limit) -->
 					<div class="space-y-1.5">
 						<div class="flex items-center justify-between h-5">
-							<label for="similar-question-count" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+							<label
+								for="similar-question-count"
+								class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary"
+							>
 								Target Questions
 							</label>
 							<span class="font-mono text-[10px] text-text-muted">
-								Min: 1 • Max: 100
+								Min: 1 • No upper limit
 							</span>
 						</div>
 
@@ -250,51 +261,89 @@ async function handleSubmit(e: SubmitEvent) {
 								id="similar-question-count"
 								type="number"
 								min="1"
-								max="100"
 								required
 								bind:value={targetQuestionCount}
 								class="neo-input w-full h-10 text-sm font-mono bg-surface pr-14"
 							/>
-							<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none font-bold">
+							<span
+								class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none font-bold"
+							>
 								items
 							</span>
 						</div>
 					</div>
 
-					<!-- 2. Duration / Untimed -->
+					<!-- 2. Duration / Auto AI / Untimed / Custom -->
 					<div class="space-y-1.5">
 						<div class="flex items-center justify-between h-5">
-							<label for="similar-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+							<label
+								for="similar-duration"
+								class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary"
+							>
 								Duration
 							</label>
-							<label class="flex items-center gap-1.5 cursor-pointer select-none">
-								<input
-									type="checkbox"
-									bind:checked={isUntimed}
-									class="accent-accent-contrast h-3.5 w-3.5"
-								/>
-								<span class="font-mono text-[11px] font-bold text-text-secondary">
-									Untimed
-								</span>
-							</label>
+							<div class="flex items-center gap-2">
+								<label class="flex items-center gap-1 cursor-pointer select-none">
+									<input
+										type="radio"
+										name="durationMode"
+										value="auto"
+										checked={durationMode === 'auto'}
+										onchange={() => (durationMode = 'auto')}
+										class="accent-accent-contrast h-3.5 w-3.5"
+									/>
+									<span class="font-mono text-[11px] font-bold text-text-secondary">AI Decide</span>
+								</label>
+								<label class="flex items-center gap-1 cursor-pointer select-none">
+									<input
+										type="radio"
+										name="durationMode"
+										value="untimed"
+										checked={durationMode === 'untimed'}
+										onchange={() => (durationMode = 'untimed')}
+										class="accent-accent-contrast h-3.5 w-3.5"
+									/>
+									<span class="font-mono text-[11px] font-bold text-text-secondary">Untimed</span>
+								</label>
+								<label class="flex items-center gap-1 cursor-pointer select-none">
+									<input
+										type="radio"
+										name="durationMode"
+										value="custom"
+										checked={durationMode === 'custom'}
+										onchange={() => (durationMode = 'custom')}
+										class="accent-accent-contrast h-3.5 w-3.5"
+									/>
+									<span class="font-mono text-[11px] font-bold text-text-secondary">Custom</span>
+								</label>
+							</div>
 						</div>
 
 						<div class="relative">
 							<input
 								id="similar-duration"
 								type="number"
-								min="5"
-								max="360"
-								disabled={isUntimed}
+								min="1"
+								disabled={durationMode !== 'custom'}
 								bind:value={durationMinutes}
-								placeholder={isUntimed ? 'Untimed exam session' : '60'}
+								placeholder={durationMode === 'auto'
+									? '⚡ AI will estimate duration based on questions'
+									: durationMode === 'untimed'
+										? '🌿 Untimed exam session'
+										: '60'}
 								class={`neo-input w-full h-10 text-sm font-mono pr-14 ${
-									isUntimed ? 'bg-muted/40 italic text-text-muted border-dashed' : 'bg-surface'
+									durationMode !== 'custom'
+										? 'bg-muted/40 italic text-text-muted border-dashed'
+										: 'bg-surface'
 								}`}
 							/>
-							<span class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none font-bold">
-								mins
-							</span>
+							{#if durationMode === 'custom'}
+								<span
+									class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none font-bold"
+								>
+									mins
+								</span>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -302,7 +351,10 @@ async function handleSubmit(e: SubmitEvent) {
 				<!-- Section: Custom Instructions & Suggestions -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
-						<label for="similar-instructions" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+						<label
+							for="similar-instructions"
+							class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary"
+						>
 							Custom Directives & Syllabus Focus (Optional)
 						</label>
 						<span class="font-mono text-[10px] text-text-muted">
@@ -314,7 +366,7 @@ async function handleSubmit(e: SubmitEvent) {
 						id="similar-instructions"
 						bind:value={customInstructions}
 						rows="3"
-						placeholder="e.g. Focus heavily on Thermodynamics and Kinetics, increase multi-concept numericals, or emphasize conceptual discrimination..."
+						placeholder="e.g. Focus heavily on Kinetics, increase multi-concept numericals, or emphasize conceptual discrimination..."
 						class="neo-input w-full text-xs font-mono p-2.5 bg-surface resize-none"
 					></textarea>
 
@@ -353,8 +405,12 @@ async function handleSubmit(e: SubmitEvent) {
 
 				<!-- Error Alert Banner -->
 				{#if formError}
-					<div class="neo-box p-3 sm:p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in">
-						<div class="flex h-6 w-6 shrink-0 items-center justify-center bg-rose-600 text-white font-mono text-xs font-black">
+					<div
+						class="neo-box p-3 sm:p-4 bg-rose-500/10 border-2 border-rose-500 shadow-[3px_3px_0px_var(--shadow-color)] flex items-start gap-3 animate-fade-in"
+					>
+						<div
+							class="flex h-6 w-6 shrink-0 items-center justify-center bg-rose-600 text-white font-mono text-xs font-black"
+						>
 							✕
 						</div>
 						<div class="space-y-0.5 text-xs">
@@ -369,7 +425,9 @@ async function handleSubmit(e: SubmitEvent) {
 				{/if}
 
 				<!-- Actions Bar -->
-				<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 sm:pt-4 border-t-2 border-border-color shrink-0">
+				<div
+					class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 sm:pt-4 border-t-2 border-border-color shrink-0"
+				>
 					<div class="font-mono text-xs text-text-muted text-center sm:text-left">
 						<span>Ready to synthesize {targetQuestionCount} questions</span>
 					</div>
@@ -378,7 +436,7 @@ async function handleSubmit(e: SubmitEvent) {
 						<button
 							type="button"
 							onclick={handleClose}
-							class="neo-btn text-xs h-10 px-4 text-center truncate"
+							class="neo-btn text-xs h-10 px-4 text-center truncate cursor-pointer"
 						>
 							Cancel
 						</button>
@@ -386,7 +444,11 @@ async function handleSubmit(e: SubmitEvent) {
 							type="submit"
 							disabled={!app.network.isOnline || !isProviderReady}
 							class="neo-btn neo-btn-primary text-xs h-10 px-4 sm:px-6 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-black text-center truncate cursor-pointer shadow-[3px_3px_0px_var(--shadow-color)]"
-							title={!app.network.isOnline ? 'Cannot generate while offline' : !isProviderReady ? 'Configure API key first' : 'Enqueue similar paper generation'}
+							title={!app.network.isOnline
+								? 'Cannot generate while offline'
+								: !isProviderReady
+									? 'Configure API key first'
+									: 'Enqueue similar paper generation'}
 						>
 							<span>✨</span>
 							<span>Generate Similar Paper &rarr;</span>

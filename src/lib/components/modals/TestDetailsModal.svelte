@@ -2,6 +2,7 @@
 import { dev } from '$app/environment';
 import { goto, preloadCode } from '$app/navigation';
 import ImageLightboxModal from '$lib/components/common/ImageLightboxModal.svelte';
+import DevBlueprintViewer from '$lib/components/dev/DevBlueprintViewer.svelte';
 import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.svelte';
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
@@ -13,7 +14,7 @@ import type { PdfExtractionResult } from '$lib/types/pdf';
 
 const app = getAppContext();
 
-let activeTab = $state<'questions' | 'diagrams' | 'pages' | 'trace'>('questions');
+let activeTab = $state<'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>('questions');
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
 let loadedTrace = $state<DevPipelineTrace | null>(null);
 let loadedDocAssets = $state<PdfExtractionResult | null>(null);
@@ -128,7 +129,7 @@ function handleKeyDown(e: KeyboardEvent) {
 				<button
 					type="button"
 					onclick={() => app.modals.closeDetails()}
-					class="neo-btn text-xs py-1 px-2.5 ml-2 shrink-0"
+					class="neo-btn text-xs py-1 px-2.5 ml-2 shrink-0 cursor-pointer"
 					aria-label="Close details"
 				>
 					✕
@@ -161,16 +162,23 @@ function handleKeyDown(e: KeyboardEvent) {
 					<button
 						type="button"
 						onclick={() => (activeTab = 'questions')}
-						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 cursor-pointer ${activeTab === 'questions' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						Questions ({test.questions?.length || 0})
+					</button>
+					<button
+						type="button"
+						onclick={() => (activeTab = 'blueprint')}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 cursor-pointer ${activeTab === 'blueprint' ? 'neo-btn-primary' : 'bg-surface'}`}
+					>
+						📐 Blueprint {#if test.blueprint}✓{/if}
 					</button>
 					<button
 						type="button"
 						onclick={() => (activeTab = 'diagrams')}
 						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 cursor-pointer ${activeTab === 'diagrams' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						Extracted Diagrams ({allDiagrams.length})
 					</button>
@@ -179,7 +187,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						onclick={() => (activeTab = 'pages')}
 						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 cursor-pointer ${activeTab === 'pages' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						Rendered Pages ({allPages.length})
 					</button>
@@ -200,7 +208,7 @@ function handleKeyDown(e: KeyboardEvent) {
 								});
 							}
 						}}
-						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
+						class={`neo-btn text-xs py-1.5 px-2.5 sm:px-3.5 font-mono font-bold shrink-0 cursor-pointer ${activeTab === 'trace' ? 'neo-btn-primary' : 'bg-surface'}`}
 					>
 						⚡ Pipeline Trace
 					</button>
@@ -214,6 +222,27 @@ function handleKeyDown(e: KeyboardEvent) {
 						questions={test.questions || []}
 						onzoom={(item) => (zoomedImage = item)}
 					/>
+				{:else if activeTab === 'blueprint'}
+					{#if test.blueprint}
+						<div class="border-2 border-border-color neo-box h-full min-h-[480px]">
+							<DevBlueprintViewer blueprint={test.blueprint} testTitle={test.title} />
+						</div>
+					{:else}
+						<div class="p-8 text-center font-mono text-xs text-text-muted border-2 border-dashed border-border-color bg-muted/10 space-y-3">
+							<p>No Phase 1 blueprint has been extracted for this assessment yet.</p>
+							<button
+								type="button"
+								onclick={() => {
+									app.modals.closeDetails();
+									app.modals.openSimilarPaperModal(test);
+								}}
+								class="neo-btn neo-btn-primary text-xs py-1.5 px-3 font-bold cursor-pointer inline-flex items-center gap-1.5"
+							>
+								<span>✨</span>
+								<span>Generate Similar Assessment to Extract Blueprint</span>
+							</button>
+						</div>
+					{/if}
 				{:else if activeTab === 'diagrams'}
 					<DiagramsTab
 						diagrams={allDiagrams}
@@ -254,7 +283,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						type="button"
 						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleEdit}
-						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-bold truncate cursor-pointer"
 					>
 						✏️ Edit Test
 					</button>
@@ -267,7 +296,7 @@ function handleKeyDown(e: KeyboardEvent) {
 								app.modals.openSimilarPaperModal(current);
 							}
 						}}
-						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-3.5 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold truncate flex items-center justify-center gap-1.5 cursor-pointer"
 						title="Generate a similar assessment using AI blueprinting"
 					>
 						<span>✨</span>
@@ -280,7 +309,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						type="button"
 						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleStartPractice}
-						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate"
+						class="neo-btn text-xs py-2 px-3 sm:py-2.5 sm:px-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold truncate cursor-pointer"
 					>
 						🌿 Practice
 					</button>
@@ -289,7 +318,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						type="button"
 						onmouseenter={() => preloadCode(`/test/${test.id}`)}
 						onclick={handleStartExam}
-						class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate"
+						class="neo-btn neo-btn-primary text-xs py-2 px-3 sm:py-2.5 sm:px-5 font-bold truncate cursor-pointer"
 					>
 						🎯 Exam Sim
 					</button>

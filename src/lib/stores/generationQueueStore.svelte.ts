@@ -250,6 +250,7 @@ export class GenerationQueueStore {
 		targetQuestionCount?: number;
 		questionCount?: number;
 		durationMinutes?: number | null;
+		autoDuration?: boolean;
 		isUntimed?: boolean;
 		totalMarks?: number;
 		description?: string;
@@ -280,7 +281,7 @@ export class GenerationQueueStore {
 			aiModel: chosenModel,
 			scale: this.app?.selectedScale || 1.25,
 			durationMinutes: options.durationMinutes ?? sourceTest.durationMinutes,
-			autoDuration: false,
+			autoDuration: options.autoDuration ?? false,
 			isUntimed: options.isUntimed ?? (sourceTest.durationMinutes === null),
 			questionCount: targetCount,
 			totalMarks: options.totalMarks ?? sourceTest.totalMarks,
@@ -312,6 +313,7 @@ export class GenerationQueueStore {
 		config: {
 			questionCount: number;
 			durationMinutes: number | null;
+			autoDuration?: boolean;
 			isUntimed: boolean;
 			customInstructions?: string;
 			aiProvider: AIProvider;
@@ -323,6 +325,7 @@ export class GenerationQueueStore {
 			questionCount: config.questionCount,
 			targetQuestionCount: config.questionCount,
 			durationMinutes: config.durationMinutes,
+			autoDuration: config.autoDuration,
 			isUntimed: config.isUntimed,
 			customInstructions: config.customInstructions,
 			aiProvider: config.aiProvider,
