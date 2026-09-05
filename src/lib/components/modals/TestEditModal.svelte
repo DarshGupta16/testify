@@ -227,9 +227,9 @@ function handleKeyDown(e: KeyboardEvent) {
 					</div>
 
 					<!-- Responsive Layout: Question Palette + Active Question Editor -->
-					<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+					<div class="flex flex-col lg:flex-row gap-4 items-start">
 						<!-- Left Question Palette Sidebar -->
-						<div class="lg:col-span-1">
+						<div class="w-full lg:w-56 xl:w-64 shrink-0">
 							<QuestionListPalette
 								questions={draftQuestions}
 								selectedIndex={selectedQuestionIndex}
@@ -239,7 +239,7 @@ function handleKeyDown(e: KeyboardEvent) {
 						</div>
 
 						<!-- Right Active Question Editor -->
-						<div class="lg:col-span-3">
+						<div class="flex-1 min-w-0 w-full">
 							{#if activeQuestion}
 								<QuestionItemEditor
 									question={activeQuestion}

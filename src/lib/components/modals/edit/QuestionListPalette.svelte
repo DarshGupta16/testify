@@ -17,16 +17,16 @@ function getTypeBadge(type: string): string {
 }
 </script>
 
-<div class="neo-box p-3.5 bg-surface border-2 border-border-color space-y-3">
+<div class="neo-box p-3 sm:p-3.5 bg-surface border-2 border-border-color space-y-3">
 	<!-- Header -->
-	<div class="flex items-center justify-between border-b border-border-color/30 pb-2">
-		<h4 class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+	<div class="flex items-center justify-between gap-2 border-b border-border-color/30 pb-2">
+		<h4 class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary whitespace-nowrap">
 			Questions ({questions.length})
 		</h4>
 		<button
 			type="button"
 			onclick={onadd}
-			class="neo-btn text-[11px] py-1 px-2.5 bg-accent-contrast text-accent-contrast-text border-accent-contrast hover:opacity-90 font-bold"
+			class="neo-btn text-[11px] py-1 px-2.5 bg-accent-contrast text-accent-contrast-text border-accent-contrast hover:opacity-90 font-bold whitespace-nowrap shrink-0"
 		>
 			+ Add Q
 		</button>
