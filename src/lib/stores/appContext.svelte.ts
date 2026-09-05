@@ -16,7 +16,8 @@ import { TestStore } from './testStore.svelte';
 import { ThemeStore } from './themeStore.svelte';
 import { ToastStore } from './toastStore.svelte';
 
-const APP_CONTEXT_KEY = Symbol('TESTIFY_APP_CONTEXT');
+// Context key for Svelte component tree injection (using Symbol.for guarantees identity stability during Vite HMR)
+const APP_CONTEXT_KEY = Symbol.for('TESTIFY_APP_CONTEXT');
 
 export class AppStore {
 	// Specialized Domain Sub-Stores
