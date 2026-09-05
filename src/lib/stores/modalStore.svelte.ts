@@ -1,4 +1,5 @@
 import type { TestItem } from '$lib/types/test';
+import { toCloneable } from '$lib/utils/snapshot.svelte';
 
 export type MasterPasswordModalMode = 'set' | 'reset';
 
@@ -40,7 +41,11 @@ export class ModalStore {
 
 	openEdit(test: TestItem) {
 		// Deep clone to ensure edits are completely isolated until explicitly saved
-		this.editingTest = structuredClone(test);
+		try {
+			this.editingTest = toCloneable(test);
+		} catch {
+			this.editingTest = JSON.parse(JSON.stringify(test));
+		}
 		this.isEditModalOpen = true;
 	}
 
