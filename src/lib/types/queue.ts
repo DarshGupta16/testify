@@ -57,6 +57,7 @@ export interface StoredGenerationJob extends BaseAssessmentConfig {
 	maxRetries: number;
 	nextRetryTimestamp?: number;
 	error?: string;
+	pauseReason?: 'offline' | 'rate_limit';
 
 	// Timestamps & References
 	createdAt: string;

@@ -16,7 +16,6 @@ import type {
 	GenerationJob,
 	QueueMode,
 } from '$lib/types/queue';
-import type { TestItem } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
 import type { AppStore } from './appContext.svelte';
 
@@ -25,6 +24,9 @@ export class GenerationQueueStore {
 
 	// In-Flight Execution Guard (guarantees a job is never dispatched more than once)
 	private inFlightJobIds = new Set<string>();
+
+	// Execution Run Tokens (prevents stale / aborted executions from mutating retried jobs)
+	private activeRunTokens = new Map<string, string>();
 
 	// Primary O(1) Key-Value Store
 	readonly jobsMap = new SvelteMap<string, GenerationJob>();
@@ -109,6 +111,7 @@ export class GenerationQueueStore {
 						job = {
 							...job,
 							status: 'queued',
+							pauseReason: undefined,
 							statusText: 'Restored from previous session. Queued for generation...',
 							progress: 0,
 							countdownSeconds: undefined,
@@ -140,14 +143,15 @@ export class GenerationQueueStore {
 	}
 
 	/**
-	 * Resume paused jobs on internet reconnection
+	 * Resume paused jobs on internet reconnection (only for offline pauses, not rate limits)
 	 */
 	handleNetworkRestored(): void {
 		const unpaused: GenerationJob[] = [];
 		for (const job of this.jobsMap.values()) {
-			if (job.status === 'paused') {
+			if (job.status === 'paused' && job.pauseReason === 'offline') {
 				const updated = this.updateJob(job.id, {
 					status: 'queued',
+					pauseReason: undefined,
 					countdownSeconds: undefined,
 					statusText: 'Connection restored. Queued for generation...',
 				});
@@ -243,7 +247,7 @@ export class GenerationQueueStore {
 	 * Enqueue a similar paper generation job
 	 */
 	async enqueueSimilarPaperJob(options: {
-		sourceTest: TestItem;
+		sourceTest: import('$lib/types/test').TestItem;
 		subjectId?: string;
 		title?: string;
 		customInstructions?: string;
@@ -309,7 +313,7 @@ export class GenerationQueueStore {
 	 * Backward compatibility helper for enqueueSimilarPaper
 	 */
 	async enqueueSimilarPaper(
-		sourceTest: TestItem,
+		sourceTest: import('$lib/types/test').TestItem,
 		config: {
 			questionCount: number;
 			durationMinutes: number | null;
@@ -360,6 +364,9 @@ export class GenerationQueueStore {
 		if (this.inFlightJobIds.has(job.id)) return;
 		this.inFlightJobIds.add(job.id);
 
+		const runToken = crypto.randomUUID();
+		this.activeRunTokens.set(job.id, runToken);
+
 		this.updateJob(job.id, {
 			status: 'processing',
 			progress: 5,
@@ -375,12 +382,21 @@ export class GenerationQueueStore {
 			apiKey,
 			isOnline: this.app.network.isOnline,
 			onProgress: (pct, statusText) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
 				this.updateJob(job.id, { progress: pct, statusText }, false);
 			},
+			onBlueprintCached: (testId, blueprint) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.app.tests.updateTestBlueprint(testId, blueprint);
+			},
 			onSuccess: (createdTest) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.activeRunTokens.delete(job.id);
 				this.inFlightJobIds.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'completed',
+					pauseReason: undefined,
 					progress: 100,
 					statusText: 'Assessment Ready!',
 					completedAt: new Date().toISOString(),
@@ -399,9 +415,13 @@ export class GenerationQueueStore {
 				this.pump();
 			},
 			onCancel: () => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.activeRunTokens.delete(job.id);
 				this.inFlightJobIds.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'cancelled',
+					pauseReason: undefined,
 					statusText: 'Cancelled by user',
 					countdownSeconds: undefined,
 					abortController: undefined,
@@ -409,18 +429,25 @@ export class GenerationQueueStore {
 				this.pump();
 			},
 			onPausedOffline: () => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.activeRunTokens.delete(job.id);
 				this.inFlightJobIds.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'paused',
+					pauseReason: 'offline',
 					statusText: 'Internet connection lost. Waiting to reconnect...',
 					countdownSeconds: undefined,
 					abortController: undefined,
 				});
 			},
 			onRateLimitBackoff: (countdownSeconds, nextRetryTimestamp, retryCount, maxRetries) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
 				this.inFlightJobIds.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'paused',
+					pauseReason: 'rate_limit',
 					retryCount,
 					nextRetryTimestamp,
 					countdownSeconds,
@@ -428,6 +455,7 @@ export class GenerationQueueStore {
 				});
 			},
 			onRateLimitCountdown: (remainingSeconds) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
 				this.updateJob(
 					job.id,
 					{
@@ -438,17 +466,25 @@ export class GenerationQueueStore {
 				);
 			},
 			onRateLimitRetryReady: () => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.activeRunTokens.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'queued',
+					pauseReason: undefined,
 					countdownSeconds: undefined,
 					statusText: 'Retrying generation...',
 				});
 				this.pump();
 			},
 			onFailure: (errorMessage) => {
+				if (this.activeRunTokens.get(job.id) !== runToken) return;
+				this.activeRunTokens.delete(job.id);
 				this.inFlightJobIds.delete(job.id);
+
 				this.updateJob(job.id, {
 					status: 'failed',
+					pauseReason: undefined,
 					error: errorMessage,
 					statusText: `Failed: ${errorMessage}`,
 					countdownSeconds: undefined,
@@ -468,6 +504,7 @@ export class GenerationQueueStore {
 	 * Cancel a job by ID (O(1)) - works on active, queued, or paused jobs
 	 */
 	cancelJob(id: string): void {
+		this.activeRunTokens.delete(id);
 		const job = this.jobsMap.get(id);
 		if (!job) return;
 
@@ -475,6 +512,7 @@ export class GenerationQueueStore {
 		this.inFlightJobIds.delete(id);
 		this.updateJob(id, {
 			status: 'cancelled',
+			pauseReason: undefined,
 			statusText: 'Cancelled by user',
 			countdownSeconds: undefined,
 			abortController: undefined,
@@ -486,9 +524,15 @@ export class GenerationQueueStore {
 	 * Retry a failed or cancelled job by ID (O(1))
 	 */
 	retryJob(id: string): void {
+		this.activeRunTokens.delete(id);
+		const job = this.jobsMap.get(id);
+		if (job?.abortController) {
+			job.abortController.abort();
+		}
 		this.inFlightJobIds.delete(id);
 		this.updateJob(id, {
 			status: 'queued',
+			pauseReason: undefined,
 			progress: 0,
 			error: undefined,
 			retryCount: 0,
@@ -503,6 +547,7 @@ export class GenerationQueueStore {
 	 * Remove a job completely (O(1))
 	 */
 	removeJob(id: string): void {
+		this.activeRunTokens.delete(id);
 		const job = this.jobsMap.get(id);
 		if (job?.abortController) {
 			job.abortController.abort();
@@ -520,6 +565,7 @@ export class GenerationQueueStore {
 	clearCompleted(): void {
 		for (const [id, job] of this.jobsMap.entries()) {
 			if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+				this.activeRunTokens.delete(id);
 				this.inFlightJobIds.delete(id);
 				this.jobsMap.delete(id);
 			}
@@ -560,9 +606,10 @@ export class GenerationQueueStore {
 
 	/**
 	 * Persist updated job to Dexie asynchronously (O(1))
+	 * Strips runtime-only properties and sourceTest to prevent multi-megabyte Dexie bloat
 	 */
 	private persistJobUpdate(job: GenerationJob): void {
-		const { abortController: _, countdownSeconds: __, ...serializable } = job;
+		const { abortController: _, countdownSeconds: __, sourceTest: ___, ...serializable } = job;
 		fireAndForget(
 			db.saveGenerationJob(serializable),
 			`Persisting generation job "${job.id}" update to Dexie`
