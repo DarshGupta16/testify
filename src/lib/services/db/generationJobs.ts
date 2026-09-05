@@ -2,14 +2,26 @@
  * Generation Jobs Dexie IndexedDB Repository
  */
 
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { StoredGenerationJob } from '$lib/types/queue';
+import { toCloneable } from '$lib/utils/snapshot.svelte';
 import type { TestifyDatabase } from './database';
 
 /**
  * Persist or update a single generation job
  */
 export async function saveJob(db: TestifyDatabase, job: StoredGenerationJob): Promise<void> {
-	await db.generationJobs.put(job);
+	await db.generationJobs.put(toCloneable(job));
+}
+
+/**
+ * Get a single generation job by ID
+ */
+export async function getJobById(
+	db: TestifyDatabase,
+	id: string
+): Promise<StoredGenerationJob | undefined> {
+	return await db.generationJobs.get(id);
 }
 
 /**
@@ -20,7 +32,7 @@ export async function bulkSaveJobs(
 	jobs: StoredGenerationJob[]
 ): Promise<void> {
 	if (jobs.length === 0) return;
-	await db.generationJobs.bulkPut(jobs);
+	await db.generationJobs.bulkPut(toCloneable(jobs));
 }
 
 /**
@@ -46,7 +58,18 @@ export async function updateJob(
 	id: string,
 	updates: Partial<StoredGenerationJob>
 ): Promise<void> {
-	await db.generationJobs.update(id, updates);
+	await db.generationJobs.update(id, toCloneable(updates));
+}
+
+/**
+ * Update the blueprint cache on a specific generation job
+ */
+export async function updateJobBlueprintCache(
+	db: TestifyDatabase,
+	id: string,
+	blueprint: PaperBlueprint
+): Promise<void> {
+	await db.generationJobs.update(id, { blueprintCache: toCloneable(blueprint) });
 }
 
 /**
@@ -61,12 +84,8 @@ export async function deleteJob(db: TestifyDatabase, id: string): Promise<void> 
  */
 export async function clearCompletedJobs(db: TestifyDatabase): Promise<void> {
 	const completedOrTerminated = await db.generationJobs
-		.filter(
-			(job) =>
-				job.status === 'completed' ||
-				job.status === 'cancelled' ||
-				job.status === 'failed'
-		)
+		.where('status')
+		.anyOf(['completed', 'cancelled', 'failed'])
 		.primaryKeys();
 
 	if (completedOrTerminated.length > 0) {

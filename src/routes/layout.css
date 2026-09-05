@@ -19,6 +19,8 @@
 	--color-border-color: var(--border-color);
 	--color-accent-contrast: var(--accent-contrast);
 	--color-accent-contrast-text: var(--accent-contrast-text);
+	--color-primary: var(--accent-contrast);
+	--color-primary-text: var(--accent-contrast-text);
 	--color-badge-bg: var(--badge-bg);
 	--color-badge-text: var(--badge-text);
 }

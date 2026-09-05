@@ -3,6 +3,7 @@
  */
 
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { NormalizationStageTrace, ParserStageTrace } from '$lib/types/devTrace';
 import type { QuestionPreview, TokenUsageStats } from '$lib/types/test';
 
@@ -36,7 +37,52 @@ export interface AIGenerationPayload {
 	diagrams?: AIDiagramAsset[];
 	answerKeyPages?: AIPageAsset[];
 	metadata?: AIGenerationMetadataHints;
+	signal?: AbortSignal;
 	onProgress?: (statusText: string, progressPercent?: number) => void;
+}
+
+export interface PaperBlueprintPayload {
+	apiKey: string;
+	model: string;
+	questions: QuestionPreview[] | RawAIQuestion[];
+	title?: string;
+	instructions?: string;
+	diagrams?: AIDiagramAsset[];
+	pages?: AIPageAsset[];
+	signal?: AbortSignal;
+	onProgress?: (statusText: string, progressPercent?: number) => void;
+}
+
+export interface PaperBlueprintResult {
+	provider: AIProvider;
+	model: string;
+	blueprint: PaperBlueprint;
+	rawResponse?: string;
+	tokenUsage?: TokenUsageStats;
+	durationMs?: number;
+}
+
+export interface SimilarPaperGenerationPayload {
+	apiKey: string;
+	model: string;
+	blueprint: PaperBlueprint;
+	userInstructions?: string;
+	questionCount?: number;
+	metadata?: AIGenerationMetadataHints;
+	signal?: AbortSignal;
+	onProgress?: (statusText: string, progressPercent?: number) => void;
+}
+
+export interface SimilarPaperGenerationResult extends AIGenerationResult {
+	blueprint?: PaperBlueprint;
+}
+
+export interface PaperBlueprintExecutionRequest extends PaperBlueprintPayload {
+	provider: AIProvider;
+}
+
+export interface SimilarPaperExecutionRequest extends SimilarPaperGenerationPayload {
+	provider: AIProvider;
 }
 
 export interface RawAIOption {
@@ -92,4 +138,7 @@ export interface AIGenerationResult {
 export interface AIProviderAdapter {
 	readonly id: AIProvider;
 	generateQuestions(payload: AIGenerationPayload): Promise<AIGenerationResult>;
+	generatePaperBlueprint?(payload: PaperBlueprintPayload): Promise<PaperBlueprintResult>;
+	generateSimilarPaper?(payload: SimilarPaperGenerationPayload): Promise<SimilarPaperGenerationResult>;
 }
+

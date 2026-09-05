@@ -1,3 +1,6 @@
+// Actions
+export * from './actions/clickOutside';
+
 // Common & Dashboard Components
 export { default as ImageLightboxModal } from './components/common/ImageLightboxModal.svelte';
 export { default as MathRenderer } from './components/common/MathRenderer.svelte';

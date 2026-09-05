@@ -1,6 +1,7 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
 import { processTestUpload } from '$lib/services/testUploader';
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
@@ -145,6 +146,17 @@ export class TestStore {
 	updateTest(updated: TestItem): void {
 		const index = this.tests.findIndex((t) => t.id === updated.id);
 		if (index !== -1) {
+			const existing = this.tests[index];
+			// Invalidate blueprint cache if questions changed
+			const questionsChanged =
+				existing.questions !== updated.questions &&
+				(existing.questions?.length !== updated.questions?.length ||
+					JSON.stringify(existing.questions) !== JSON.stringify(updated.questions));
+
+			if (questionsChanged) {
+				updated.blueprint = undefined;
+			}
+
 			// Ensure modified questions have up-to-date pre-rendered KaTeX & Markdown HTML
 			if (updated.questions && updated.questions.length > 0) {
 				updated.questions = precompileQuestionsMath(updated.questions);
@@ -157,6 +169,20 @@ export class TestStore {
 			this.tests[index] = updated;
 			fireAndForget(this.database.saveTest(updated), `Updating Test "${updated.title}" in Dexie`);
 		}
+	}
+
+	/**
+	 * Updates the cached blueprint for a test in-memory and in Dexie.
+	 */
+	updateTestBlueprint(id: string, blueprint: PaperBlueprint): void {
+		const target = this.tests.find((t) => t.id === id);
+		if (target) {
+			target.blueprint = blueprint;
+		}
+		fireAndForget(
+			this.database.updateTestBlueprint(id, blueprint),
+			`Caching blueprint on test "${id}" in Dexie`
+		);
 	}
 
 	/**

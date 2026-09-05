@@ -3,13 +3,16 @@
  *
  * Stateless execution engine for background paper generation jobs.
  * Handles payload synthesis, AbortSignal forwarding, processTestUpload dispatch,
- * automated 429 rate limit exponential backoff countdowns, and network disconnection handling.
+ * delegation to similar paper generator, automated 429 rate limit exponential backoff countdowns,
+ * and network disconnection handling.
  */
 
 import { processTestUpload } from '$lib/services/testUploader';
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { GenerationJob } from '$lib/types/queue';
 import type { TestItem, TestUploadPayload } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
+import { generateSimilarPaperTest } from './similarPaperGenerator';
 
 export interface ExecuteJobOptions {
 	apiKey: string;
@@ -27,6 +30,56 @@ export interface ExecuteJobOptions {
 	onRateLimitCountdown: (remainingSeconds: number) => void;
 	onRateLimitRetryReady: () => void;
 	onFailure: (errorMessage: string) => void;
+	onBlueprintCached?: (testId: string, blueprint: PaperBlueprint) => void;
+}
+
+/**
+ * Coordinates standard document ingestion & digitization job
+ */
+async function executeDigitizeJob(
+	job: GenerationJob,
+	options: ExecuteJobOptions
+): Promise<TestItem> {
+	if (!job.testFileBlob) {
+		throw new Error('No test document file provided for digitization.');
+	}
+
+	const payload: TestUploadPayload = {
+		title: job.autoTitle ? undefined : job.title || undefined,
+		autoTitle: job.autoTitle,
+		subjectId: job.subjectId,
+		durationMinutes: job.durationMinutes,
+		autoDuration: job.autoDuration,
+		isUntimed: job.isUntimed,
+		scale: job.scale,
+		aiProvider: job.aiProvider,
+		aiModel: job.aiModel,
+		questionCount: job.questionCount,
+		totalMarks: job.totalMarks,
+		description: job.description,
+		testFile: {
+			name: job.testFileName || 'test.pdf',
+			size: job.testFileBlob.size,
+			formattedSize: job.testFileSizeFormatted || formatBytes(job.testFileBlob.size),
+			rawFile: job.testFileBlob,
+		},
+		answerKeyFile: job.answerKeyBlob
+			? {
+					name: job.answerKeyFileName || 'answer_key.pdf',
+					size: job.answerKeyBlob.size,
+					formattedSize: job.answerKeyFileSizeFormatted || formatBytes(job.answerKeyBlob.size),
+					rawFile: job.answerKeyBlob,
+				}
+			: null,
+	};
+
+	return await processTestUpload(payload, {
+		apiKey: options.apiKey,
+		signal: job.abortController?.signal,
+		onProgress: (pct, statusText) => {
+			options.onProgress(pct, statusText);
+		},
+	});
 }
 
 /**
@@ -42,50 +95,15 @@ export async function executeGenerationJob(
 	}
 
 	if (!options.apiKey.trim()) {
-		options.onFailure(
-			`API key for ${job.aiProvider.toUpperCase()} is not configured or unlocked.`
-		);
+		options.onFailure(`API key for ${job.aiProvider.toUpperCase()} is not configured or unlocked.`);
 		return;
 	}
 
-	// Prepare upload payload from job state and binary Blobs
-	const payload: TestUploadPayload = {
-		title: job.autoTitle ? undefined : job.title || undefined,
-		autoTitle: job.autoTitle,
-		subjectId: job.subjectId,
-		durationMinutes: job.durationMinutes,
-		autoDuration: job.autoDuration,
-		isUntimed: job.isUntimed,
-		scale: job.scale,
-		aiProvider: job.aiProvider,
-		aiModel: job.aiModel,
-		questionCount: job.questionCount,
-		totalMarks: job.totalMarks,
-		description: job.description,
-		testFile: {
-			name: job.testFileName,
-			size: job.testFileBlob.size,
-			formattedSize: job.testFileSizeFormatted,
-			rawFile: job.testFileBlob,
-		},
-		answerKeyFile: job.answerKeyBlob
-			? {
-					name: job.answerKeyFileName || 'answer_key.pdf',
-					size: job.answerKeyBlob.size,
-					formattedSize: job.answerKeyFileSizeFormatted || formatBytes(job.answerKeyBlob.size),
-					rawFile: job.answerKeyBlob,
-				}
-			: null,
-	};
-
 	try {
-		const createdTest = await processTestUpload(payload, {
-			apiKey: options.apiKey,
-			signal: job.abortController?.signal,
-			onProgress: (pct, statusText) => {
-				options.onProgress(pct, statusText);
-			},
-		});
+		let createdTest: TestItem;
+
+		if (job.jobType === 'similar_paper') createdTest = await generateSimilarPaperTest(job, options);
+		else createdTest = await executeDigitizeJob(job, options);
 
 		options.onSuccess(createdTest);
 	} catch (err: unknown) {
@@ -98,7 +116,11 @@ export async function executeGenerationJob(
 		}
 
 		// 2. Offline network loss mid-flight
-		if (!options.isOnline || error.message.includes('offline') || error.message.includes('network')) {
+		if (
+			!options.isOnline ||
+			error.message.includes('offline') ||
+			error.message.includes('network')
+		) {
 			options.onPausedOffline();
 			return;
 		}
@@ -113,7 +135,8 @@ export async function executeGenerationJob(
 
 		if (isRateLimit && job.retryCount < job.maxRetries) {
 			const nextRetryCount = job.retryCount + 1;
-			const backoffSeconds = Math.min(60, 5 * Math.pow(2, nextRetryCount - 1)); // 5s, 10s, 20s, 40s
+			const jitter = Math.random() * 1.5;
+			const backoffSeconds = Math.min(60, Math.round(5 * 2 ** (nextRetryCount - 1) + jitter));
 			const nextRetryTimestamp = Date.now() + backoffSeconds * 1000;
 
 			options.onRateLimitBackoff(
@@ -124,34 +147,34 @@ export async function executeGenerationJob(
 			);
 
 			let remaining = backoffSeconds;
-			const timer = setInterval(() => {
-				// Stop timer if user cancelled job while waiting
-				if (job.abortController?.signal.aborted || job.status === 'cancelled') {
-					clearInterval(timer);
-					options.onCancel();
+			let isCountdownActive = true;
+			let timer: ReturnType<typeof setInterval> | undefined;
+
+			const cleanup = (cancel = true) => {
+				if (!isCountdownActive) return;
+				isCountdownActive = false;
+				if (timer) clearInterval(timer);
+				job.abortController?.signal.removeEventListener('abort', () => cleanup());
+				if (cancel) options.onCancel();
+			};
+
+			timer = setInterval(() => {
+				if (job.abortController?.signal.aborted) {
+					cleanup();
 					return;
 				}
 
 				remaining -= 1;
-				if (remaining > 0 && job.status === 'paused') {
-					options.onRateLimitCountdown(remaining);
-				} else {
-					clearInterval(timer);
-					if (job.status === 'paused' && !job.abortController?.signal.aborted) {
-						options.onRateLimitRetryReady();
-					}
+				if (remaining > 0) options.onRateLimitCountdown(remaining);
+				else {
+					cleanup(false);
+					options.onRateLimitRetryReady();
 				}
 			}, 1000);
 
 			// Listen for instant abort signal during backoff countdown
-			job.abortController?.signal.addEventListener(
-				'abort',
-				() => {
-					clearInterval(timer);
-					options.onCancel();
-				},
-				{ once: true }
-			);
+			if (job.abortController?.signal.aborted) cleanup();
+			else job.abortController?.signal.addEventListener('abort', () => cleanup());
 
 			return;
 		}

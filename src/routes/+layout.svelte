@@ -5,6 +5,7 @@ import Toast from '$lib/components/common/Toast.svelte';
 import Header from '$lib/components/layout/Header.svelte';
 import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
 import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
+import SimilarPaperModal from '$lib/components/modals/SimilarPaperModal.svelte';
 import SubjectsModal from '$lib/components/modals/SubjectsModal.svelte';
 import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
 import TestEditModal from '$lib/components/modals/TestEditModal.svelte';
@@ -21,6 +22,12 @@ setAppContext(app);
 
 onMount(() => {
 	app.init();
+});
+
+$effect(() => {
+	if (typeof document !== 'undefined') {
+		document.body.style.overflow = app.modals.anyModalOpen ? 'hidden' : '';
+	}
 });
 </script>
 
@@ -44,6 +51,7 @@ onMount(() => {
 	<UploadModal />
 	<TestDetailsModal />
 	<TestEditModal />
+	<SimilarPaperModal />
 	<ApiKeysModal />
 	<MasterPasswordModal />
 	<SubjectsModal />

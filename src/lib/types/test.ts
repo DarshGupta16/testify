@@ -1,4 +1,5 @@
 import type { AIProvider } from '$lib/types/apiKeys';
+import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 
@@ -104,6 +105,8 @@ export interface TestItem {
 	aiModel?: string;
 	tokenUsage?: TokenUsageStats;
 	devPipelineTrace?: DevPipelineTrace;
+	blueprint?: PaperBlueprint;
+	generatedFromTestId?: string;
 }
 
 /**

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto, preloadCode } from '$app/navigation';
+import { clickOutside } from '$lib/actions/clickOutside';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 import { formatDate } from '$lib/utils';
@@ -9,7 +10,15 @@ const app = getAppContext();
 
 let isSelectingMode = $state(false);
 let isConfirmingDelete = $state(false);
+let isMenuOpen = $state(false);
+let wasMenuOpen = false;
+let isRenaming = $state(false);
+let renameTitle = $state('');
 let modeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function focusOnMount(node: HTMLElement) {
+	node.focus();
+}
 
 function handleStartClick() {
 	isSelectingMode = true;
@@ -45,6 +54,36 @@ function handleDelete() {
 	}
 	app.handleDeleteTest(test.id);
 }
+
+function handleStartRename() {
+	renameTitle = test.title;
+	isRenaming = true;
+	isMenuOpen = false;
+}
+
+function handleSaveRename() {
+	const trimmed = renameTitle.trim();
+	if (!trimmed) {
+		app.toast.show('Title cannot be empty', 'warning');
+		return;
+	}
+	if (trimmed !== test.title) {
+		const updated: TestItem = { ...test, title: trimmed };
+		app.tests.updateTest(updated);
+		app.toast.show(`Renamed to "${trimmed}"`, 'success');
+	}
+	isRenaming = false;
+}
+
+function handleOpenSimilar() {
+	isMenuOpen = false;
+	app.modals.openSimilarPaperModal(test);
+}
+
+function handleOpenEdit() {
+	isMenuOpen = false;
+	app.modals.openEdit(test);
+}
 </script>
 
 <article
@@ -52,27 +91,204 @@ function handleDelete() {
 		preloadCode(`/test/${test.id}`);
 		app.tests.prefetchTestDocAssets(test.id);
 	}}
-	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all"
+	class="neo-box p-4 sm:p-6 flex flex-col justify-between group hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)] transition-all relative"
 >
 	<!-- Card Top Section -->
 	<div>
-		<!-- Badges Row -->
-		<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+		<!-- Badges & Actions Row -->
+		<div class="flex items-center justify-between gap-2 mb-3">
 			<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 				{app.subjects.getName(test.subjectId) || '?'}
 			</span>
 
-			<div class="flex flex-wrap items-center gap-1.5">
+			<div class="flex items-center gap-2 sm:gap-2.5">
 				<span class="font-mono text-[11px] text-text-muted">
 					{formatDate(test.createdAt)}
 				</span>
+
+				<!-- Three Dots Dropdown Menu -->
+				<div class="relative test-card-menu-container">
+					<button
+						type="button"
+						onpointerdown={() => {
+							wasMenuOpen = isMenuOpen;
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								wasMenuOpen = isMenuOpen;
+							}
+						}}
+						onclick={(e) => {
+							e.stopPropagation();
+							if (wasMenuOpen) {
+								isMenuOpen = false;
+							} else {
+								isMenuOpen = true;
+							}
+						}}
+						class={`flex h-7 w-7 items-center justify-center cursor-pointer transition-all ${
+							isMenuOpen
+								? 'border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)]'
+								: 'border border-transparent bg-transparent text-text-muted hover:text-text-primary hover:bg-muted/70 hover:border-border-color hover:shadow-[2px_2px_0px_var(--shadow-color)]'
+						}`}
+						title="Options"
+						aria-label="Test options menu"
+						aria-haspopup="menu"
+						aria-expanded={isMenuOpen}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							class="h-4 w-4"
+						>
+							<circle cx="12" cy="5" r="1.75" />
+							<circle cx="12" cy="12" r="1.75" />
+							<circle cx="12" cy="19" r="1.75" />
+						</svg>
+					</button>
+
+					{#if isMenuOpen}
+						<div
+							use:clickOutside={() => (isMenuOpen = false)}
+							onkeydown={(e) => {
+								if (e.key === 'Escape') isMenuOpen = false;
+							}}
+							tabindex="-1"
+							class="absolute right-0 top-full mt-1.5 z-30 w-48 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
+							role="menu"
+						>
+							<button
+								type="button"
+								onclick={handleStartRename}
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
+								role="menuitem"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+								</svg>
+								<span>Rename</span>
+							</button>
+							<button
+								type="button"
+								onclick={handleOpenSimilar}
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
+								role="menuitem"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+								</svg>
+								<span>Generate Similar</span>
+							</button>
+							<button
+								type="button"
+								onclick={handleOpenEdit}
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
+								role="menuitem"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+									<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+								</svg>
+								<span>Full Edit</span>
+							</button>
+							<div class="my-1 border-t border-border-color/20"></div>
+							<button
+								type="button"
+								onclick={() => {
+									isMenuOpen = false;
+									isConfirmingDelete = true;
+								}}
+								class="w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
+								role="menuitem"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 shrink-0"
+								>
+									<polyline points="3 6 5 6 21 6" />
+									<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+								</svg>
+								<span>Delete Test</span>
+							</button>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 
-		<!-- Title & Description -->
-		<h3 class="text-base sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
-			{test.title}
-		</h3>
+		<!-- Title & Description (or Inline Rename) -->
+		{#if isRenaming}
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSaveRename();
+				}}
+				class="mb-2 space-y-1.5 animate-slide-down"
+			>
+				<input
+					type="text"
+					bind:value={renameTitle}
+					use:focusOnMount
+					class="neo-input w-full text-sm font-bold p-1.5 bg-surface border-2 border-border-color"
+					onkeydown={(e) => {
+						if (e.key === 'Escape') isRenaming = false;
+					}}
+				/>
+				<div class="flex items-center gap-1.5">
+					<button
+						type="submit"
+						class="neo-btn neo-btn-primary text-[11px] py-1 px-2.5 font-bold cursor-pointer"
+					>
+						Save
+					</button>
+					<button
+						type="button"
+						onclick={() => (isRenaming = false)}
+						class="neo-btn text-[11px] py-1 px-2 cursor-pointer"
+					>
+						Cancel
+					</button>
+				</div>
+			</form>
+		{:else}
+			<h3 class="text-base sm:text-xl font-black text-text-primary leading-snug uppercase tracking-tight line-clamp-2 mb-2">
+				{test.title}
+			</h3>
+		{/if}
 
 		{#if test.description}
 			<p class="text-xs text-text-secondary line-clamp-2 mb-3 sm:mb-4">
@@ -116,7 +332,7 @@ function handleDelete() {
 					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectPractice}
-					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate"
+					class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate cursor-pointer"
 					title="Start in Practice Mode"
 				>
 					🌿 Practice
@@ -126,7 +342,7 @@ function handleDelete() {
 					onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
 					onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
 					onclick={handleSelectExam}
-					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate"
+					class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate cursor-pointer"
 					title="Start Exam Simulation"
 				>
 					🎯 Exam Sim
@@ -144,7 +360,7 @@ function handleDelete() {
 					app.tests.prefetchTestDocAssets(test.id);
 				}}
 				onclick={handleStartClick}
-				class="neo-btn neo-btn-primary w-full text-xs py-2.5"
+				class="neo-btn neo-btn-primary w-full text-xs py-2.5 cursor-pointer"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -161,8 +377,8 @@ function handleDelete() {
 			</button>
 		{/if}
 
-		<!-- Sub Actions: Details & Delete -->
-		<div class="flex items-center justify-between gap-2">
+		<!-- Sub Actions: View Details & Delete -->
+		<div class="flex items-center justify-between gap-1.5 sm:gap-2">
 			<button
 				type="button"
 				onmouseenter={() => {
@@ -174,24 +390,24 @@ function handleDelete() {
 					app.tests.prefetchTestDocAssets(test.id);
 				}}
 				onclick={() => app.modals.openDetails(test)}
-				class="neo-btn text-xs py-1.5 px-3 flex-1 text-center"
+				class="neo-btn text-xs py-2 px-3 flex-1 text-center font-bold truncate cursor-pointer"
 			>
 				View Details
 			</button>
 
 			{#if isConfirmingDelete}
-				<div class="flex items-center gap-1 flex-1">
+				<div class="flex items-center gap-1">
 					<button
 						type="button"
 						onclick={handleDelete}
-						class="neo-btn neo-btn-danger text-xs py-1.5 px-2 flex-1"
+						class="neo-btn neo-btn-danger text-xs py-2 px-3 font-bold cursor-pointer"
 					>
 						Confirm
 					</button>
 					<button
 						type="button"
 						onclick={() => (isConfirmingDelete = false)}
-						class="neo-btn text-xs py-1.5 px-2"
+						class="neo-btn text-xs py-2 px-2 cursor-pointer"
 						title="Cancel delete"
 					>
 						✕
@@ -201,7 +417,7 @@ function handleDelete() {
 				<button
 					type="button"
 					onclick={handleDelete}
-					class="neo-btn text-xs py-1.5 px-3 text-rose-500 hover:bg-rose-600 hover:text-white"
+					class="neo-btn text-xs py-2 px-3 text-rose-500 hover:bg-rose-600 hover:text-white shrink-0 cursor-pointer"
 					title="Delete this test"
 				>
 					<svg
