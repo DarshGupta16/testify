@@ -16,6 +16,16 @@ export class ModalStore {
 	editingTest = $state<TestItem | null>(null);
 	similarPaperSourceTest = $state<TestItem | null>(null);
 
+	readonly anyModalOpen = $derived(
+		this.isUploadModalOpen ||
+			this.isDetailsModalOpen ||
+			this.isApiKeysModalOpen ||
+			this.isMasterPasswordModalOpen ||
+			this.isSubjectsModalOpen ||
+			this.isEditModalOpen ||
+			this.isSimilarPaperOpen
+	);
+
 	openSimilarPaperModal(test: TestItem) {
 		this.similarPaperSourceTest = test;
 		this.isSimilarPaperOpen = true;
@@ -30,7 +40,7 @@ export class ModalStore {
 
 	openEdit(test: TestItem) {
 		// Deep clone to ensure edits are completely isolated until explicitly saved
-		this.editingTest = JSON.parse(JSON.stringify(test));
+		this.editingTest = structuredClone(test);
 		this.isEditModalOpen = true;
 	}
 

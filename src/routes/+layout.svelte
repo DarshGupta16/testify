@@ -5,10 +5,10 @@ import Toast from '$lib/components/common/Toast.svelte';
 import Header from '$lib/components/layout/Header.svelte';
 import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
 import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
+import SimilarPaperModal from '$lib/components/modals/SimilarPaperModal.svelte';
 import SubjectsModal from '$lib/components/modals/SubjectsModal.svelte';
 import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
 import TestEditModal from '$lib/components/modals/TestEditModal.svelte';
-import SimilarPaperModal from '$lib/components/modals/SimilarPaperModal.svelte';
 import UploadModal from '$lib/components/modals/UploadModal.svelte';
 import GenerationQueueDock from '$lib/components/queue/GenerationQueueDock.svelte';
 import { AppStore, setAppContext } from '$lib/stores/appContext.svelte';
@@ -22,6 +22,12 @@ setAppContext(app);
 
 onMount(() => {
 	app.init();
+});
+
+$effect(() => {
+	if (typeof document !== 'undefined') {
+		document.body.style.overflow = app.modals.anyModalOpen ? 'hidden' : '';
+	}
 });
 </script>
 

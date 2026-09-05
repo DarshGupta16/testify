@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto, preloadCode } from '$app/navigation';
+import { clickOutside } from '$lib/actions/clickOutside';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 import { formatDate } from '$lib/utils';
@@ -10,6 +11,7 @@ const app = getAppContext();
 let isSelectingMode = $state(false);
 let isConfirmingDelete = $state(false);
 let isMenuOpen = $state(false);
+let wasMenuOpen = false;
 let isRenaming = $state(false);
 let renameTitle = $state('');
 let modeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -84,17 +86,6 @@ function handleOpenEdit() {
 }
 </script>
 
-<svelte:window
-	onclick={(e) => {
-		if (isMenuOpen) {
-			const target = e.target as HTMLElement | null;
-			if (!target?.closest('.test-card-menu-container')) {
-				isMenuOpen = false;
-			}
-		}
-	}}
-/>
-
 <article
 	onmouseenter={() => {
 		preloadCode(`/test/${test.id}`);
@@ -119,9 +110,21 @@ function handleOpenEdit() {
 				<div class="relative test-card-menu-container">
 					<button
 						type="button"
+						onpointerdown={() => {
+							wasMenuOpen = isMenuOpen;
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								wasMenuOpen = isMenuOpen;
+							}
+						}}
 						onclick={(e) => {
 							e.stopPropagation();
-							isMenuOpen = !isMenuOpen;
+							if (wasMenuOpen) {
+								isMenuOpen = false;
+							} else {
+								isMenuOpen = true;
+							}
 						}}
 						class={`flex h-7 w-7 items-center justify-center cursor-pointer transition-all ${
 							isMenuOpen
@@ -130,6 +133,7 @@ function handleOpenEdit() {
 						}`}
 						title="Options"
 						aria-label="Test options menu"
+						aria-haspopup="menu"
 						aria-expanded={isMenuOpen}
 					>
 						<svg
@@ -146,6 +150,11 @@ function handleOpenEdit() {
 
 					{#if isMenuOpen}
 						<div
+							use:clickOutside={() => (isMenuOpen = false)}
+							onkeydown={(e) => {
+								if (e.key === 'Escape') isMenuOpen = false;
+							}}
+							tabindex="-1"
 							class="absolute right-0 top-full mt-1.5 z-30 w-48 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
 							role="menu"
 						>

@@ -117,9 +117,18 @@ async function handleSubmit(e: SubmitEvent) {
 
 	// Validate Question Count (no upper limit)
 	const count = Math.floor(Number(targetQuestionCount));
-	if (isNaN(count) || count < 1) {
+	if (Number.isNaN(count) || count < 1) {
 		formError = 'Target question count must be at least 1.';
 		return;
+	}
+
+	// Validate Duration when in custom mode
+	if (durationMode === 'custom') {
+		const mins = Math.floor(Number(durationMinutes));
+		if (Number.isNaN(mins) || mins < 1) {
+			formError = 'Duration must be at least 1 minute.';
+			return;
+		}
 	}
 
 	// Validate API Key configured & unlocked
@@ -136,7 +145,7 @@ async function handleSubmit(e: SubmitEvent) {
 		await app.handleCreateSimilarPaperJob({
 			sourceTest,
 			questionCount: count,
-			durationMinutes: durationMode === 'custom' ? Number(durationMinutes) || 60 : null,
+			durationMinutes: durationMode === 'custom' ? Math.floor(Number(durationMinutes)) || 60 : null,
 			autoDuration: durationMode === 'auto',
 			isUntimed: durationMode === 'untimed',
 			customInstructions: customInstructions.trim() || undefined,
@@ -150,7 +159,7 @@ async function handleSubmit(e: SubmitEvent) {
 }
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
+<svelte:window onkeydown={app.modals.isSimilarPaperOpen ? handleKeyDown : undefined} />
 
 {#if app.modals.isSimilarPaperOpen && app.modals.similarPaperSourceTest}
 	{@const source = app.modals.similarPaperSourceTest}
@@ -277,7 +286,7 @@ async function handleSubmit(e: SubmitEvent) {
 					<div class="space-y-1.5">
 						<div class="flex items-center justify-between h-5">
 							<label
-								for="similar-duration"
+								for={durationMode === 'custom' ? 'similar-duration' : undefined}
 								class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary"
 							>
 								Duration
@@ -288,8 +297,7 @@ async function handleSubmit(e: SubmitEvent) {
 										type="radio"
 										name="durationMode"
 										value="auto"
-										checked={durationMode === 'auto'}
-										onchange={() => (durationMode = 'auto')}
+										bind:group={durationMode}
 										class="accent-accent-contrast h-3.5 w-3.5"
 									/>
 									<span class="font-mono text-[11px] font-bold text-text-secondary">AI Decide</span>
@@ -299,8 +307,7 @@ async function handleSubmit(e: SubmitEvent) {
 										type="radio"
 										name="durationMode"
 										value="untimed"
-										checked={durationMode === 'untimed'}
-										onchange={() => (durationMode = 'untimed')}
+										bind:group={durationMode}
 										class="accent-accent-contrast h-3.5 w-3.5"
 									/>
 									<span class="font-mono text-[11px] font-bold text-text-secondary">Untimed</span>
@@ -310,8 +317,7 @@ async function handleSubmit(e: SubmitEvent) {
 										type="radio"
 										name="durationMode"
 										value="custom"
-										checked={durationMode === 'custom'}
-										onchange={() => (durationMode = 'custom')}
+										bind:group={durationMode}
 										class="accent-accent-contrast h-3.5 w-3.5"
 									/>
 									<span class="font-mono text-[11px] font-bold text-text-secondary">Custom</span>
@@ -319,32 +325,36 @@ async function handleSubmit(e: SubmitEvent) {
 							</div>
 						</div>
 
-						<div class="relative">
-							<input
-								id="similar-duration"
-								type="number"
-								min="1"
-								disabled={durationMode !== 'custom'}
-								bind:value={durationMinutes}
-								placeholder={durationMode === 'auto'
-									? '⚡ AI will estimate duration based on questions'
-									: durationMode === 'untimed'
-										? '🌿 Untimed exam session'
-										: '60'}
-								class={`neo-input w-full h-10 text-sm font-mono pr-14 ${
-									durationMode !== 'custom'
-										? 'bg-muted/40 italic text-text-muted border-dashed'
-										: 'bg-surface'
-								}`}
-							/>
-							{#if durationMode === 'custom'}
+						{#if durationMode === 'custom'}
+							<div class="relative">
+								<input
+									id="similar-duration"
+									type="number"
+									min="1"
+									required
+									bind:value={durationMinutes}
+									placeholder="60"
+									class="neo-input w-full h-10 text-sm font-mono bg-surface pr-14"
+								/>
 								<span
 									class="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-text-muted pointer-events-none font-bold"
 								>
 									mins
 								</span>
-							{/if}
-						</div>
+							</div>
+						{:else if durationMode === 'auto'}
+							<div
+								class="h-10 px-3 flex items-center border-2 border-dashed border-border-color/60 bg-muted/30 font-mono text-xs text-text-muted select-none"
+							>
+								⚡ AI will dynamically estimate duration from question depth
+							</div>
+						{:else if durationMode === 'untimed'}
+							<div
+								class="h-10 px-3 flex items-center border-2 border-dashed border-border-color/60 bg-muted/30 font-mono text-xs text-text-muted select-none"
+							>
+								🌿 Untimed open exam session (no clock limits)
+							</div>
+						{/if}
 					</div>
 				</div>
 
