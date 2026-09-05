@@ -110,7 +110,7 @@ function handleOpenEdit() {
 				{app.subjects.getName(test.subjectId) || '?'}
 			</span>
 
-			<div class="flex items-center gap-1.5">
+			<div class="flex items-center gap-2 sm:gap-2.5">
 				<span class="font-mono text-[11px] text-text-muted">
 					{formatDate(test.createdAt)}
 				</span>
@@ -123,7 +123,11 @@ function handleOpenEdit() {
 							e.stopPropagation();
 							isMenuOpen = !isMenuOpen;
 						}}
-						class="flex h-7 w-7 items-center justify-center border border-border-color bg-surface hover:bg-muted/70 text-text-secondary hover:text-text-primary transition-colors cursor-pointer font-bold text-sm"
+						class={`flex h-7 w-7 items-center justify-center cursor-pointer transition-all ${
+							isMenuOpen
+								? 'border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)]'
+								: 'border border-transparent bg-transparent text-text-muted hover:text-text-primary hover:bg-muted/70 hover:border-border-color hover:shadow-[2px_2px_0px_var(--shadow-color)]'
+						}`}
 						title="Options"
 						aria-label="Test options menu"
 						aria-expanded={isMenuOpen}
@@ -134,55 +138,101 @@ function handleOpenEdit() {
 							fill="currentColor"
 							class="h-4 w-4"
 						>
-							<circle cx="12" cy="5" r="2" />
-							<circle cx="12" cy="12" r="2" />
-							<circle cx="12" cy="19" r="2" />
+							<circle cx="12" cy="5" r="1.75" />
+							<circle cx="12" cy="12" r="1.75" />
+							<circle cx="12" cy="19" r="1.75" />
 						</svg>
 					</button>
 
 					{#if isMenuOpen}
 						<div
-							class="absolute right-0 top-full mt-1 z-30 w-44 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-fade-in"
+							class="absolute right-0 top-full mt-1.5 z-30 w-48 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
 							role="menu"
 						>
 							<button
 								type="button"
 								onclick={handleStartRename}
-								class="w-full text-left px-3 py-2 hover:bg-muted/60 flex items-center gap-2 text-text-primary font-bold cursor-pointer transition-colors"
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
 								role="menuitem"
 							>
-								<span>✏️</span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+								</svg>
 								<span>Rename</span>
 							</button>
 							<button
 								type="button"
 								onclick={handleOpenSimilar}
-								class="w-full text-left px-3 py-2 hover:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
 								role="menuitem"
 							>
-								<span>✨</span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+								</svg>
 								<span>Generate Similar</span>
 							</button>
 							<button
 								type="button"
 								onclick={handleOpenEdit}
-								class="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
 								role="menuitem"
 							>
-								<span>📝</span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+								>
+									<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+									<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+								</svg>
 								<span>Full Edit</span>
 							</button>
-							<div class="my-1 border-t border-border-color/30"></div>
+							<div class="my-1 border-t border-border-color/20"></div>
 							<button
 								type="button"
 								onclick={() => {
 									isMenuOpen = false;
 									isConfirmingDelete = true;
 								}}
-								class="w-full text-left px-3 py-2 hover:bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center gap-2 font-bold cursor-pointer transition-colors"
+								class="w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
 								role="menuitem"
 							>
-								<span>🗑️</span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="square"
+									stroke-linejoin="miter"
+									class="h-3.5 w-3.5 shrink-0"
+								>
+									<polyline points="3 6 5 6 21 6" />
+									<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+								</svg>
 								<span>Delete Test</span>
 							</button>
 						</div>
