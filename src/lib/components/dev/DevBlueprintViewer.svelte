@@ -1,4 +1,5 @@
 <script lang="ts">
+import MathRenderer from '$lib/components/common/MathRenderer.svelte';
 import type { PaperBlueprint } from '$lib/types/blueprint';
 
 let { blueprint, testTitle }: { blueprint: PaperBlueprint; testTitle?: string } = $props();
@@ -60,7 +61,24 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 					onclick={copyBlueprintJson}
 					class="neo-btn text-xs py-1.5 px-3 font-mono font-bold flex items-center gap-1.5 bg-surface hover:bg-muted cursor-pointer"
 				>
-					{isCopied ? '✓ Copied JSON' : '📋 Copy Blueprint JSON'}
+					{#if isCopied}
+						<span>✓</span>
+						<span>Copied JSON</span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="square"
+							class="h-3.5 w-3.5 shrink-0"
+						>
+							<rect x="9" y="9" width="13" height="13" />
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+						</svg>
+						<span>Copy Blueprint JSON</span>
+					{/if}
 				</button>
 			</div>
 		</div>
@@ -234,22 +252,22 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 							<button
 								type="button"
 								onclick={() => (selectedArchetypeIndex = idx)}
-								class={`w-full text-left p-2.5 neo-box text-xs font-mono transition-all cursor-pointer ${
+								class={`w-full text-left p-2.5 border-2 border-border-color text-xs font-mono transition-all cursor-pointer ${
 									selectedArchetypeIndex === idx
-										? 'bg-accent-contrast text-accent-contrast-text border-2 font-bold shadow-[2px_2px_0px_var(--shadow-color)]'
-										: 'bg-surface hover:bg-muted/60 text-text-primary'
+										? '!bg-accent-contrast !text-accent-contrast-text font-bold shadow-[2px_2px_0px_var(--shadow-color)] translate-x-[1px] translate-y-[1px]'
+										: 'bg-surface hover:bg-muted/60 text-text-primary shadow-[3px_3px_0px_var(--shadow-color)] hover:-translate-y-0.5'
 								}`}
 							>
 								<div class="flex items-center justify-between gap-1 mb-1">
 									<span class="font-bold truncate">{arch.name || `Archetype ${idx + 1}`}</span>
 									{#if arch.count || arch.percentage}
-										<span class="text-[10px] opacity-80 shrink-0">
+										<span class={`text-[10px] shrink-0 ${selectedArchetypeIndex === idx ? 'opacity-90' : 'text-text-muted'}`}>
 											{arch.count ? `${arch.count} Qs` : ''} {arch.percentage ? `(${arch.percentage}%)` : ''}
 										</span>
 									{/if}
 								</div>
 								{#if arch.description}
-									<p class="text-[10px] opacity-75 line-clamp-2 leading-snug">
+									<p class={`text-[10px] line-clamp-2 leading-snug ${selectedArchetypeIndex === idx ? 'opacity-85' : 'text-text-secondary'}`}>
 										{arch.description}
 									</p>
 								{/if}
@@ -267,9 +285,9 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 											{activeArchetype.name || 'Archetype Detail'}
 										</h3>
 										{#if activeArchetype.description}
-											<p class="text-xs text-text-secondary mt-0.5">
-												{activeArchetype.description}
-											</p>
+											<div class="text-xs text-text-secondary mt-0.5">
+												<MathRenderer content={activeArchetype.description} inline={true} />
+											</div>
 										{/if}
 									</div>
 									{#if activeArchetype.representative_question_ids?.length}
@@ -283,26 +301,26 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 								<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono text-xs">
 									{#if activeArchetype.what_is_tested}
 										<div class="p-2.5 bg-surface border border-border-color">
-											<span class="text-[10px] text-text-muted uppercase block font-bold">What Is Tested</span>
-											<span class="text-text-primary">{activeArchetype.what_is_tested}</span>
+											<span class="text-[10px] text-text-muted uppercase block font-bold mb-1">What Is Tested</span>
+											<MathRenderer content={activeArchetype.what_is_tested} inline={true} class="text-text-primary" />
 										</div>
 									{/if}
 									{#if activeArchetype.how_it_is_tested}
 										<div class="p-2.5 bg-surface border border-border-color">
-											<span class="text-[10px] text-text-muted uppercase block font-bold">How It Is Tested</span>
-											<span class="text-text-primary">{activeArchetype.how_it_is_tested}</span>
+											<span class="text-[10px] text-text-muted uppercase block font-bold mb-1">How It Is Tested</span>
+											<MathRenderer content={activeArchetype.how_it_is_tested} inline={true} class="text-text-primary" />
 										</div>
 									{/if}
 									{#if activeArchetype.reasoning_pattern}
 										<div class="p-2.5 bg-surface border border-border-color">
-											<span class="text-[10px] text-text-muted uppercase block font-bold">Reasoning Pattern</span>
-											<span class="text-text-primary">{activeArchetype.reasoning_pattern}</span>
+											<span class="text-[10px] text-text-muted uppercase block font-bold mb-1">Reasoning Pattern</span>
+											<MathRenderer content={activeArchetype.reasoning_pattern} inline={true} class="text-text-primary" />
 										</div>
 									{/if}
 									{#if activeArchetype.conceptual_application_depth}
 										<div class="p-2.5 bg-surface border border-border-color">
-											<span class="text-[10px] text-text-muted uppercase block font-bold">Conceptual Depth</span>
-											<span class="text-text-primary">{activeArchetype.conceptual_application_depth}</span>
+											<span class="text-[10px] text-text-muted uppercase block font-bold mb-1">Conceptual Depth</span>
+											<MathRenderer content={activeArchetype.conceptual_application_depth} inline={true} class="text-text-primary" />
 										</div>
 									{/if}
 								</div>
@@ -311,14 +329,14 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 									<div class="p-3 bg-indigo-500/10 border-2 border-indigo-500/40 space-y-1.5 font-mono text-xs">
 										{#if activeArchetype.surface_form}
 											<div>
-												<span class="text-[10px] text-text-muted uppercase font-bold">Surface Form:</span>
-												<p class="text-text-secondary">{activeArchetype.surface_form}</p>
+												<span class="text-[10px] text-text-muted uppercase font-bold mb-0.5 block">Surface Form:</span>
+												<MathRenderer content={activeArchetype.surface_form} inline={true} class="text-text-secondary" />
 											</div>
 										{/if}
 										{#if activeArchetype.deep_pattern}
 											<div>
-												<span class="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase">Deep Underlying Pattern:</span>
-												<p class="text-text-primary font-medium">{activeArchetype.deep_pattern}</p>
+												<span class="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-0.5 block">Deep Underlying Pattern:</span>
+												<MathRenderer content={activeArchetype.deep_pattern} inline={true} class="text-text-primary font-medium" />
 											</div>
 										{/if}
 									</div>
@@ -326,8 +344,8 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 
 								{#if activeArchetype.generation_guidance}
 									<div class="p-3 bg-emerald-500/10 border border-emerald-500/40 font-mono text-xs space-y-1">
-										<span class="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase">Generation Guidance</span>
-										<p class="text-text-primary leading-relaxed">{activeArchetype.generation_guidance}</p>
+										<span class="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase mb-0.5 block">Generation Guidance</span>
+										<MathRenderer content={activeArchetype.generation_guidance} inline={true} class="text-text-primary leading-relaxed" />
 									</div>
 								{/if}
 							</div>
@@ -415,21 +433,21 @@ const activeArchetype = $derived(archetypes[selectedArchetypeIndex] || archetype
 									<span class="text-[10px] text-rose-800 dark:text-rose-300 uppercase font-bold block mb-1">
 										Surface Observation (Do Not Copy Literally)
 									</span>
-									<p class="text-text-secondary">{pat.surface_pattern}</p>
+									<MathRenderer content={pat.surface_pattern} inline={true} class="text-text-secondary" />
 								</div>
 								<div class="p-2.5 bg-emerald-500/10 border border-emerald-500/30">
 									<span class="text-[10px] text-emerald-800 dark:text-emerald-300 uppercase font-bold block mb-1">
 										Deep Underlying Structure (Preserve This)
 									</span>
-									<p class="text-text-primary font-bold">{pat.deep_pattern}</p>
+									<MathRenderer content={pat.deep_pattern} inline={true} class="text-text-primary font-bold" />
 								</div>
 							</div>
 							{#if pat.generation_instruction}
 								<div class="p-2 bg-muted/40 border border-border-color">
-									<span class="text-[10px] text-text-muted uppercase font-bold block">
+									<span class="text-[10px] text-text-muted uppercase font-bold block mb-1">
 										Generation Directive
 									</span>
-									<p class="text-text-primary">{pat.generation_instruction}</p>
+									<MathRenderer content={pat.generation_instruction} inline={true} class="text-text-primary" />
 								</div>
 							{/if}
 						</div>
