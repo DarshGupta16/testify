@@ -102,20 +102,29 @@ export async function generateOpenAIQuestions(
 
 	payload.onProgress?.('Extracting questions and resolving diagrams with OpenAI...', 60);
 
-	const response = await openai.chat.completions.create({
-		model: modelName,
-		response_format: OPENAI_STRICT_ASSESSMENT_SCHEMA,
-		messages: [
-			{
-				role: 'system',
-				content: TESTIFY_SYSTEM_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await openai.chat.completions.create(
+		{
+			model: modelName,
+			response_format: OPENAI_STRICT_ASSESSMENT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: TESTIFY_SYSTEM_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'OpenAI generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
@@ -191,20 +200,29 @@ export async function generateOpenAIPaperBlueprint(
 
 	payload.onProgress?.('Synthesizing structured Paper Blueprint with OpenAI...', 65);
 
-	const response = await openai.chat.completions.create({
-		model: modelName,
-		response_format: OPENAI_STRICT_PAPER_BLUEPRINT_SCHEMA,
-		messages: [
-			{
-				role: 'system',
-				content: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await openai.chat.completions.create(
+		{
+			model: modelName,
+			response_format: OPENAI_STRICT_PAPER_BLUEPRINT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'OpenAI generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing Paper Blueprint schema...', 90);
 
@@ -249,20 +267,29 @@ export async function generateOpenAISimilarPaper(
 		40
 	);
 
-	const response = await openai.chat.completions.create({
-		model: modelName,
-		response_format: OPENAI_STRICT_ASSESSMENT_SCHEMA,
-		messages: [
-			{
-				role: 'system',
-				content: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userPromptText,
-			},
-		],
-	});
+	const response = await openai.chat.completions.create(
+		{
+			model: modelName,
+			response_format: OPENAI_STRICT_ASSESSMENT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userPromptText,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'OpenAI generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing generated similar paper questions...', 85);
 
@@ -283,6 +310,7 @@ export async function generateOpenAISimilarPaper(
 			questionCountHint: payload.questionCount,
 			titleHint: payload.userInstructions ? undefined : 'Similar Practice Assessment',
 		},
+		signal: payload.signal,
 		onProgress: payload.onProgress,
 	};
 

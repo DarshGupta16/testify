@@ -94,7 +94,7 @@ export function buildBlueprintUserPrompt(payload: PaperBlueprintPayload): string
 	}
 
 	sections.push('\n## Structured Questions Data:');
-	sections.push(JSON.stringify(payload.questions, null, 2));
+	sections.push(JSON.stringify(payload.questions));
 
 	if (payload.diagrams && payload.diagrams.length > 0) {
 		sections.push('\n## Associated Diagram Catalog:');
@@ -122,7 +122,7 @@ export function buildSimilarPaperUserPrompt(payload: SimilarPaperGenerationPaylo
 	);
 
 	sections.push('\n## Paper Blueprint Specification (from Phase 1 Analysis):');
-	sections.push(JSON.stringify(payload.blueprint, null, 2));
+	sections.push(JSON.stringify(payload.blueprint));
 
 	if (payload.userInstructions && payload.userInstructions.trim().length > 0) {
 		sections.push('\n## User Instructions & Custom Constraints:');

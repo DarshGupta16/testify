@@ -20,6 +20,8 @@ import {
 	SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
 	TESTIFY_SYSTEM_PROMPT,
 } from '../prompts';
+import { GROQ_ASSESSMENT_SCHEMA } from '../schemas';
+import { GROQ_PAPER_BLUEPRINT_SCHEMA } from '../similarPaperSchemas';
 
 /**
  * Standard testification: extracts and digitizes questions from rasterized PDF document pages.
@@ -98,20 +100,29 @@ export async function generateGroqQuestions(
 
 	payload.onProgress?.('Extracting questions and resolving diagrams with Groq...', 60);
 
-	const response = await groq.chat.completions.create({
-		model: modelName,
-		response_format: { type: 'json_object' },
-		messages: [
-			{
-				role: 'system',
-				content: TESTIFY_SYSTEM_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await groq.chat.completions.create(
+		{
+			model: modelName,
+			response_format: GROQ_ASSESSMENT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: TESTIFY_SYSTEM_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'Groq generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
@@ -184,20 +195,29 @@ export async function generateGroqPaperBlueprint(
 
 	payload.onProgress?.('Synthesizing structured Paper Blueprint with Groq...', 65);
 
-	const response = await groq.chat.completions.create({
-		model: modelName,
-		response_format: { type: 'json_object' },
-		messages: [
-			{
-				role: 'system',
-				content: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await groq.chat.completions.create(
+		{
+			model: modelName,
+			response_format: GROQ_PAPER_BLUEPRINT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'Groq generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing Paper Blueprint schema...', 90);
 
@@ -242,20 +262,29 @@ export async function generateGroqSimilarPaper(
 		40
 	);
 
-	const response = await groq.chat.completions.create({
-		model: modelName,
-		response_format: { type: 'json_object' },
-		messages: [
-			{
-				role: 'system',
-				content: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
-			},
-			{
-				role: 'user',
-				content: userPromptText,
-			},
-		],
-	});
+	const response = await groq.chat.completions.create(
+		{
+			model: modelName,
+			response_format: GROQ_ASSESSMENT_SCHEMA,
+			messages: [
+				{
+					role: 'system',
+					content: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
+				},
+				{
+					role: 'user',
+					content: userPromptText,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.choices[0]?.finish_reason === 'length') {
+		throw new Error(
+			'Groq generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing generated similar paper questions...', 85);
 
@@ -276,6 +305,7 @@ export async function generateGroqSimilarPaper(
 			questionCountHint: payload.questionCount,
 			titleHint: payload.userInstructions ? undefined : 'Similar Practice Assessment',
 		},
+		signal: payload.signal,
 		onProgress: payload.onProgress,
 	};
 

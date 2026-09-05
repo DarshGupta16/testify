@@ -5,9 +5,15 @@
  * used during Biphasic Similar Paper Generation (Phase 1 Analysis -> Phase 2 Generation).
  */
 
+export interface TargetStudentProfile {
+	description: string;
+	emphasized_abilities: string[];
+	reasoning: string;
+}
+
 export interface PaperOverview {
 	description?: string;
-	target_student_profile?: Record<string, unknown>;
+	target_student_profile?: TargetStudentProfile;
 	overall_design_philosophy?: string;
 	distinctive_characteristics?: string[];
 }

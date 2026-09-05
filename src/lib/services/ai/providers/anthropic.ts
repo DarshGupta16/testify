@@ -122,19 +122,28 @@ export async function generateAnthropicQuestions(
 
 	payload.onProgress?.('Extracting questions and resolving diagrams with Claude...', 60);
 
-	const response = await anthropic.messages.create({
-		model: modelName,
-		max_tokens: 8192,
-		system: TESTIFY_SYSTEM_PROMPT,
-		tools: [ANTHROPIC_ASSESSMENT_TOOL as Anthropic.Tool],
-		tool_choice: { type: 'tool', name: 'synthesize_assessment' },
-		messages: [
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await anthropic.messages.create(
+		{
+			model: modelName,
+			max_tokens: 8192,
+			system: TESTIFY_SYSTEM_PROMPT,
+			tools: [ANTHROPIC_ASSESSMENT_TOOL as Anthropic.Tool],
+			tool_choice: { type: 'tool', name: ANTHROPIC_ASSESSMENT_TOOL.name as string },
+			messages: [
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.stop_reason === 'max_tokens') {
+		throw new Error(
+			'Anthropic Claude generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
@@ -229,19 +238,28 @@ export async function generateAnthropicPaperBlueprint(
 
 	payload.onProgress?.('Synthesizing structured Paper Blueprint with Claude...', 65);
 
-	const response = await anthropic.messages.create({
-		model: modelName,
-		max_tokens: 8192,
-		system: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
-		tools: [ANTHROPIC_PAPER_BLUEPRINT_TOOL as Anthropic.Tool],
-		tool_choice: { type: 'tool', name: 'extract_paper_blueprint' },
-		messages: [
-			{
-				role: 'user',
-				content: userContent,
-			},
-		],
-	});
+	const response = await anthropic.messages.create(
+		{
+			model: modelName,
+			max_tokens: 8192,
+			system: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
+			tools: [ANTHROPIC_PAPER_BLUEPRINT_TOOL as Anthropic.Tool],
+			tool_choice: { type: 'tool', name: ANTHROPIC_PAPER_BLUEPRINT_TOOL.name as string },
+			messages: [
+				{
+					role: 'user',
+					content: userContent,
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.stop_reason === 'max_tokens') {
+		throw new Error(
+			'Anthropic Claude generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing Paper Blueprint schema...', 90);
 
@@ -299,19 +317,28 @@ export async function generateAnthropicSimilarPaper(
 		40
 	);
 
-	const response = await anthropic.messages.create({
-		model: modelName,
-		max_tokens: 8192,
-		system: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
-		tools: [ANTHROPIC_ASSESSMENT_TOOL as Anthropic.Tool],
-		tool_choice: { type: 'tool', name: 'synthesize_assessment' },
-		messages: [
-			{
-				role: 'user',
-				content: [{ type: 'text', text: userPromptText }],
-			},
-		],
-	});
+	const response = await anthropic.messages.create(
+		{
+			model: modelName,
+			max_tokens: 8192,
+			system: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
+			tools: [ANTHROPIC_ASSESSMENT_TOOL as Anthropic.Tool],
+			tool_choice: { type: 'tool', name: ANTHROPIC_ASSESSMENT_TOOL.name as string },
+			messages: [
+				{
+					role: 'user',
+					content: [{ type: 'text', text: userPromptText }],
+				},
+			],
+		},
+		{ signal: payload.signal }
+	);
+
+	if (response.stop_reason === 'max_tokens') {
+		throw new Error(
+			'Anthropic Claude generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing generated similar paper questions...', 85);
 
@@ -345,6 +372,7 @@ export async function generateAnthropicSimilarPaper(
 			questionCountHint: payload.questionCount,
 			titleHint: payload.userInstructions ? undefined : 'Similar Practice Assessment',
 		},
+		signal: payload.signal,
 		onProgress: payload.onProgress,
 	};
 

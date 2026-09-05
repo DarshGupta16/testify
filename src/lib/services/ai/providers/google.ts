@@ -103,8 +103,15 @@ export async function generateGoogleQuestions(
 			systemInstruction: TESTIFY_SYSTEM_PROMPT,
 			responseMimeType: 'application/json',
 			responseSchema: GEMINI_ASSESSMENT_SCHEMA,
+			abortSignal: payload.signal,
 		},
 	});
+
+	if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+		throw new Error(
+			'Google Gemini generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating questions and structuring test assessment...', 85);
 
@@ -182,8 +189,15 @@ export async function generateGooglePaperBlueprint(
 			systemInstruction: SIMILAR_PAPER_GEN_PHASE_1_PROMPT,
 			responseMimeType: 'application/json',
 			responseSchema: GEMINI_PAPER_BLUEPRINT_SCHEMA,
+			abortSignal: payload.signal,
 		},
 	});
+
+	if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+		throw new Error(
+			'Google Gemini generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing Paper Blueprint schema...', 90);
 
@@ -236,8 +250,15 @@ export async function generateGoogleSimilarPaper(
 			systemInstruction: SIMILAR_PAPER_GEN_PHASE_2_PROMPT,
 			responseMimeType: 'application/json',
 			responseSchema: GEMINI_ASSESSMENT_SCHEMA,
+			abortSignal: payload.signal,
 		},
 	});
+
+	if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+		throw new Error(
+			'Google Gemini generation was truncated due to output token limits. Please reduce question count.'
+		);
+	}
 
 	payload.onProgress?.('Validating and normalizing generated similar paper questions...', 85);
 
@@ -258,6 +279,7 @@ export async function generateGoogleSimilarPaper(
 			questionCountHint: payload.questionCount,
 			titleHint: payload.userInstructions ? undefined : 'Similar Practice Assessment',
 		},
+		signal: payload.signal,
 		onProgress: payload.onProgress,
 	};
 

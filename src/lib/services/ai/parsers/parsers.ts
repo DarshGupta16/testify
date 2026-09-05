@@ -142,6 +142,11 @@ export function cleanRawJsonText(rawText: string): string {
 
 	// 6. If truncated mid-stream, close open string and open structures in LIFO order
 	if (inString) {
+		// If string ends with an unescaped backslash, double-escape it before appending '"'
+		// to avoid forming an escaped quote (\") that leaves the string unterminated.
+		if (isEscaped || /(?<!\\)(?:\\\\)*\\$/.test(cleanedResult)) {
+			cleanedResult += '\\';
+		}
 		cleanedResult += '"';
 	}
 
@@ -162,17 +167,59 @@ export function cleanRawJsonText(rawText: string): string {
 
 /**
  * Sanitizes unescaped LaTeX backslashes inside a raw JSON string to prevent JSON.parse
- * from turning LaTeX macros into ASCII control characters (e.g. \rightarrow -> \r, \text -> \t, \beta -> \b, \frac -> \f).
+ * from failing on invalid escape characters or corrupting LaTeX macros into ASCII control characters.
+ * Protects math delimiters, punctuation/spacing, and commands (e.g. \text, \frac, \beta, \rho, \theta,
+ * \times, \nabla, \underline, \sum, \int, \partial, \sqrt, \alpha, \gamma, \delta, \rightarrow)
+ * while preserving valid JSON escape sequences like \n, \t, \", \\ and valid Unicode \uXXXX.
  */
 export function sanitizeLatexInJson(raw: string): string {
 	let text = raw;
 
-	// 1. Double-escape backslashes before LaTeX command words (e.g. \rightarrow, \times, \text, \frac, \beta, \neq, \alpha, \sum, etc.)
-	// Any backslash followed by 2 or more letters: (?<!\\)\\([a-zA-Z]{2,})
-	text = text.replace(/(?<!\\)\\([a-zA-Z]{2,})/g, '\\\\$1');
+	// 1. Protect LaTeX math delimiters: \( -> \\(, \) -> \\), \[ -> \\[, \] -> \\]
+	text = text.replace(/(?<!\\)\\([()[\]])/g, '\\\\$1');
 
-	// 2. Double-escape common single/short LaTeX symbols and macros (e.g. \pm, \pi, \le, \ge, \ne, \in, \to, \{, \}, \_, \^, \%, \&, \#, \$, \,, \;, \!, \|)
-	text = text.replace(/(?<!\\)\\([{}_^%&#$,;!|])/g, '\\\\$1');
+	// 2. Protect math spacing, punctuation, and symbol escapes: \:, \ , \,, \;, \!, etc.
+	text = text.replace(/(?<!\\)\\([: ,;!{}%&#$|^_~])/g, '\\\\$1');
+
+	// 3. Escape any \u that is NOT followed by 4 hexadecimal digits (e.g. \underline, \uparrow, \unit)
+	// preventing fatal JSON.parse "Bad Unicode escape" syntax errors.
+	text = text.replace(/(?<!\\)\\u(?![0-9a-fA-F]{4})/g, '\\\\u');
+
+	// 4. Protect LaTeX macros starting with letters that collide with standard JSON escapes (b, f, r, t, n):
+	// b-macros: \beta, \begin, \bar, \binom, \big, \Big, \bullet, \bold, \boldsymbol, \bmod, etc.
+	text = text.replace(
+		/(?<!\\)\\(beta|begin|bar|binom|bigg?|Bigg?|bullet|bold|boldsymbol|bf|bmod|bot|box|brace|brack|breve)(?![a-zA-Z])/g,
+		'\\\\$1'
+	);
+
+	// f-macros: \frac, \forall, \flat, \foot, \footnotesize, \fbox, \floor, etc.
+	text = text.replace(
+		/(?<!\\)\\(frac|forall|flat|foot|footnotesize|fbox|floor)(?![a-zA-Z])/g,
+		'\\\\$1'
+	);
+
+	// r-macros: \rightarrow, \Rightarrow, \rho, \right, \rangle, \rad, \real, \rVert, \rbrace, \rceil, \rfloor, \root, etc.
+	text = text.replace(
+		/(?<!\\)\\(rightarrow|Rightarrow|rho|right|rangle|rad|real|rVert|rbrace|rceil|rfloor|root)(?![a-zA-Z])/g,
+		'\\\\$1'
+	);
+
+	// t-macros: \text, \textbf, \textit, \texttt, \times, \theta, \tau, \to, \tan, \top, \triangle, \tilde, etc.
+	text = text.replace(
+		/(?<!\\)\\(text(?:bf|it|tt|normal)?|times|theta|tau|to|tan|tanh|top|triangle|tilde|tag|therefore|tfrac|tiny|thickapprox|thicksim|thinspace)(?![a-zA-Z])/g,
+		'\\\\$1'
+	);
+
+	// n-macros in LaTeX: \nabla, \neq, \notin, \not, \nu, \natural, \naturals, etc.
+	// Enumerate specific n-macros to protect genuine JSON newlines (\n) from corruption into literal \nWord.
+	text = text.replace(
+		/(?<!\\)\\(nabla|neq|notin|not|nu|natural|naturals|nearrow|nwarrow|normalsize|newcommand|noindent|nobreak|null|nexists|norm|ne)(?![a-zA-Z])/g,
+		'\\\\$1'
+	);
+
+	// 5. Double-escape all LaTeX commands starting with any non-JSON-escape letter
+	// (e.g. \alpha, \gamma, \delta, \sum, \int, \partial, \sqrt, \sin, \cos, \log, \lambda, \mu, \sigma, \omega, \pm, \approx, etc.)
+	text = text.replace(/(?<!\\)\\([ac-eg-mo-qsv-zAC-Z][a-zA-Z]*)/g, '\\\\$1');
 
 	return text;
 }
@@ -203,8 +250,9 @@ export function parseAIResponse(rawText: string): RawAIResponseSchema {
 	} catch (primaryErr) {
 		// Fallback: Attempt relaxed regex recovery if standard JSON parse failed
 		try {
-			const escapedLatex = cleaned.replace(/(?<!\\)\\(?!["\\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
-			const fallbackParsed = JSON.parse(escapedLatex);
+			let fallbackText = sanitizeLatexInJson(cleaned);
+			fallbackText = fallbackText.replace(/(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
+			const fallbackParsed = JSON.parse(fallbackText);
 			if (fallbackParsed && Array.isArray(fallbackParsed.questions)) {
 				return fallbackParsed as RawAIResponseSchema;
 			}

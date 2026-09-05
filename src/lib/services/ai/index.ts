@@ -49,6 +49,7 @@ export interface TestifyExecutionRequest {
 	extractionResult: PdfExtractionResult;
 	answerKeyExtractionResult?: PdfExtractionResult | null;
 	metadata?: AIGenerationMetadataHints;
+	signal?: AbortSignal;
 	onProgress?: (statusText: string, progressPercent?: number) => void;
 }
 
@@ -95,6 +96,7 @@ export class AIService {
 			extractionResult,
 			answerKeyExtractionResult,
 			metadata,
+			signal,
 			onProgress,
 		} = request;
 
@@ -102,6 +104,10 @@ export class AIService {
 			throw new Error(
 				`No active API key found for ${provider}. Please configure or unlock your API key.`
 			);
+		}
+
+		if (signal?.aborted) {
+			throw new DOMException('Operation cancelled by user', 'AbortError');
 		}
 
 		// 1. Prepare Document Pages
@@ -139,6 +145,7 @@ export class AIService {
 			diagrams,
 			answerKeyPages,
 			metadata,
+			signal,
 			onProgress,
 		};
 
@@ -175,7 +182,7 @@ export class AIService {
 			throw new DOMException('Operation cancelled by user', 'AbortError');
 		}
 
-		let questions: any[] = [];
+		let questions: QuestionPreview[] | RawAIQuestion[] = [];
 		let title = params.title;
 		let instructions = params.instructions;
 
@@ -300,5 +307,6 @@ export * from './providers/google';
 export * from './providers/groq';
 export * from './providers/openai';
 export * from './schemas';
+export * from './schemaTransformers';
 export * from './similarPaperSchemas';
 export * from './types';
