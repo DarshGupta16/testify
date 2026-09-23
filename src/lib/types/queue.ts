@@ -64,6 +64,8 @@ export interface StoredGenerationJob extends BaseAssessmentConfig {
 	startedAt?: string;
 	completedAt?: string;
 	resultTestId?: string;
+	testId?: string;
+	folderId?: string | null;
 }
 
 /**
@@ -119,6 +121,8 @@ export interface BatchUploadItem {
 	id: string;
 	title: string;
 	autoTitle: boolean;
+	folderId?: string | null;
+	testId?: string;
 	testFile: {
 		name: string;
 		size: number;

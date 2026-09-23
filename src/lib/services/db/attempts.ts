@@ -39,6 +39,13 @@ export async function saveAttempt(db: TestifyDatabase, attempt: TestAttempt): Pr
 	await db.attempts.put(toCloneable(attempt));
 }
 
+export async function bulkSaveAttempts(
+	db: TestifyDatabase,
+	attemptsList: TestAttempt[]
+): Promise<void> {
+	await db.attempts.bulkPut(toCloneable(attemptsList));
+}
+
 export async function deleteAttempt(db: TestifyDatabase, id: string): Promise<void> {
 	await db.attempts.delete(id);
 }

@@ -1,11 +1,7 @@
-import { dev } from '$app/environment';
 import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { TestItem } from '$lib/types/test';
 import { toCloneable } from '$lib/utils/snapshot.svelte';
-import { deleteAttemptsByTestId } from './attempts';
 import type { TestifyDatabase } from './database';
-import { deleteDevTrace } from './devTraces';
-import { deleteTestDocAssets } from './docAssets';
 
 export async function getAllTests(db: TestifyDatabase): Promise<TestItem[]> {
 	try {
@@ -60,22 +56,41 @@ export async function bulkSaveTests(db: TestifyDatabase, testsList: TestItem[]):
 }
 
 export async function deleteTest(db: TestifyDatabase, id: string): Promise<void> {
-	await db.tests.delete(id);
-	// Cascade delete attempts for this test
-	await deleteAttemptsByTestId(db, id);
-	// Cascade delete heavy document assets for this test
-	await deleteTestDocAssets(db, id);
-	// Cascade delete dev pipeline trace if present
-	if (dev) {
-		await deleteDevTrace(db, id);
-	}
+	await atomicCascadeDeleteTests(db, [id]);
 }
 
 export async function clearAllTests(db: TestifyDatabase): Promise<void> {
-	await db.tests.clear();
-	try {
+	await db.transaction('rw', [db.tests, db.attempts, db.testDocAssets, db.devTraces], async () => {
+		await db.tests.clear();
+		await db.attempts.clear();
 		await db.testDocAssets.clear();
-	} catch (err) {
-		console.error('[DB] Failed to clear test document assets:', err);
-	}
+		await db.devTraces.clear();
+	});
 }
+
+export async function bulkUpdateTestFolder(
+	db: TestifyDatabase,
+	testIds: string[],
+	folderId: string | null
+): Promise<void> {
+	if (testIds.length === 0) return;
+	await db.transaction('rw', db.tests, async () => {
+		for (const id of testIds) {
+			await db.tests.update(id, { folderId });
+		}
+	});
+}
+
+export async function atomicCascadeDeleteTests(
+	db: TestifyDatabase,
+	testIds: string[]
+): Promise<void> {
+	if (testIds.length === 0) return;
+	await db.transaction('rw', [db.tests, db.attempts, db.testDocAssets, db.devTraces], async () => {
+		await db.tests.bulkDelete(testIds);
+		await db.attempts.where('testId').anyOf(testIds).delete();
+		await db.testDocAssets.bulkDelete(testIds);
+		await db.devTraces.where('testId').anyOf(testIds).delete();
+	});
+}
+
