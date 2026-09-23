@@ -11,11 +11,14 @@ export class ModalStore {
 	isSubjectsModalOpen = $state<boolean>(false);
 	isEditModalOpen = $state<boolean>(false);
 	isSimilarPaperOpen = $state<boolean>(false);
+	isFoldersModalOpen = $state<boolean>(false);
+	isMoveToFolderModalOpen = $state<boolean>(false);
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
 	selectedTest = $state<TestItem | null>(null);
 	editingTest = $state<TestItem | null>(null);
 	similarPaperSourceTest = $state<TestItem | null>(null);
+	moveTargetTests = $state<TestItem[]>([]);
 
 	readonly anyModalOpen = $derived(
 		this.isUploadModalOpen ||
@@ -24,7 +27,9 @@ export class ModalStore {
 			this.isMasterPasswordModalOpen ||
 			this.isSubjectsModalOpen ||
 			this.isEditModalOpen ||
-			this.isSimilarPaperOpen
+			this.isSimilarPaperOpen ||
+			this.isFoldersModalOpen ||
+			this.isMoveToFolderModalOpen
 	);
 
 	openSimilarPaperModal(test: TestItem) {
@@ -109,6 +114,28 @@ export class ModalStore {
 	closeMasterPassword(force = false) {
 		if (force || this.isMasterPasswordModalOpen) {
 			this.isMasterPasswordModalOpen = false;
+		}
+	}
+
+	openFolders() {
+		this.isFoldersModalOpen = true;
+	}
+
+	closeFolders(force = false) {
+		if (force || this.isFoldersModalOpen) {
+			this.isFoldersModalOpen = false;
+		}
+	}
+
+	openMoveToFolder(tests: TestItem | TestItem[]) {
+		this.moveTargetTests = Array.isArray(tests) ? tests : [tests];
+		this.isMoveToFolderModalOpen = true;
+	}
+
+	closeMoveToFolder(force = false) {
+		if (force || this.isMoveToFolderModalOpen) {
+			this.isMoveToFolderModalOpen = false;
+			this.moveTargetTests = [];
 		}
 	}
 }

@@ -148,6 +148,7 @@ export async function generateSimilarPaperTest(
 			job.description ||
 			`Generated similar paper based on "${sourceTest.title}" (${compiledQuestions.length} questions).`,
 		subjectId: chosenSubjectId,
+		folderId: job.folderId !== undefined ? job.folderId : (sourceTest.folderId ?? null),
 		durationMinutes: finalDuration,
 		totalMarks: finalTotalMarks,
 		testFileName: `${finalTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,

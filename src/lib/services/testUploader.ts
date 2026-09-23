@@ -190,7 +190,7 @@ export async function processTestUpload(
 
 	onProgress?.(98, 'Persisting assessment & diagram assets...');
 
-	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+	const newId = payload.id || `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 	const chosenSubjectId = payload.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
 	const createdAtIso = new Date().toISOString();
 
@@ -284,6 +284,7 @@ export async function processTestUpload(
 			payload.description ||
 			`Generated from ${docName} (${extractionResult.totalPages} pages, ${allDiagrams.length} extracted figures).`,
 		subjectId: chosenSubjectId,
+		folderId: payload.folderId ?? null,
 		durationMinutes: finalDuration,
 		totalMarks: finalTotalMarks,
 		testFileName: docName,

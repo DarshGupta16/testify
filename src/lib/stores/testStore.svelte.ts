@@ -17,13 +17,14 @@ export class TestStore {
 	uploadProgress = $state<number>(0);
 	uploadStatusText = $state<string>('');
 
-	// Derived metrics
-	totalTests = $derived(this.tests.length);
+	// Derived metrics - only aggregate over ready tests, ignoring in-flight processing stubs
+	readyTests = $derived(this.tests.filter((t) => t.status === 'ready' || !t.status));
+	totalTests = $derived(this.readyTests.length);
 	totalQuestions = $derived(
-		this.tests.reduce((acc, curr) => acc + (curr.questions?.length || 0), 0)
+		this.readyTests.reduce((acc, curr) => acc + (curr.questions?.length || 0), 0)
 	);
 	totalDurationMinutes = $derived(
-		this.tests.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0)
+		this.readyTests.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0)
 	);
 
 	constructor(customDb: TestifyDatabase = db) {
