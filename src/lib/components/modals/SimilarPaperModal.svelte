@@ -7,6 +7,7 @@ const app = getAppContext();
 
 // Form State
 let targetQuestionCount = $state<number>(10);
+let targetFolderId = $state<string | null>(null);
 let durationMode = $state<'auto' | 'untimed' | 'custom'>('auto');
 let durationMinutes = $state<number>(60);
 let customInstructions = $state<string>('');
@@ -41,6 +42,7 @@ $effect(() => {
 		if (lastSourceTestId !== test.id) {
 			lastSourceTestId = test.id;
 			formError = null;
+			targetFolderId = test.folderId ?? app.folders.activeFolderId ?? null;
 
 			// Initialize question count based on source test (no upper cap)
 			const sourceCount = test.questions?.length || 10;
@@ -144,6 +146,7 @@ async function handleSubmit(e: SubmitEvent) {
 	try {
 		await app.handleCreateSimilarPaperJob({
 			sourceTest,
+			folderId: targetFolderId,
 			questionCount: count,
 			durationMinutes: durationMode === 'custom' ? Math.floor(Number(durationMinutes)) || 60 : null,
 			autoDuration: durationMode === 'auto',
@@ -249,7 +252,7 @@ async function handleSubmit(e: SubmitEvent) {
 					</div>
 				</div>
 
-				<!-- Section: Generation Parameters (Question Count & Duration) -->
+				<!-- Section: Generation Parameters (Question Count, Folder & Duration) -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<!-- 1. Question Count (No upper limit) -->
 					<div class="space-y-1.5">
@@ -281,6 +284,33 @@ async function handleSubmit(e: SubmitEvent) {
 							</span>
 						</div>
 					</div>
+
+					<!-- 2. Target Folder Selection -->
+					<div class="space-y-1.5">
+						<div class="flex items-center justify-between h-5">
+							<label
+								for="similar-target-folder"
+								class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary"
+							>
+								Target Folder
+							</label>
+						</div>
+
+						<select
+							id="similar-target-folder"
+							bind:value={targetFolderId}
+							class="neo-input w-full h-10 text-xs font-mono bg-surface"
+						>
+							<option value={null}>🏠 [Root / Unfiled]</option>
+							{#each app.folders.folders as f (f.id)}
+								<option value={f.id}>📁 {f.name}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				<!-- Section: Duration (Auto AI / Untimed / Custom) -->
+				<div>
 
 					<!-- 2. Duration / Auto AI / Untimed / Custom -->
 					<div class="space-y-1.5">

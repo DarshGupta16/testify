@@ -7,7 +7,11 @@ export { default as MathRenderer } from './components/common/MathRenderer.svelte
 export { default as Toast } from './components/common/Toast.svelte';
 export { default as EmptyState } from './components/dashboard/EmptyState.svelte';
 export { default as FilterBar } from './components/dashboard/FilterBar.svelte';
+export { default as FolderBreadcrumbs } from './components/dashboard/FolderBreadcrumbs.svelte';
+export { default as FolderCard } from './components/dashboard/FolderCard.svelte';
+export { default as FolderEmptyState } from './components/dashboard/FolderEmptyState.svelte';
 export { default as StatsBar } from './components/dashboard/StatsBar.svelte';
+export { default as SubfoldersGrid } from './components/dashboard/SubfoldersGrid.svelte';
 export { default as TestCard } from './components/dashboard/TestCard.svelte';
 
 // Exam Suite Components
@@ -30,6 +34,8 @@ export { default as TestUploadForm } from './components/forms/TestUploadForm.sve
 // Layout & Modal Components
 export { default as Header } from './components/layout/Header.svelte';
 export { default as ApiKeysModal } from './components/modals/ApiKeysModal.svelte';
+export { default as FoldersModal } from './components/modals/FoldersModal.svelte';
+export { default as MoveToFolderModal } from './components/modals/MoveToFolderModal.svelte';
 export { default as QuestionItemEditor } from './components/modals/edit/QuestionItemEditor.svelte';
 export { default as QuestionListPalette } from './components/modals/edit/QuestionListPalette.svelte';
 export { default as QuestionOptionsEditor } from './components/modals/edit/QuestionOptionsEditor.svelte';
@@ -58,6 +64,7 @@ export * from './stores/apiKeyStore.svelte';
 export * from './stores/appContext.svelte';
 export * from './stores/attemptStore.svelte';
 export * from './stores/filterStore.svelte';
+export * from './stores/folderStore.svelte';
 export * from './stores/modalStore.svelte';
 export * from './stores/securityStore.svelte';
 export * from './stores/subjectStore.svelte';

@@ -4,7 +4,9 @@ import favicon from '$lib/assets/favicon.svg';
 import Toast from '$lib/components/common/Toast.svelte';
 import Header from '$lib/components/layout/Header.svelte';
 import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
+import FoldersModal from '$lib/components/modals/FoldersModal.svelte';
 import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
+import MoveToFolderModal from '$lib/components/modals/MoveToFolderModal.svelte';
 import SimilarPaperModal from '$lib/components/modals/SimilarPaperModal.svelte';
 import SubjectsModal from '$lib/components/modals/SubjectsModal.svelte';
 import TestDetailsModal from '$lib/components/modals/TestDetailsModal.svelte';
@@ -55,6 +57,8 @@ $effect(() => {
 	<ApiKeysModal />
 	<MasterPasswordModal />
 	<SubjectsModal />
+	<FoldersModal />
+	<MoveToFolderModal />
 	<GenerationQueueDock />
 	<Toast />
 </div>

@@ -24,10 +24,39 @@ const app = getAppContext();
 // Batch Items State
 let batchItems = $state<BatchFormEntry[]>([]);
 let selectedSubjectId = $state(app.subjects.subjects[0]?.id || DEFAULT_SUBJECT_IDS.STEM);
+let selectedFolderId = $state<string | null>(app.folders.activeFolderId);
+let isAddingFolder = $state(false);
+let newQuickFolderName = $state('');
+let quickFolderError = $state('');
 let autoDuration = $state(false);
 let durationMinutes = $state(60);
 let globalAutoTitle = $state(false);
 let formError = $state<string | null>(null);
+
+// Sync target folder with active folder when it changes
+$effect(() => {
+	selectedFolderId = app.folders.activeFolderId;
+});
+
+async function handleQuickAddFolder(e?: Event) {
+	e?.preventDefault();
+	quickFolderError = '';
+	const trimmed = newQuickFolderName.trim();
+	if (!trimmed) {
+		quickFolderError = 'Folder name cannot be empty';
+		return;
+	}
+
+	try {
+		const created = await app.folders.addFolder(trimmed, selectedFolderId);
+		app.toast.show(`Folder "${created.name}" created!`, 'success');
+		selectedFolderId = created.id;
+		isAddingFolder = false;
+		newQuickFolderName = '';
+	} catch (err) {
+		quickFolderError = err instanceof Error ? err.message : 'Failed to create folder';
+	}
+}
 
 // Queue Mode & Concurrency Settings
 let queueMode = $state<QueueMode>(app.queue.mode || 'sequential');
@@ -133,6 +162,7 @@ async function handleSubmit(e: SubmitEvent) {
 
 	const config: BatchGenerationConfig = {
 		subjectId: selectedSubjectId || app.subjects.subjects[0]?.id || 'general',
+		folderId: selectedFolderId,
 		aiProvider: selectedProvider,
 		aiModel: modelName.trim() || currentProviderMeta.defaultModel,
 		scale: Number(app.selectedScale) || 1.25,
@@ -228,8 +258,8 @@ async function handleSubmit(e: SubmitEvent) {
 		</div>
 	</div>
 
-	<!-- 4. Metadata: Subject & Duration -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t-2 border-border-color/20">
+	<!-- 4. Metadata: Subject, Folder & Duration -->
+	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t-2 border-border-color/20">
 		<div class="space-y-1.5">
 			<label for="form-subject" class="block font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 				Academic Subject
@@ -247,6 +277,63 @@ async function handleSubmit(e: SubmitEvent) {
 
 		<div class="space-y-1.5">
 			<div class="flex items-center justify-between">
+				<label for="form-folder" class="block font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+					Target Folder
+				</label>
+				<button
+					type="button"
+					onclick={() => (isAddingFolder = !isAddingFolder)}
+					class="font-mono text-[11px] font-bold text-accent-contrast hover:underline cursor-pointer"
+				>
+					{isAddingFolder ? '✕ Cancel' : '+ Add Folder'}
+				</button>
+			</div>
+
+			{#if isAddingFolder}
+				<div class="space-y-1">
+					<div class="flex items-center gap-1.5">
+						<input
+							type="text"
+							bind:value={newQuickFolderName}
+							placeholder="New folder..."
+							aria-label="New folder name"
+							class="neo-input w-full h-10 text-xs font-bold bg-surface"
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									handleQuickAddFolder();
+								}
+							}}
+						/>
+						<button
+							type="button"
+							onclick={handleQuickAddFolder}
+							class="neo-btn neo-btn-primary h-10 px-2.5 text-xs font-bold cursor-pointer"
+							aria-label="Save folder"
+						>
+							Save
+						</button>
+					</div>
+					{#if quickFolderError}
+						<p class="text-[10px] font-mono text-rose-600 dark:text-rose-400 font-bold">{quickFolderError}</p>
+					{/if}
+				</div>
+			{:else}
+				<select
+					id="form-folder"
+					bind:value={selectedFolderId}
+					class="neo-input w-full h-10 text-xs font-mono bg-surface"
+				>
+					<option value={null}>🏠 [Root / Unfiled]</option>
+					{#each app.folders.folders as f (f.id)}
+						<option value={f.id}>📁 {f.name}</option>
+					{/each}
+				</select>
+			{/if}
+		</div>
+
+		<div class="space-y-1.5">
+			<div class="flex items-center justify-between">
 				<label for="form-duration" class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 					Default Duration
 				</label>
@@ -257,7 +344,7 @@ async function handleSubmit(e: SubmitEvent) {
 						class="accent-accent-contrast h-3.5 w-3.5"
 					/>
 					<span class="font-mono text-[11px] font-bold text-accent-contrast">
-						✨ AI Auto-Estimate
+						✨ Auto
 					</span>
 				</label>
 			</div>
@@ -326,18 +413,18 @@ async function handleSubmit(e: SubmitEvent) {
 	<!-- 7. Actions -->
 	<div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t-2 border-border-color/20 mt-2">
 		{#if isModal}
-			<div class="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-2.5 w-full">
+			<div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-2.5 w-full">
 				<button
 					type="button"
 					onclick={oncancel}
-					class="neo-btn text-xs h-9 px-3 sm:px-4 text-center truncate"
+					class="neo-btn text-xs h-9 px-3 sm:px-4 text-center cursor-pointer w-full sm:w-auto"
 				>
 					Cancel
 				</button>
 				<button
 					type="submit"
 					disabled={batchItems.length === 0 || !app.network.isOnline}
-					class="neo-btn neo-btn-primary text-xs h-9 px-3 sm:px-5 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-bold text-center truncate"
+					class="neo-btn neo-btn-primary text-xs h-9 px-3 sm:px-5 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 font-bold text-center cursor-pointer w-full sm:w-auto"
 					title={!app.network.isOnline ? 'Cannot generate tests while offline' : ''}
 				>
 					<span>

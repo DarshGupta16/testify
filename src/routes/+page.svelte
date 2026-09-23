@@ -1,15 +1,56 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
 import EmptyState from '$lib/components/dashboard/EmptyState.svelte';
 import FilterBar from '$lib/components/dashboard/FilterBar.svelte';
+import FolderBreadcrumbs from '$lib/components/dashboard/FolderBreadcrumbs.svelte';
+import FolderEmptyState from '$lib/components/dashboard/FolderEmptyState.svelte';
 import StatsBar from '$lib/components/dashboard/StatsBar.svelte';
+import SubfoldersGrid from '$lib/components/dashboard/SubfoldersGrid.svelte';
 import TestCard from '$lib/components/dashboard/TestCard.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
+
+const activeFolder = $derived(app.folders.activeFolder);
+const activeFolderId = $derived(app.folders.activeFolderId);
+const isInsideFolder = $derived(Boolean(activeFolderId));
+
+// URL Sync with SvelteKit $page.url.searchParams.get('folder') with Guard
+$effect(() => {
+	if (!app.folders.isInitialized) return;
+
+	const folderParam = page.url.searchParams.get('folder');
+	if (folderParam) {
+		const exists = app.folders.folderMap.has(folderParam);
+		if (exists) {
+			if (app.folders.activeFolderId !== folderParam) {
+				app.folders.setActiveFolder(folderParam);
+			}
+		} else {
+			app.toast.show('Folder not found or has been deleted.', 'warning');
+			app.folders.setActiveFolder(null);
+			goto('/', { replaceState: true });
+		}
+	} else {
+		if (app.folders.activeFolderId !== null) {
+			app.folders.setActiveFolder(null);
+		}
+	}
+});
+
+const isFilterActive = $derived(
+	Boolean(app.filter.searchQuery.trim() || app.filter.selectedCategory !== 'All')
+);
+const isFilterEmpty = $derived(
+	app.filteredTests.length === 0 && isFilterActive
+);
 </script>
 
 <svelte:head>
-	<title>Testify — Test Engine & PDF Exam Simulator</title>
+	<title>
+		{activeFolder ? `${activeFolder.name} — Testify` : 'Testify — Test Engine & PDF Exam Simulator'}
+	</title>
 	<meta
 		name="description"
 		content="Convert any test or assignment PDF into an interactive, timed exam with KaTeX math rendering, MuPDF diagram extraction, and instant scorecards."
@@ -17,24 +58,35 @@ const app = getAppContext();
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-3.5 py-4 sm:px-6 sm:py-8">
-	{#if app.tests.totalTests === 0}
-		<!-- Zero Tests: Show Centered Empty State with Direct Upload Form -->
+	{#if app.tests.totalTests === 0 && app.folders.folders.length === 0}
+		<!-- Zero Tests & Zero Folders: Show Centered Empty State with Direct Upload Form -->
 		<EmptyState />
 	{:else}
-		<!-- Active Dashboard with Tests -->
+		<!-- Active Dashboard -->
 		<div class="space-y-4 sm:space-y-6 animate-fade-in">
-			<!-- Dashboard Title & Action Row -->
+			<!-- Dashboard Title & Action Row (Dynamic per folder context) -->
 			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
 				<div>
 					<div class="flex items-center gap-2 mb-1">
 						<span class="inline-block h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
 						<span class="font-mono text-xs font-bold text-text-muted">
-							{app.tests.totalTests} {app.tests.totalTests === 1 ? 'Exam' : 'Exams'} Available
+							{#if isInsideFolder}
+								FOLDER: {activeFolder?.name} &bull; {app.filteredTests.length} {app.filteredTests.length === 1 ? 'Exam' : 'Exams'}
+							{:else}
+								{app.tests.totalTests} {app.tests.totalTests === 1 ? 'Exam' : 'Exams'} Available
+							{/if}
 						</span>
 					</div>
+
 					<h1 class="text-2xl sm:text-4xl font-black uppercase tracking-tight text-text-primary">
-						Assessment Dashboard
+						{activeFolder ? activeFolder.name : 'Assessment Dashboard'}
 					</h1>
+
+					{#if activeFolder?.description}
+						<p class="text-xs sm:text-sm text-text-secondary mt-1 max-w-2xl">
+							{activeFolder.description}
+						</p>
+					{/if}
 				</div>
 
 				<div class="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -63,11 +115,17 @@ const app = getAppContext();
 			<!-- Quick Metric Stats -->
 			<StatsBar />
 
+			<!-- Breadcrumb Navigation Bar -->
+			<FolderBreadcrumbs />
+
+			<!-- Subfolders Grid -->
+			<SubfoldersGrid />
+
 			<!-- Filter, Search, and Sort Controls -->
 			<FilterBar />
 
-			<!-- Tests Grid -->
-			{#if app.filteredTests.length === 0}
+			<!-- Assessments Display Area -->
+			{#if isFilterEmpty}
 				<!-- No Filter Matches -->
 				<div class="neo-box p-8 sm:p-12 text-center bg-surface my-8 space-y-4">
 					<div class="mx-auto flex h-12 w-12 items-center justify-center border-2 border-border-color bg-muted">
@@ -95,11 +153,38 @@ const app = getAppContext();
 					<button
 						type="button"
 						onclick={() => app.filter.reset()}
-						class="neo-btn text-xs py-2 px-4"
+						class="neo-btn text-xs py-2 px-4 font-bold"
 					>
 						Reset Search & Filters
 					</button>
 				</div>
+			{:else if app.filteredTests.length === 0}
+				{#if isInsideFolder}
+					{#if app.folders.subfolders.length === 0}
+						<!-- Contextual Folder Empty State -->
+						<FolderEmptyState />
+					{:else}
+						<!-- Subtle prompt when inside a folder with subfolders but no direct tests -->
+						<div class="neo-box p-6 text-center bg-surface/50 border-dashed border-2 border-border-color my-4">
+							<p class="font-mono text-xs uppercase tracking-wider text-text-muted">
+								📁 No direct assessments in this folder
+							</p>
+							<p class="text-xs text-text-secondary mt-1">
+								Select a subfolder above, drag assessments here, or upload a new test PDF.
+							</p>
+						</div>
+					{/if}
+				{:else}
+					<!-- At root with folders existing but 0 uncategorized tests -->
+					<div class="neo-box p-6 text-center bg-surface/50 border-dashed border-2 border-border-color my-4">
+						<p class="font-mono text-xs uppercase tracking-wider text-text-muted">
+							📂 All assessments organized in folders
+						</p>
+						<p class="text-xs text-text-secondary mt-1">
+							Select a folder above or upload a new test PDF to get started.
+						</p>
+					</div>
+				{/if}
 			{:else}
 				<!-- Grid of Test Cards -->
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

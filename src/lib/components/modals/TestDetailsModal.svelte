@@ -110,6 +110,14 @@ function handleKeyDown(e: KeyboardEvent) {
 						<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 							{app.subjects.getName(test.subjectId) || '?'}
 						</span>
+						{#if test.folderId}
+							{@const folderObj = app.folders.folderMap.get(test.folderId)}
+							{#if folderObj}
+								<span class="neo-badge bg-muted/80 text-text-primary border border-border-color">
+									📁 {folderObj.name}
+								</span>
+							{/if}
+						{/if}
 						{#if dev && (test.extractedDiagramsCount ? test.extractedDiagramsCount > 0 : allDiagrams.length > 0)}
 							<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 								🎨 {test.extractedDiagramsCount ?? allDiagrams.length} {(test.extractedDiagramsCount ?? allDiagrams.length) === 1 ? 'Diagram' : 'Diagrams'}

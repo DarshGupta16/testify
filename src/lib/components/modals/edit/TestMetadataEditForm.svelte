@@ -1,14 +1,19 @@
 <script lang="ts">
+import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { SubjectItem } from '$lib/types/subject';
+
+const app = getAppContext();
 
 interface Props {
 	title: string;
 	subjectId: string;
+	folderId?: string | null;
 	durationMinutes: number | null;
 	description: string;
 	subjects: SubjectItem[];
 	ontitlechange: (value: string) => void;
 	onsubjectchange: (value: string) => void;
+	onfolderchange?: (value: string | null) => void;
 	ondurationchange: (value: number | null) => void;
 	ondescriptionchange: (value: string) => void;
 }
@@ -16,11 +21,13 @@ interface Props {
 const {
 	title,
 	subjectId,
+	folderId = null,
 	durationMinutes,
 	description,
 	subjects,
 	ontitlechange,
 	onsubjectchange,
+	onfolderchange,
 	ondurationchange,
 	ondescriptionchange,
 }: Props = $props();
@@ -87,8 +94,26 @@ function handleDurationInput(val: string) {
 			</select>
 		</div>
 
-		<!-- Duration Configuration -->
+		<!-- Folder Selection -->
 		<div class="space-y-1.5">
+			<label for="edit-test-folder" class="block font-mono text-xs font-bold uppercase text-text-secondary">
+				Target Folder
+			</label>
+			<select
+				id="edit-test-folder"
+				value={folderId ?? ''}
+				onchange={(e) => onfolderchange?.(e.currentTarget.value ? e.currentTarget.value : null)}
+				class="neo-input w-full font-mono text-xs cursor-pointer"
+			>
+				<option value="">🏠 [Root / Unfiled]</option>
+				{#each app.folders.folders as f (f.id)}
+					<option value={f.id}>📁 {f.name}</option>
+				{/each}
+			</select>
+		</div>
+
+		<!-- Duration Configuration -->
+		<div class="space-y-1.5 md:col-span-2">
 			<div class="flex items-center justify-between">
 				<label for="edit-test-duration" class="block font-mono text-xs font-bold uppercase text-text-secondary">
 					Duration (Minutes)
