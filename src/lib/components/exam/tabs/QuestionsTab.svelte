@@ -19,7 +19,7 @@ const {
 	{:else}
 		<div class="space-y-3">
 			{#each questions as q}
-				<div class="neo-box p-4 sm:p-5 bg-surface text-sm space-y-3">
+				<div class="neo-box question-item-container p-4 sm:p-5 bg-surface text-sm space-y-3">
 					<!-- Header Bar -->
 					<div class="flex flex-wrap items-center justify-between gap-2 font-mono text-xs border-b border-border-color/20 pb-2.5">
 						<div class="flex items-center gap-2">
@@ -113,7 +113,7 @@ const {
 </div>
 
 <style>
-	:global(.neo-box) {
+	.question-item-container {
 		content-visibility: auto;
 		contain-intrinsic-size: 0 140px;
 	}
