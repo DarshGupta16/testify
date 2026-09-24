@@ -1,12 +1,10 @@
 <script lang="ts">
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 
 const app = getAppContext();
 
 let isCreatingSubfolder = $state(false);
-let subfolderName = $state('');
-let subfolderError = $state('');
-let subfolderInputRef = $state<HTMLInputElement | null>(null);
 
 const activeFolder = $derived(app.folders.activeFolder);
 
@@ -14,43 +12,6 @@ const activeFolder = $derived(app.folders.activeFolder);
 const eligibleTests = $derived(
 	app.tests.tests.filter((t) => t.folderId !== app.folders.activeFolderId)
 );
-
-function handleStartSubfolder() {
-	isCreatingSubfolder = true;
-	subfolderName = '';
-	subfolderError = '';
-	setTimeout(() => {
-		subfolderInputRef?.focus();
-	}, 50);
-}
-
-function handleCancelSubfolder() {
-	isCreatingSubfolder = false;
-	subfolderName = '';
-	subfolderError = '';
-}
-
-async function handleSaveSubfolder(e?: Event) {
-	e?.preventDefault();
-	subfolderError = '';
-	const trimmed = subfolderName.trim();
-	if (!trimmed) {
-		subfolderError = 'Subfolder name cannot be empty';
-		return;
-	}
-
-	try {
-		const created = await app.folders.addFolder(
-			trimmed,
-			app.folders.activeFolderId
-		);
-		app.toast.show(`Subfolder "${created.name}" created!`, 'success');
-		isCreatingSubfolder = false;
-		subfolderName = '';
-	} catch (err) {
-		subfolderError = err instanceof Error ? err.message : 'Failed to create subfolder';
-	}
-}
 
 function handleMoveExisting() {
 	if (eligibleTests.length === 0) {
@@ -76,41 +37,15 @@ function handleMoveExisting() {
 	</div>
 
 	{#if isCreatingSubfolder}
-		<form
-			onsubmit={handleSaveSubfolder}
-			class="max-w-xs mx-auto space-y-2 p-3 bg-muted/30 border-2 border-border-color animate-slide-down"
-		>
-			<input
-				bind:this={subfolderInputRef}
-				type="text"
-				bind:value={subfolderName}
+		<div class="max-w-xs mx-auto p-3 bg-muted/30 border-2 border-border-color animate-slide-down text-left">
+			<InlineFolderCreator
+				parentId={app.folders.activeFolderId}
 				placeholder="Enter subfolder name..."
-				class="neo-input w-full text-xs font-bold py-1.5 px-2 bg-surface"
-				onkeydown={(e) => {
-					if (e.key === 'Escape') handleCancelSubfolder();
-				}}
+				buttonLabel="Create"
+				oncreated={() => (isCreatingSubfolder = false)}
+				oncancel={() => (isCreatingSubfolder = false)}
 			/>
-			{#if subfolderError}
-				<p class="text-[11px] font-mono text-rose-600 dark:text-rose-400 text-left font-bold">
-					{subfolderError}
-				</p>
-			{/if}
-			<div class="flex items-center gap-2 justify-end">
-				<button
-					type="submit"
-					class="neo-btn neo-btn-primary text-xs py-1 px-3 font-bold cursor-pointer"
-				>
-					Create
-				</button>
-				<button
-					type="button"
-					onclick={handleCancelSubfolder}
-					class="neo-btn text-xs py-1 px-2.5 cursor-pointer"
-				>
-					Cancel
-				</button>
-			</div>
-		</form>
+		</div>
 	{/if}
 
 	<div class="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 pt-2">
@@ -135,7 +70,7 @@ function handleMoveExisting() {
 
 		<button
 			type="button"
-			onclick={handleStartSubfolder}
+			onclick={() => (isCreatingSubfolder = true)}
 			class="neo-btn text-xs py-2 px-3.5 font-bold inline-flex items-center gap-1.5 cursor-pointer bg-surface hover:bg-muted"
 		>
 			<span>+</span>

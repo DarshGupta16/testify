@@ -6,12 +6,13 @@
  * cycle-breaking tree sanitization, and Dexie IndexedDB persistence.
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { SvelteMap } from 'svelte/reactivity';
+import { v4 as uuidv4 } from 'uuid';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
-import type { FolderItem } from '$lib/types/folder';
+import type { FlattenedFolderRow, FolderItem } from '$lib/types/folder';
 import type { TestItem } from '$lib/types/test';
-import { toCloneable } from '$lib/utils/snapshot.svelte';
+
+export type { FlattenedFolderRow };
 
 export class FolderStore {
 	private database: TestifyDatabase;
@@ -33,9 +34,7 @@ export class FolderStore {
 		}
 		for (const folder of this.folders) {
 			const parentKey =
-				folder.parentFolderId && map.has(folder.parentFolderId)
-					? folder.parentFolderId
-					: null;
+				folder.parentFolderId && map.has(folder.parentFolderId) ? folder.parentFolderId : null;
 			const list = map.get(parentKey) ?? [];
 			list.push(folder.id);
 			map.set(parentKey, list);
@@ -51,6 +50,82 @@ export class FolderStore {
 		}
 		return map;
 	});
+
+	/**
+	 * Computes flattened hierarchical DFS folder tree with depth, prefix, paperCount, and subfolderCount.
+	 */
+	computeFlattenedTree(): FlattenedFolderRow[] {
+		// Group folders by parentFolderId in O(N)
+		const childrenByParent = new Map<string | null, FolderItem[]>();
+		childrenByParent.set(null, []);
+		for (const folder of this.folders) {
+			childrenByParent.set(folder.id, []);
+		}
+		for (const folder of this.folders) {
+			const parentKey =
+				folder.parentFolderId && childrenByParent.has(folder.parentFolderId)
+					? folder.parentFolderId
+					: null;
+			const list = childrenByParent.get(parentKey) ?? [];
+			list.push(folder);
+			childrenByParent.set(parentKey, list);
+		}
+
+		// Sort each sibling tier by order ascending, then name
+		for (const [, list] of childrenByParent) {
+			list.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+		}
+
+		const result: FlattenedFolderRow[] = [];
+		const visited = new Set<string>();
+
+		const traverse = (parentId: string | null, depth: number) => {
+			const children = childrenByParent.get(parentId) ?? [];
+			for (const child of children) {
+				if (visited.has(child.id)) continue;
+				visited.add(child.id);
+
+				const paperCount = this.getTestIdsInFolder(child.id).length;
+				const subfolderCount = (childrenByParent.get(child.id) ?? []).length;
+
+				result.push({
+					folder: child,
+					depth,
+					prefix: '— '.repeat(depth),
+					paperCount,
+					subfolderCount,
+				});
+				traverse(child.id, depth + 1);
+			}
+		};
+
+		// 1. Traverse all normal trees rooted at null
+		traverse(null, 0);
+
+		// 2. Cycle & orphan guard: handle any disconnected cycles or orphaned subtrees
+		for (const folder of this.folders) {
+			if (!visited.has(folder.id)) {
+				visited.add(folder.id);
+				const paperCount = this.getTestIdsInFolder(folder.id).length;
+				const subfolderCount = (childrenByParent.get(folder.id) ?? []).length;
+				result.push({
+					folder,
+					depth: 0,
+					prefix: '',
+					paperCount,
+					subfolderCount,
+				});
+				traverse(folder.id, 1);
+			}
+		}
+
+		return result;
+	}
+
+	// Derived: Flattened hierarchical folder tree with depth, prefix, paperCount, and subfolderCount
+	get flattenedTree(): FlattenedFolderRow[] {
+		return this.computeFlattenedTree();
+	}
 
 	// Derived: Root-level folders sorted by order
 	rootFolders = $derived(
@@ -173,7 +248,8 @@ export class FolderStore {
 
 		// Index tests by folder
 		for (const test of tests) {
-			const folderKey = test.folderId && this.testsByFolder.has(test.folderId) ? test.folderId : null;
+			const folderKey =
+				test.folderId && this.testsByFolder.has(test.folderId) ? test.folderId : null;
 			const list = this.testsByFolder.get(folderKey) ?? [];
 			list.push(test.id);
 			this.testsByFolder.set(folderKey, list);
@@ -349,7 +425,8 @@ export class FolderStore {
 		const visited = new Set<string>([folderId]);
 
 		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+			const currentId = queue.shift();
+			if (!currentId) break;
 			for (const f of this.folders) {
 				if (f.parentFolderId === currentId && !visited.has(f.id)) {
 					visited.add(f.id);
@@ -395,11 +472,7 @@ export class FolderStore {
 	/**
 	 * Mutates the in-memory inverted index when a test is moved between folders.
 	 */
-	moveTestInIndex(
-		testId: string,
-		fromFolderId: string | null,
-		toFolderId: string | null
-	): void {
+	moveTestInIndex(testId: string, fromFolderId: string | null, toFolderId: string | null): void {
 		this.removeTestFromFolderIndex(testId, fromFolderId);
 		this.addTestToFolderIndex(testId, toFolderId);
 	}
@@ -409,25 +482,5 @@ export class FolderStore {
 	 */
 	getTestIdsInFolder(folderId: string | null): string[] {
 		return this.testsByFolder.get(folderId) ?? [];
-	}
-
-	/**
-	 * Deletes a single folder record without cascading (used for low-level or undoable deletions).
-	 */
-	async deleteFolderRaw(id: string): Promise<void> {
-		this.folders = this.folders.filter((f) => f.id !== id);
-		if (this.activeFolderId === id) {
-			this.activeFolderId = null;
-		}
-		const orphaned = this.testsByFolder.get(id) ?? [];
-		this.testsByFolder.delete(id);
-		if (orphaned.length > 0) {
-			const rootList = this.testsByFolder.get(null) ?? [];
-			this.testsByFolder.set(null, [...rootList, ...orphaned]);
-		}
-		fireAndForget(
-			this.database.deleteFolder(id),
-			`Deleting folder "${id}" from Dexie`
-		);
 	}
 }

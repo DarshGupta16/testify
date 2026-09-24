@@ -301,5 +301,6 @@ export async function processTestUpload(
 		aiModel: payload.aiModel,
 		tokenUsage,
 		devPipelineTrace,
+		extractedData: extractionResult,
 	};
 }

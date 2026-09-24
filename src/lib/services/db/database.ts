@@ -231,9 +231,6 @@ export class TestifyDatabase extends Dexie {
 	saveTest(test: TestItem): Promise<void> {
 		return testsRepo.saveTest(this, test);
 	}
-	saveSimilarPaperTest(test: TestItem): Promise<void> {
-		return testsRepo.saveSimilarPaperTest(this, test);
-	}
 	updateTest(id: string, updates: Partial<TestItem>): Promise<void> {
 		return testsRepo.updateTest(this, id, updates);
 	}

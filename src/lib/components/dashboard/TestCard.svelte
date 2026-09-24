@@ -1,20 +1,17 @@
 <script lang="ts">
-import { goto, preloadCode } from '$app/navigation';
-import { clickOutside } from '$lib/actions/clickOutside';
+import { preloadCode } from '$app/navigation';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestItem } from '$lib/types/test';
 import { formatDate } from '$lib/utils';
+import CardContextMenu from './card/CardContextMenu.svelte';
+import CardModeSelector from './card/CardModeSelector.svelte';
 
 const { test }: { test: TestItem } = $props();
 const app = getAppContext();
 
-let isSelectingMode = $state(false);
 let isConfirmingDelete = $state(false);
-let isMenuOpen = $state(false);
-let wasMenuOpen = false;
 let isRenaming = $state(false);
 let renameTitle = $state('');
-let modeTimer: ReturnType<typeof setTimeout> | null = null;
 
 const status = $derived(test.status || 'ready');
 const activeJob = $derived(app.queue.getJobByTestId(test.id));
@@ -26,34 +23,6 @@ const showFolderBadge = $derived(
 function focusOnMount(node: HTMLElement) {
 	node.focus();
 }
-
-function handleStartClick() {
-	if (status !== 'ready') return;
-	isSelectingMode = true;
-	if (modeTimer) clearTimeout(modeTimer);
-	modeTimer = setTimeout(() => {
-		isSelectingMode = false;
-		modeTimer = null;
-	}, 10000);
-}
-
-function handleSelectPractice() {
-	if (modeTimer) clearTimeout(modeTimer);
-	isSelectingMode = false;
-	goto(`/test/${test.id}?start=true&mode=practice`);
-}
-
-function handleSelectExam() {
-	if (modeTimer) clearTimeout(modeTimer);
-	isSelectingMode = false;
-	goto(`/test/${test.id}?start=true&mode=exam`);
-}
-
-$effect(() => {
-	return () => {
-		if (modeTimer) clearTimeout(modeTimer);
-	};
-});
 
 function handleDelete() {
 	if (!isConfirmingDelete) {
@@ -69,7 +38,6 @@ function handleDelete() {
 function handleStartRename() {
 	renameTitle = test.title;
 	isRenaming = true;
-	isMenuOpen = false;
 }
 
 function handleSaveRename() {
@@ -86,23 +54,7 @@ function handleSaveRename() {
 	isRenaming = false;
 }
 
-function handleOpenSimilar() {
-	isMenuOpen = false;
-	app.modals.openSimilarPaperModal(test);
-}
-
-function handleOpenEdit() {
-	isMenuOpen = false;
-	app.modals.openEdit(test);
-}
-
-function handleOpenMoveToFolder() {
-	isMenuOpen = false;
-	app.modals.openMoveToFolder(test);
-}
-
 function handleCancelIngestion() {
-	isMenuOpen = false;
 	if (activeJob) {
 		app.queue.cancelJob(activeJob.id);
 	} else {
@@ -190,140 +142,21 @@ function handleDragStart(e: DragEvent) {
 					{formatDate(test.createdAt)}
 				</span>
 
-				<!-- Three Dots Dropdown Menu -->
-				<div class="relative test-card-menu-container">
-					<button
-						type="button"
-						onpointerdown={() => {
-							wasMenuOpen = isMenuOpen;
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								wasMenuOpen = isMenuOpen;
-							}
-						}}
-						onclick={(e) => {
-							e.stopPropagation();
-							if (wasMenuOpen) {
-								isMenuOpen = false;
-							} else {
-								isMenuOpen = true;
-							}
-						}}
-						class={`flex h-7 w-7 items-center justify-center cursor-pointer transition-all ${
-							isMenuOpen
-								? 'border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[2px_2px_0px_var(--shadow-color)]'
-								: 'border border-transparent bg-transparent text-text-muted hover:text-text-primary hover:bg-muted/70 hover:border-border-color hover:shadow-[2px_2px_0px_var(--shadow-color)]'
-						}`}
-						title="Options"
-						aria-label="Test options menu"
-						aria-haspopup="menu"
-						aria-expanded={isMenuOpen}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							class="h-4 w-4"
-						>
-							<circle cx="12" cy="5" r="1.75" />
-							<circle cx="12" cy="12" r="1.75" />
-							<circle cx="12" cy="19" r="1.75" />
-						</svg>
-					</button>
-
-					{#if isMenuOpen}
-						<div
-							use:clickOutside={() => (isMenuOpen = false)}
-							onkeydown={(e) => {
-								if (e.key === 'Escape') isMenuOpen = false;
-							}}
-							tabindex="-1"
-							class="absolute right-0 top-full mt-1.5 z-30 w-48 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
-							role="menu"
-						>
-							{#if status === 'processing'}
-								<!-- Processing Ingestion Menu Items -->
-								<button
-									type="button"
-									onclick={handleCancelIngestion}
-									class="w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5 font-bold cursor-pointer transition-colors"
-									role="menuitem"
-								>
-									<span>✕</span>
-									<span>Cancel Ingestion</span>
-								</button>
-							{:else}
-								<!-- Ready or Error Menu Items -->
-								<button
-									type="button"
-									onclick={handleOpenMoveToFolder}
-									class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
-									role="menuitem"
-								>
-									<span class="text-text-muted group-hover:text-text-primary">📁</span>
-									<span>Move to Folder...</span>
-								</button>
-
-								{#if status === 'ready'}
-									<button
-										type="button"
-										onclick={handleStartRename}
-										class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
-										role="menuitem"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											class="h-3.5 w-3.5 text-text-muted group-hover:text-text-primary transition-colors shrink-0"
-										>
-											<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-										</svg>
-										<span>Rename</span>
-									</button>
-
-									<button
-										type="button"
-										onclick={handleOpenSimilar}
-										class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
-										role="menuitem"
-									>
-										<span class="text-text-muted group-hover:text-text-primary">✨</span>
-										<span>Generate Similar</span>
-									</button>
-
-									<button
-										type="button"
-										onclick={handleOpenEdit}
-										class="w-full text-left px-3 py-2 text-text-primary hover:bg-muted/70 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
-										role="menuitem"
-									>
-										<span class="text-text-muted group-hover:text-text-primary">📝</span>
-										<span>Full Edit</span>
-									</button>
-								{/if}
-
-								<div class="my-1 border-t border-border-color/20"></div>
-
-								<button
-									type="button"
-									onclick={() => {
-										isMenuOpen = false;
-										isConfirmingDelete = true;
-									}}
-									class="w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 flex items-center gap-2.5 font-bold cursor-pointer transition-colors group"
-									role="menuitem"
-								>
-									<span>🗑️</span>
-									<span>Delete Test</span>
-								</button>
-							{/if}
-						</div>
-					{/if}
-				</div>
+				<!-- Decomposed Context Menu -->
+				<CardContextMenu
+					{test}
+					{status}
+					onviewdetails={() => app.modals.openDetails(test)}
+					onedit={() => app.modals.openEdit(test)}
+					onmovetofolder={() => app.modals.openMoveToFolder(test)}
+					ongeneratesimilar={() => app.modals.openSimilarPaperModal(test)}
+					onrename={handleStartRename}
+					onretry={handleRetry}
+					oncancel={handleCancelIngestion}
+					ondelete={() => {
+						isConfirmingDelete = true;
+					}}
+				/>
 			</div>
 		</div>
 
@@ -491,57 +324,7 @@ function handleDragStart(e: DragEvent) {
 			</div>
 		{:else}
 			<!-- Ready State: Start Test / Mode Selector Slot -->
-			{#if isSelectingMode}
-				<div class="grid grid-cols-2 gap-2 animate-slide-down">
-					<button
-						type="button"
-						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
-						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-						onclick={handleSelectPractice}
-						class="neo-btn text-[11px] py-2.5 px-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 font-bold truncate cursor-pointer"
-						title="Start in Practice Mode"
-					>
-						🌿 Practice
-					</button>
-					<button
-						type="button"
-						onmouseenter={() => app.tests.prefetchTestDocAssets(test.id)}
-						onfocus={() => app.tests.prefetchTestDocAssets(test.id)}
-						onclick={handleSelectExam}
-						class="neo-btn neo-btn-primary text-[11px] py-2.5 px-2 font-bold truncate cursor-pointer"
-						title="Start Exam Simulation"
-					>
-						🎯 Exam Sim
-					</button>
-				</div>
-			{:else}
-				<button
-					type="button"
-					onmouseenter={() => {
-						preloadCode(`/test/${test.id}`);
-						app.tests.prefetchTestDocAssets(test.id);
-					}}
-					onfocus={() => {
-						preloadCode(`/test/${test.id}`);
-						app.tests.prefetchTestDocAssets(test.id);
-					}}
-					onclick={handleStartClick}
-					class="neo-btn neo-btn-primary w-full text-xs py-2.5 cursor-pointer"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="square"
-						class="h-3.5 w-3.5"
-					>
-						<polygon points="5 3 19 12 5 21 5 3" />
-					</svg>
-					<span>Start Test</span>
-				</button>
-			{/if}
+			<CardModeSelector testId={test.id} />
 
 			<!-- Sub Actions: View Details & Delete -->
 			<div class="flex items-center justify-between gap-1.5 sm:gap-2">

@@ -168,9 +168,7 @@ export function toOpenAIStrictSchema(
 		if (result.items) {
 			if (Array.isArray(result.items)) {
 				result.items = result.items.map((item) =>
-					item && typeof item === 'object'
-						? transformStrict(item as Record<string, unknown>)
-						: item
+					item && typeof item === 'object' ? transformStrict(item as Record<string, unknown>) : item
 				);
 			} else if (typeof result.items === 'object') {
 				result.items = transformStrict(result.items as Record<string, unknown>);
@@ -226,9 +224,7 @@ export function toAnthropicTool(
 		if (result.items) {
 			if (Array.isArray(result.items)) {
 				result.items = result.items.map((item) =>
-					item && typeof item === 'object'
-						? normalizeSchema(item as Record<string, unknown>)
-						: item
+					item && typeof item === 'object' ? normalizeSchema(item as Record<string, unknown>) : item
 				);
 			} else if (typeof result.items === 'object') {
 				result.items = normalizeSchema(result.items as Record<string, unknown>);

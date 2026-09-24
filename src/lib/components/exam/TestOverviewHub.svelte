@@ -6,7 +6,6 @@ import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.s
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
-import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestAttemptStats } from '$lib/stores/attemptStore.svelte';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
@@ -38,7 +37,9 @@ const {
 	ondeletetest: () => void;
 } = $props();
 
-let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>('attempts');
+let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>(
+	'attempts'
+);
 let attemptFilter = $state<'all' | 'exam' | 'practice'>('all');
 let isConfirmingDelete = $state(false);
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
@@ -50,7 +51,7 @@ $effect(() => {
 		if (test.devPipelineTrace) {
 			loadedTrace = test.devPipelineTrace;
 		} else {
-			db.getDevTrace(test.id).then((t) => {
+			app.tests.prefetchDevTrace(test.id).then((t) => {
 				loadedTrace = t || null;
 			});
 		}
@@ -62,7 +63,7 @@ $effect(() => {
 		if (test.extractedData) {
 			loadedDocAssets = test.extractedData;
 		} else {
-			db.getTestDocAssets(test.id).then((assets) => {
+			app.tests.getTestDocAssets(test.id).then((assets) => {
 				loadedDocAssets = assets || null;
 			});
 		}

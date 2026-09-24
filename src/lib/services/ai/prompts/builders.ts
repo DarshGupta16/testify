@@ -157,4 +157,3 @@ export function buildSimilarPaperUserPrompt(payload: SimilarPaperGenerationPaylo
 
 	return sections.join('\n');
 }
-

@@ -8,6 +8,7 @@ import AiProviderSelector from './AiProviderSelector.svelte';
 import BatchPaperList, { type BatchFormEntry } from './BatchPaperList.svelte';
 import PdfDropzone from './PdfDropzone.svelte';
 import QueueConfigBar from './QueueConfigBar.svelte';
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 
 const {
 	isModal = false,
@@ -26,8 +27,6 @@ let batchItems = $state<BatchFormEntry[]>([]);
 let selectedSubjectId = $state(app.subjects.subjects[0]?.id || DEFAULT_SUBJECT_IDS.STEM);
 let selectedFolderId = $state<string | null>(app.folders.activeFolderId);
 let isAddingFolder = $state(false);
-let newQuickFolderName = $state('');
-let quickFolderError = $state('');
 let autoDuration = $state(false);
 let durationMinutes = $state(60);
 let globalAutoTitle = $state(false);
@@ -37,26 +36,6 @@ let formError = $state<string | null>(null);
 $effect(() => {
 	selectedFolderId = app.folders.activeFolderId;
 });
-
-async function handleQuickAddFolder(e?: Event) {
-	e?.preventDefault();
-	quickFolderError = '';
-	const trimmed = newQuickFolderName.trim();
-	if (!trimmed) {
-		quickFolderError = 'Folder name cannot be empty';
-		return;
-	}
-
-	try {
-		const created = await app.folders.addFolder(trimmed, selectedFolderId);
-		app.toast.show(`Folder "${created.name}" created!`, 'success');
-		selectedFolderId = created.id;
-		isAddingFolder = false;
-		newQuickFolderName = '';
-	} catch (err) {
-		quickFolderError = err instanceof Error ? err.message : 'Failed to create folder';
-	}
-}
 
 // Queue Mode & Concurrency Settings
 let queueMode = $state<QueueMode>(app.queue.mode || 'sequential');
@@ -143,7 +122,8 @@ async function handleSubmit(e: SubmitEvent) {
 	}
 
 	if (!app.network.isOnline) {
-		formError = 'You are currently offline. AI test generation requires an active internet connection.';
+		formError =
+			'You are currently offline. AI test generation requires an active internet connection.';
 		return;
 	}
 
@@ -290,33 +270,17 @@ async function handleSubmit(e: SubmitEvent) {
 			</div>
 
 			{#if isAddingFolder}
-				<div class="space-y-1">
-					<div class="flex items-center gap-1.5">
-						<input
-							type="text"
-							bind:value={newQuickFolderName}
-							placeholder="New folder..."
-							aria-label="New folder name"
-							class="neo-input w-full h-10 text-xs font-bold bg-surface"
-							onkeydown={(e) => {
-								if (e.key === 'Enter') {
-									e.preventDefault();
-									handleQuickAddFolder();
-								}
-							}}
-						/>
-						<button
-							type="button"
-							onclick={handleQuickAddFolder}
-							class="neo-btn neo-btn-primary h-10 px-2.5 text-xs font-bold cursor-pointer"
-							aria-label="Save folder"
-						>
-							Save
-						</button>
-					</div>
-					{#if quickFolderError}
-						<p class="text-[10px] font-mono text-rose-600 dark:text-rose-400 font-bold">{quickFolderError}</p>
-					{/if}
+				<div class="p-2 bg-muted/20 border-2 border-border-color">
+					<InlineFolderCreator
+						parentId={selectedFolderId}
+						placeholder="New folder name..."
+						buttonLabel="Save"
+						oncreated={(created) => {
+							selectedFolderId = created.id;
+							isAddingFolder = false;
+						}}
+						oncancel={() => (isAddingFolder = false)}
+					/>
 				</div>
 			{:else}
 				<select
@@ -325,8 +289,8 @@ async function handleSubmit(e: SubmitEvent) {
 					class="neo-input w-full h-10 text-xs font-mono bg-surface"
 				>
 					<option value={null}>🏠 [Root / Unfiled]</option>
-					{#each app.folders.folders as f (f.id)}
-						<option value={f.id}>📁 {f.name}</option>
+					{#each app.folders.flattenedTree as row (row.folder.id)}
+						<option value={row.folder.id}>{row.prefix}📁 {row.folder.name}</option>
 					{/each}
 				</select>
 			{/if}

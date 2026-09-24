@@ -6,13 +6,7 @@ import type { AIProvider } from './apiKeys';
 import type { PaperBlueprint } from './blueprint';
 import type { BaseAssessmentConfig, TestItem } from './test';
 
-export type JobStatus =
-	| 'queued'
-	| 'processing'
-	| 'paused'
-	| 'completed'
-	| 'failed'
-	| 'cancelled';
+export type JobStatus = 'queued' | 'processing' | 'paused' | 'completed' | 'failed' | 'cancelled';
 
 export type QueueMode = 'sequential' | 'concurrent';
 

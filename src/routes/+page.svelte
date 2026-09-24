@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import EmptyState from '$lib/components/dashboard/EmptyState.svelte';
@@ -18,33 +19,37 @@ const isInsideFolder = $derived(Boolean(activeFolderId));
 
 // URL Sync with SvelteKit $page.url.searchParams.get('folder') with Guard
 $effect(() => {
-	if (!app.folders.isInitialized) return;
+	if (!app.folders.isInitialized || app.isDeletingFolder) return;
 
 	const folderParam = page.url.searchParams.get('folder');
 	if (folderParam) {
 		const exists = app.folders.folderMap.has(folderParam);
 		if (exists) {
-			if (app.folders.activeFolderId !== folderParam) {
-				app.folders.setActiveFolder(folderParam);
-			}
+			untrack(() => {
+				if (app.folders.activeFolderId !== folderParam) {
+					app.folders.setActiveFolder(folderParam);
+				}
+			});
 		} else {
 			app.toast.show('Folder not found or has been deleted.', 'warning');
-			app.folders.setActiveFolder(null);
+			untrack(() => {
+				app.folders.setActiveFolder(null);
+			});
 			goto('/', { replaceState: true });
 		}
 	} else {
-		if (app.folders.activeFolderId !== null) {
-			app.folders.setActiveFolder(null);
-		}
+		untrack(() => {
+			if (app.folders.activeFolderId !== null) {
+				app.folders.setActiveFolder(null);
+			}
+		});
 	}
 });
 
 const isFilterActive = $derived(
 	Boolean(app.filter.searchQuery.trim() || app.filter.selectedCategory !== 'All')
 );
-const isFilterEmpty = $derived(
-	app.filteredTests.length === 0 && isFilterActive
-);
+const isFilterEmpty = $derived(app.filteredTests.length === 0 && isFilterActive);
 </script>
 
 <svelte:head>

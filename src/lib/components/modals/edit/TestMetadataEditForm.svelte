@@ -106,8 +106,8 @@ function handleDurationInput(val: string) {
 				class="neo-input w-full font-mono text-xs cursor-pointer"
 			>
 				<option value="">🏠 [Root / Unfiled]</option>
-				{#each app.folders.folders as f (f.id)}
-					<option value={f.id}>📁 {f.name}</option>
+				{#each app.folders.flattenedTree as row (row.folder.id)}
+					<option value={row.folder.id}>{row.prefix}📁 {row.folder.name}</option>
 				{/each}
 			</select>
 		</div>

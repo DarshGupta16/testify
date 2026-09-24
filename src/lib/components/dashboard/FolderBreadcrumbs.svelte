@@ -1,6 +1,7 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { clickOutside } from '$lib/actions/clickOutside';
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { FolderItem } from '$lib/types/folder';
 
@@ -8,9 +9,6 @@ const app = getAppContext();
 
 // Inline new folder creation state
 let isCreatingFolder = $state(false);
-let newFolderName = $state('');
-let createError = $state('');
-let creationInputRef = $state<HTMLInputElement | null>(null);
 
 // Sibling dropdown state: key is folder id or 'root'
 let openSiblingDropdown = $state<string | null>(null);
@@ -50,43 +48,6 @@ function handleNavigate(folderId: string | null) {
 		goto(`?folder=${folderId}`);
 	} else {
 		goto('/');
-	}
-}
-
-function handleStartCreate() {
-	isCreatingFolder = true;
-	newFolderName = '';
-	createError = '';
-	setTimeout(() => {
-		creationInputRef?.focus();
-	}, 50);
-}
-
-function handleCancelCreate() {
-	isCreatingFolder = false;
-	newFolderName = '';
-	createError = '';
-}
-
-async function handleSaveCreate(e?: Event) {
-	e?.preventDefault();
-	createError = '';
-	const trimmed = newFolderName.trim();
-	if (!trimmed) {
-		createError = 'Folder name cannot be empty';
-		return;
-	}
-
-	try {
-		const created = await app.folders.addFolder(
-			trimmed,
-			app.folders.activeFolderId
-		);
-		app.toast.show(`Folder "${created.name}" created!`, 'success');
-		isCreatingFolder = false;
-		newFolderName = '';
-	} catch (err) {
-		createError = err instanceof Error ? err.message : 'Failed to create folder';
 	}
 }
 
@@ -381,39 +342,17 @@ function getRootSiblings(): FolderItem[] {
 	<!-- Right: Action Buttons (+ New Folder & Manage Folders) -->
 	<div class="flex items-center gap-2 shrink-0">
 		{#if isCreatingFolder}
-			<form
-				onsubmit={handleSaveCreate}
-				class="flex items-center gap-1.5 animate-slide-down"
-			>
-				<input
-					bind:this={creationInputRef}
-					type="text"
-					bind:value={newFolderName}
-					placeholder="Folder name..."
-					class="neo-input text-xs font-bold py-1 px-2.5 h-8 bg-surface border-2 border-border-color"
-					onkeydown={(e) => {
-						if (e.key === 'Escape') handleCancelCreate();
-					}}
-				/>
-				<button
-					type="submit"
-					class="neo-btn neo-btn-primary text-xs py-1 px-2.5 h-8 font-bold cursor-pointer"
-				>
-					Save
-				</button>
-				<button
-					type="button"
-					onclick={handleCancelCreate}
-					class="neo-btn text-xs py-1 px-2 h-8 cursor-pointer"
-					title="Cancel"
-				>
-					✕
-				</button>
-			</form>
+			<InlineFolderCreator
+				parentId={app.folders.activeFolderId}
+				placeholder="Folder name..."
+				buttonLabel="Save"
+				oncreated={() => (isCreatingFolder = false)}
+				oncancel={() => (isCreatingFolder = false)}
+			/>
 		{:else}
 			<button
 				type="button"
-				onclick={handleStartCreate}
+				onclick={() => (isCreatingFolder = true)}
 				class="neo-btn text-xs py-1.5 px-3 font-bold inline-flex items-center gap-1.5 cursor-pointer bg-surface hover:bg-muted"
 				title="Create a new folder here"
 			>
@@ -433,10 +372,3 @@ function getRootSiblings(): FolderItem[] {
 		</button>
 	</div>
 </nav>
-
-{#if createError}
-	<div class="neo-box p-2 bg-rose-500/10 border-2 border-rose-500 font-mono text-xs text-rose-600 dark:text-rose-400 mt-2 flex items-center justify-between">
-		<span>{createError}</span>
-		<button type="button" onclick={() => (createError = '')} class="cursor-pointer font-bold">✕</button>
-	</div>
-{/if}

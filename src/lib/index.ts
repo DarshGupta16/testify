@@ -3,8 +3,11 @@ export * from './actions/clickOutside';
 
 // Common & Dashboard Components
 export { default as ImageLightboxModal } from './components/common/ImageLightboxModal.svelte';
+export { default as InlineFolderCreator } from './components/common/InlineFolderCreator.svelte';
 export { default as MathRenderer } from './components/common/MathRenderer.svelte';
 export { default as Toast } from './components/common/Toast.svelte';
+export { default as CardContextMenu } from './components/dashboard/card/CardContextMenu.svelte';
+export { default as CardModeSelector } from './components/dashboard/card/CardModeSelector.svelte';
 export { default as EmptyState } from './components/dashboard/EmptyState.svelte';
 export { default as FilterBar } from './components/dashboard/FilterBar.svelte';
 export { default as FolderBreadcrumbs } from './components/dashboard/FolderBreadcrumbs.svelte';
@@ -34,13 +37,14 @@ export { default as TestUploadForm } from './components/forms/TestUploadForm.sve
 // Layout & Modal Components
 export { default as Header } from './components/layout/Header.svelte';
 export { default as ApiKeysModal } from './components/modals/ApiKeysModal.svelte';
-export { default as FoldersModal } from './components/modals/FoldersModal.svelte';
-export { default as MoveToFolderModal } from './components/modals/MoveToFolderModal.svelte';
 export { default as QuestionItemEditor } from './components/modals/edit/QuestionItemEditor.svelte';
 export { default as QuestionListPalette } from './components/modals/edit/QuestionListPalette.svelte';
 export { default as QuestionOptionsEditor } from './components/modals/edit/QuestionOptionsEditor.svelte';
 export { default as TestMetadataEditForm } from './components/modals/edit/TestMetadataEditForm.svelte';
+export { default as FoldersModal } from './components/modals/FoldersModal.svelte';
 export { default as MasterPasswordModal } from './components/modals/MasterPasswordModal.svelte';
+export { default as MoveToFolderModal } from './components/modals/MoveToFolderModal.svelte';
+export { default as SimilarPaperModal } from './components/modals/SimilarPaperModal.svelte';
 export { default as SubjectsModal } from './components/modals/SubjectsModal.svelte';
 export { default as TestDetailsModal } from './components/modals/TestDetailsModal.svelte';
 export { default as TestEditModal } from './components/modals/TestEditModal.svelte';

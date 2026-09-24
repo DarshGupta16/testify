@@ -1,9 +1,11 @@
 import { getContext, setContext } from 'svelte';
+import { goto } from '$app/navigation';
 import { db, fireAndForget } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
-import type { TestItem, TestUploadPayload } from '$lib/types/test';
+import type { TestItem } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
@@ -23,8 +25,8 @@ const APP_CONTEXT_KEY = Symbol.for('TESTIFY_APP_CONTEXT');
 export class AppStore {
 	// Specialized Domain Sub-Stores
 	readonly subjects = new SubjectStore();
-	readonly tests = new TestStore();
 	readonly folders = new FolderStore();
+	readonly tests = new TestStore(db, this.folders);
 	readonly attempts = new AttemptStore();
 	readonly filter = new FilterStore();
 	readonly modals = new ModalStore();
@@ -41,14 +43,22 @@ export class AppStore {
 	// Global safety preference: confirm before deleting folders
 	confirmFolderDelete = $state<boolean>(true);
 
+	// Guard flag to prevent URL sync effects from wiping undo toasts during active folder deletions
+	isDeletingFolder = $state<boolean>(false);
+
 	// Composed Derived Reactive Queries
 	readonly filteredTests = $derived.by(() => {
 		return this.filter.apply(
 			this.tests.tests,
 			(id) => this.subjects.getName(id),
-			this.folders.activeFolderId
+			this.folders.activeFolderId,
+			(folderId) => this.folders.getTestIdsInFolder(folderId)
 		);
 	});
+
+	constructor() {
+		this.tests.setFolderStore(this.folders);
+	}
 
 	async init() {
 		// 1. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
@@ -120,6 +130,10 @@ export class AppStore {
 		// 8. Register window beforeunload flush for any pending folder deletion
 		if (typeof window !== 'undefined') {
 			window.addEventListener('beforeunload', () => {
+				if (this.commitTimeout) {
+					clearTimeout(this.commitTimeout);
+					this.commitTimeout = null;
+				}
 				if (this.pendingFolderDeleteCommit) {
 					this.pendingFolderDeleteCommit();
 					this.pendingFolderDeleteCommit = null;
@@ -200,29 +214,6 @@ export class AppStore {
 
 	// --- High-Level Test Orchestration Methods ---
 
-	async handleAddTest(payload: TestUploadPayload): Promise<TestItem | undefined> {
-		try {
-			if (!this.network.isOnline) {
-				throw new Error(
-					'You are currently offline. AI test generation requires an internet connection.'
-				);
-			}
-			if (!payload.scale) {
-				payload.scale = this.selectedScale;
-			}
-			const apiKey = payload.aiProvider ? this.apiKeys.getKey(payload.aiProvider) : undefined;
-			const newTest = await this.tests.createTest(payload, apiKey);
-			this.toast.show(`Test "${newTest.title}" created successfully!`, 'success');
-			this.modals.closeUpload(true);
-			return newTest;
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : 'Failed to process test PDF.';
-			this.toast.show(errorMsg, 'error', 8000);
-			console.error('[AppStore] Upload error:', error);
-			throw error;
-		}
-	}
-
 	handleUpdateTest(updatedTest: TestItem): void {
 		const existing = this.tests.tests.find((t) => t.id === updatedTest.id);
 		if (existing && existing.folderId !== updatedTest.folderId) {
@@ -282,6 +273,7 @@ export class AppStore {
 	handleClearAllTests() {
 		this.tests.clearAll();
 		this.attempts.clearAll();
+		this.folders.rebuildIndices([]);
 		this.modals.closeDetails();
 		this.toast.show('All tests cleared.', 'warning');
 	}
@@ -325,6 +317,7 @@ export class AppStore {
 	}
 
 	private pendingFolderDeleteCommit: (() => Promise<void>) | null = null;
+	private commitTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async moveTestToFolder(testId: string, folderId: string | null): Promise<void> {
 		const targetTest = this.tests.tests.find((t) => t.id === testId);
@@ -368,7 +361,11 @@ export class AppStore {
 		const folder = this.folders.folderMap.get(folderId);
 		if (!folder) return;
 
-		// 0. Flush any previously pending folder deletion commit immediately
+		// 0. Flush any previously pending folder deletion commit and clear existing commitTimeout immediately
+		if (this.commitTimeout) {
+			clearTimeout(this.commitTimeout);
+			this.commitTimeout = null;
+		}
 		if (this.pendingFolderDeleteCommit) {
 			await this.pendingFolderDeleteCommit();
 			this.pendingFolderDeleteCommit = null;
@@ -379,9 +376,7 @@ export class AppStore {
 		const allFolderIdsToDelete = [folderId, ...descendantFolderIds];
 		const folderIdSet = new Set(allFolderIdsToDelete);
 
-		const testsToDelete = this.tests.tests.filter(
-			(t) => t.folderId && folderIdSet.has(t.folderId)
-		);
+		const testsToDelete = this.tests.tests.filter((t) => t.folderId && folderIdSet.has(t.folderId));
 		const testIdsToDelete = testsToDelete.map((t) => t.id);
 		const testIdSet = new Set(testIdsToDelete);
 
@@ -405,8 +400,14 @@ export class AppStore {
 		const deletedTests = [...testsToDelete];
 		const deletedAttempts = this.attempts.attempts.filter((a) => testIdSet.has(a.testId));
 		const previousActiveFolderId = this.folders.activeFolderId;
+		const deletedDocAssets = new Map<string, PdfExtractionResult>();
+		for (const id of testIdsToDelete) {
+			const asset = this.tests.docAssetsCache.get(id);
+			if (asset) deletedDocAssets.set(id, asset);
+		}
 
 		// 4. Update in-memory stores and indices
+		this.isDeletingFolder = true;
 		this.folders.folders = this.folders.folders.filter((f) => !folderIdSet.has(f.id));
 		this.tests.tests = this.tests.tests.filter((t) => !testIdSet.has(t.id));
 		for (const id of testIdsToDelete) {
@@ -420,28 +421,32 @@ export class AppStore {
 			const parentId = folder.parentFolderId;
 			const safeParentId = parentId && !folderIdSet.has(parentId) ? parentId : null;
 			this.folders.setActiveFolder(safeParentId);
+			goto(safeParentId ? `?folder=${safeParentId}` : '/', { replaceState: true }).finally(() => {
+				this.isDeletingFolder = false;
+			});
+		} else {
+			this.isDeletingFolder = false;
 		}
 
 		// 6. Schedule atomic Dexie transaction across all 6 tables with 8-second Undo Toast
 		let isUndone = false;
-		let commitTimeout: ReturnType<typeof setTimeout> | null = null;
 
 		const commitPermanentDelete = async () => {
 			if (isUndone) return;
+			if (this.commitTimeout) {
+				clearTimeout(this.commitTimeout);
+				this.commitTimeout = null;
+			}
 			this.pendingFolderDeleteCommit = null;
 			try {
-				await db.atomicCascadeDeleteFolder(
-					allFolderIdsToDelete,
-					testIdsToDelete,
-					jobsToDelete
-				);
+				await db.atomicCascadeDeleteFolder(allFolderIdsToDelete, testIdsToDelete, jobsToDelete);
 			} catch (err) {
 				console.error('[AppStore] Failed cascade delete in Dexie:', err);
 			}
 		};
 
 		this.pendingFolderDeleteCommit = commitPermanentDelete;
-		commitTimeout = setTimeout(commitPermanentDelete, 8000);
+		this.commitTimeout = setTimeout(commitPermanentDelete, 8000);
 
 		this.toast.show(
 			`Deleted folder "${folder.name}" (${testsToDelete.length} ${testsToDelete.length === 1 ? 'paper' : 'papers'}).`,
@@ -451,12 +456,18 @@ export class AppStore {
 				label: 'UNDO',
 				onClick: () => {
 					isUndone = true;
-					if (commitTimeout) clearTimeout(commitTimeout);
+					if (this.commitTimeout) {
+						clearTimeout(this.commitTimeout);
+						this.commitTimeout = null;
+					}
 					this.pendingFolderDeleteCommit = null;
 
 					// Restore in-memory state
 					this.folders.folders = [...this.folders.folders, ...deletedFolders];
 					this.tests.tests = [...this.tests.tests, ...deletedTests];
+					for (const [id, asset] of deletedDocAssets) {
+						this.tests.docAssetsCache.set(id, asset);
+					}
 					for (const attempt of deletedAttempts) {
 						if (!this.attempts.attempts.some((a) => a.id === attempt.id)) {
 							this.attempts.attempts = [...this.attempts.attempts, attempt];
@@ -464,6 +475,11 @@ export class AppStore {
 					}
 					this.folders.setActiveFolder(previousActiveFolderId);
 					this.folders.rebuildIndices(this.tests.tests);
+					if (previousActiveFolderId) {
+						goto(`?folder=${previousActiveFolderId}`, { replaceState: true });
+					} else {
+						goto('/', { replaceState: true });
+					}
 
 					// Re-persist restored items back to Dexie so that if a commit occurred or after page reload, the restored entities are never lost
 					fireAndForget(db.bulkSaveFolders(deletedFolders), 'Restoring undone folders to Dexie');

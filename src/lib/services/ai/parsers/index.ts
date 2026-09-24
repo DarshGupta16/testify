@@ -6,4 +6,3 @@ export * from './blueprintParser';
 export * from './errors';
 export * from './normalizer';
 export * from './parsers';
-

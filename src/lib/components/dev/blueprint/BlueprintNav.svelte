@@ -4,7 +4,7 @@ export type BlueprintSection = 'overview' | 'archetypes' | 'style' | 'patterns' 
 let {
 	activeSection = $bindable('overview'),
 	archetypesCount = 0,
-	patternsCount = 0
+	patternsCount = 0,
 }: {
 	activeSection: BlueprintSection;
 	archetypesCount?: number;
@@ -16,7 +16,7 @@ const tabs: { id: BlueprintSection; label: string }[] = $derived([
 	{ id: 'archetypes', label: `2. Question Archetypes (${archetypesCount})` },
 	{ id: 'style', label: '3. Writing Style & Distractors' },
 	{ id: 'patterns', label: `4. Surface vs Deep Patterns (${patternsCount})` },
-	{ id: 'raw', label: '5. Raw JSON' }
+	{ id: 'raw', label: '5. Raw JSON' },
 ]);
 
 function handleKeyDown(event: KeyboardEvent, currentIndex: number) {

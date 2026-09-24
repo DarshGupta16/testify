@@ -53,7 +53,12 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 			fallbackText = fallbackText.replace(/(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
 			parsed = JSON.parse(fallbackText);
 		} catch {
-			console.error('[AI Blueprint Parser] JSON Parse Error:', primaryErr, '\nRaw text:\n', rawText);
+			console.error(
+				'[AI Blueprint Parser] JSON Parse Error:',
+				primaryErr,
+				'\nRaw text:\n',
+				rawText
+			);
 			const message = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
 			throw new Error(`Failed to parse Paper Blueprint from AI model response: ${message}`);
 		}
@@ -91,8 +96,7 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 
 	return {
 		paper_overview: {
-			description:
-				typeof paperOverview.description === 'string' ? paperOverview.description : '',
+			description: typeof paperOverview.description === 'string' ? paperOverview.description : '',
 			target_student_profile: {
 				description:
 					typeof targetStudentProfile.description === 'string'
@@ -100,9 +104,7 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 						: '',
 				emphasized_abilities: safeStringArray(targetStudentProfile.emphasized_abilities),
 				reasoning:
-					typeof targetStudentProfile.reasoning === 'string'
-						? targetStudentProfile.reasoning
-						: '',
+					typeof targetStudentProfile.reasoning === 'string' ? targetStudentProfile.reasoning : '',
 			},
 			overall_design_philosophy:
 				typeof paperOverview.overall_design_philosophy === 'string'
@@ -130,17 +132,12 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 			strongly_inferred_intentions: safeStringArray(
 				whyItIsTestedThisWay.strongly_inferred_intentions
 			),
-			weakly_inferred_intentions: safeStringArray(
-				whyItIsTestedThisWay.weakly_inferred_intentions
-			),
+			weakly_inferred_intentions: safeStringArray(whyItIsTestedThisWay.weakly_inferred_intentions),
 		},
 		question_distribution: {
 			total_questions: parseSafeNumber(
 				questionDistribution.total_questions,
-				questionArchetypesRaw.reduce(
-					(sum: number, a) => sum + parseSafeNumber(a.count, 0),
-					0
-				)
+				questionArchetypesRaw.reduce((sum: number, a) => sum + parseSafeNumber(a.count, 0), 0)
 			),
 			archetypes: safeStringArray(questionDistribution.archetypes),
 			conceptual_application_depth: safeStringArray(
@@ -166,16 +163,13 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 			why_it_is_tested_this_way:
 				typeof a.why_it_is_tested_this_way === 'string' ? a.why_it_is_tested_this_way : '',
 			conceptual_application_depth:
-				typeof a.conceptual_application_depth === 'string'
-					? a.conceptual_application_depth
-					: '',
+				typeof a.conceptual_application_depth === 'string' ? a.conceptual_application_depth : '',
 			reasoning_pattern: typeof a.reasoning_pattern === 'string' ? a.reasoning_pattern : '',
 			linguistic_pattern: typeof a.linguistic_pattern === 'string' ? a.linguistic_pattern : '',
 			structural_pattern: typeof a.structural_pattern === 'string' ? a.structural_pattern : '',
 			surface_form: typeof a.surface_form === 'string' ? a.surface_form : '',
 			deep_pattern: typeof a.deep_pattern === 'string' ? a.deep_pattern : '',
-			generation_guidance:
-				typeof a.generation_guidance === 'string' ? a.generation_guidance : '',
+			generation_guidance: typeof a.generation_guidance === 'string' ? a.generation_guidance : '',
 			anti_imitation_notes:
 				typeof a.anti_imitation_notes === 'string' ? a.anti_imitation_notes : '',
 		})),
@@ -184,30 +178,21 @@ export function parsePaperBlueprint(rawText: string): PaperBlueprint {
 				typeof writingStyle.overall_style === 'string' ? writingStyle.overall_style : '',
 			stem_length: typeof writingStyle.stem_length === 'string' ? writingStyle.stem_length : '',
 			sentence_structure:
-				typeof writingStyle.sentence_structure === 'string'
-					? writingStyle.sentence_structure
-					: '',
+				typeof writingStyle.sentence_structure === 'string' ? writingStyle.sentence_structure : '',
 			language_register:
-				typeof writingStyle.language_register === 'string'
-					? writingStyle.language_register
-					: '',
+				typeof writingStyle.language_register === 'string' ? writingStyle.language_register : '',
 			scenario_usage:
 				typeof writingStyle.scenario_usage === 'string' ? writingStyle.scenario_usage : '',
 			information_density:
 				typeof writingStyle.information_density === 'string'
 					? writingStyle.information_density
 					: '',
-			explicitness:
-				typeof writingStyle.explicitness === 'string' ? writingStyle.explicitness : '',
+			explicitness: typeof writingStyle.explicitness === 'string' ? writingStyle.explicitness : '',
 			technical_language:
-				typeof writingStyle.technical_language === 'string'
-					? writingStyle.technical_language
-					: '',
+				typeof writingStyle.technical_language === 'string' ? writingStyle.technical_language : '',
 			numerical_style:
 				typeof writingStyle.numerical_style === 'string' ? writingStyle.numerical_style : '',
-			recurring_linguistic_patterns: safeStringArray(
-				writingStyle.recurring_linguistic_patterns
-			),
+			recurring_linguistic_patterns: safeStringArray(writingStyle.recurring_linguistic_patterns),
 		},
 		distractor_patterns: safeStringArray(parsed.distractor_patterns),
 		sequencing_and_structure: {

@@ -1,21 +1,17 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
-import { processTestUpload } from '$lib/services/testUploader';
+import type { FolderStore } from '$lib/stores/folderStore.svelte';
 import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
-import type { TestItem, TestUploadPayload } from '$lib/types/test';
+import type { TestItem } from '$lib/types/test';
 
 export class TestStore {
 	private database: TestifyDatabase;
+	private folders?: FolderStore;
 	docAssetsCache = new Map<string, PdfExtractionResult>();
 
 	tests = $state<TestItem[]>([]);
-
-	// Upload execution state
-	isUploading = $state<boolean>(false);
-	uploadProgress = $state<number>(0);
-	uploadStatusText = $state<string>('');
 
 	// Derived metrics - only aggregate over ready tests, ignoring in-flight processing stubs
 	readyTests = $derived(this.tests.filter((t) => t.status === 'ready' || !t.status));
@@ -27,8 +23,13 @@ export class TestStore {
 		this.readyTests.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0)
 	);
 
-	constructor(customDb: TestifyDatabase = db) {
+	constructor(customDb: TestifyDatabase = db, folders?: FolderStore) {
 		this.database = customDb;
+		this.folders = folders;
+	}
+
+	setFolderStore(folders: FolderStore): void {
+		this.folders = folders;
 	}
 
 	async init() {
@@ -100,36 +101,57 @@ export class TestStore {
 		}
 	}
 
-	async createTest(payload: TestUploadPayload, apiKey?: string): Promise<TestItem> {
-		this.isUploading = true;
-		this.uploadProgress = 0;
-		this.uploadStatusText = 'Initiating upload...';
+	/**
+	 * Prepend a placeholder test during background generation enqueue.
+	 */
+	addPlaceholderTest(test: TestItem): void {
+		this.tests = [test, ...this.tests];
+	}
 
-		try {
-			const newTest = await processTestUpload(payload, {
-				apiKey,
-				onProgress: (progress, statusText) => {
-					this.uploadProgress = progress;
-					this.uploadStatusText = statusText;
-				},
-			});
-
-			if (newTest.extractedData) {
-				this.docAssetsCache.set(newTest.id, newTest.extractedData);
-			}
-
-			// 1. In-memory update synchronously
-			this.tests = [newTest, ...this.tests];
-
-			// 2. Fire-and-forget async Dexie save
-			fireAndForget(this.database.saveTest(newTest), `Saving Test "${newTest.title}" to Dexie`);
-
-			return newTest;
-		} finally {
-			this.isUploading = false;
-			this.uploadProgress = 0;
-			this.uploadStatusText = '';
+	/**
+	 * Promotes a generated test from placeholder/stub to ready in-memory and caches its doc assets.
+	 */
+	promoteReadyTest(test: TestItem): void {
+		if (test.extractedData) {
+			this.docAssetsCache.set(test.id, test.extractedData);
 		}
+		const index = this.tests.findIndex((t) => t.id === test.id);
+		if (index !== -1) {
+			const updatedTests = [...this.tests];
+			updatedTests[index] = test;
+			this.tests = updatedTests;
+		} else {
+			this.tests = [test, ...this.tests];
+		}
+	}
+
+	/**
+	 * Marks an in-flight test as error with the provided failure message.
+	 */
+	markTestError(testId: string, error: string): void {
+		const index = this.tests.findIndex((t) => t.id === testId);
+		if (index !== -1) {
+			const errorTest: TestItem = {
+				...this.tests[index],
+				status: 'error',
+				description: error,
+			};
+			const updatedTests = [...this.tests];
+			updatedTests[index] = errorTest;
+			this.tests = updatedTests;
+			fireAndForget(
+				this.database.saveTest(errorTest),
+				`Updating test error stub "${testId}" in Dexie`
+			);
+		}
+	}
+
+	/**
+	 * Removes a placeholder test by ID from in-memory tests and doc assets cache.
+	 */
+	removePlaceholderTest(testId: string): void {
+		this.tests = this.tests.filter((t) => t.id !== testId);
+		this.docAssetsCache.delete(testId);
 	}
 
 	deleteTest(id: string): TestItem | undefined {
@@ -138,7 +160,12 @@ export class TestStore {
 		// 1. In-memory update synchronously
 		this.tests = this.tests.filter((t) => t.id !== id);
 
-		// 2. Fire-and-forget async Dexie deletion
+		// 2. Clean up folder index (including root bucket)
+		if (target && this.folders) {
+			this.folders.removeTestFromFolderIndex(id, target.folderId ?? null);
+		}
+
+		// 3. Fire-and-forget async Dexie deletion
 		fireAndForget(this.database.deleteTest(id), `Deleting Test "${id}" from Dexie`);
 
 		return target;
@@ -230,13 +257,13 @@ export class TestStore {
 		}
 
 		try {
-			const dbTest = await this.database.tests.get(testId);
-			if (dbTest?.extractedData) {
-				this.docAssetsCache.set(testId, dbTest.extractedData);
+			const dbAsset = await this.database.testDocAssets.get(testId);
+			if (dbAsset?.extractedData) {
+				this.docAssetsCache.set(testId, dbAsset.extractedData);
 				if (inMemory && !inMemory.extractedData) {
-					inMemory.extractedData = dbTest.extractedData;
+					inMemory.extractedData = dbAsset.extractedData;
 				}
-				return dbTest.extractedData;
+				return dbAsset.extractedData;
 			}
 		} catch (err) {
 			console.warn(`[TestStore] Failed to prefetch doc assets for "${testId}":`, err);

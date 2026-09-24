@@ -1,69 +1,38 @@
 <script lang="ts">
+import { untrack } from 'svelte';
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
-import type { FolderItem } from '$lib/types/folder';
 
 const app = getAppContext();
 
 let selectedFolderId = $state<string | null>(null);
-let isCreatingFolder = $state(false);
-let newFolderName = $state('');
 let newFolderParentId = $state<string | null>(null);
-let createError = $state('');
+let isCreatingFolder = $state(false);
+let selectedTestIds = $state<string[]>([]);
 
 const isOpen = $derived(app.modals.isMoveToFolderModalOpen);
 const targetTests = $derived(app.modals.moveTargetTests);
 const isSingle = $derived(targetTests.length === 1);
-const currentFolderId = $derived(isSingle ? targetTests[0]?.folderId ?? null : undefined);
+const currentFolderId = $derived(isSingle ? (targetTests[0]?.folderId ?? null) : undefined);
 
-// Build flattened tree with depth levels for clean hierarchical display
-interface FlattenedFolder {
-	folder: FolderItem;
-	depth: number;
-	paperCount: number;
-}
-
-const flattenedFolders = $derived.by<FlattenedFolder[]>(() => {
-	const result: FlattenedFolder[] = [];
-	const visited = new Set<string>();
-
-	function traverse(parentId: string | null, depth: number) {
-		const children = app.folders.folders
-			.filter((f) => f.parentFolderId === parentId)
-			.sort((a, b) => a.order - b.order);
-
-		for (const child of children) {
-			if (visited.has(child.id)) continue;
-			visited.add(child.id);
-
-			const paperCount = app.tests.tests.filter((t) => t.folderId === child.id).length;
-			result.push({ folder: child, depth, paperCount });
-			traverse(child.id, depth + 1);
-		}
-	}
-
-	traverse(null, 0);
-	return result;
-});
-
-const rootPaperCount = $derived(
-	app.tests.tests.filter((t) => !t.folderId || t.folderId === null).length
-);
+const rootPaperCount = $derived(app.folders.getTestIdsInFolder(null).length);
 
 const isCurrentRoot = $derived(isSingle && currentFolderId === null);
 const isSelectedRoot = $derived(selectedFolderId === null);
 
-// Pre-select initial folder when modal opens
+// Pre-select initial folder and initialize test selection checklist when modal opens
 $effect(() => {
 	if (isOpen) {
-		isCreatingFolder = false;
-		newFolderName = '';
-		createError = '';
-		if (isSingle) {
-			// If test is currently in a folder, default to null (Root) or keep selection
-			selectedFolderId = currentFolderId === null ? (app.folders.folders[0]?.id ?? null) : null;
-		} else {
-			selectedFolderId = app.folders.activeFolderId;
-		}
+		untrack(() => {
+			isCreatingFolder = false;
+			selectedTestIds = targetTests.map((t) => t.id);
+			if (isSingle) {
+				// If test is currently in a folder, default to null (Root) or keep selection
+				selectedFolderId = currentFolderId === null ? (app.folders.folders[0]?.id ?? null) : null;
+			} else {
+				selectedFolderId = app.folders.activeFolderId;
+			}
+		});
 	}
 });
 
@@ -75,30 +44,25 @@ function handleKeyDown(e: KeyboardEvent) {
 	if (e.key === 'Escape' && isOpen) {
 		if (isCreatingFolder) {
 			isCreatingFolder = false;
-			createError = '';
 			return;
 		}
 		handleClose();
 	}
 }
 
-async function handleInlineCreate(e?: Event) {
-	e?.preventDefault();
-	createError = '';
-	const trimmed = newFolderName.trim();
-	if (!trimmed) {
-		createError = 'Folder name cannot be empty';
-		return;
+function toggleTestSelection(testId: string) {
+	if (selectedTestIds.includes(testId)) {
+		selectedTestIds = selectedTestIds.filter((id) => id !== testId);
+	} else {
+		selectedTestIds = [...selectedTestIds, testId];
 	}
+}
 
-	try {
-		const created = await app.folders.addFolder(trimmed, newFolderParentId);
-		app.toast.show(`Folder "${created.name}" created!`, 'success');
-		selectedFolderId = created.id;
-		isCreatingFolder = false;
-		newFolderName = '';
-	} catch (err) {
-		createError = err instanceof Error ? err.message : 'Failed to create folder';
+function toggleSelectAllTests() {
+	if (selectedTestIds.length === targetTests.length) {
+		selectedTestIds = [];
+	} else {
+		selectedTestIds = targetTests.map((t) => t.id);
 	}
 }
 
@@ -106,10 +70,13 @@ async function handleConfirmMove() {
 	if (targetTests.length === 0) return;
 
 	if (isSingle) {
-		await app.moveTestToFolder(targetTests[0].id, selectedFolderId);
+		if (targetTests[0]) {
+			await app.moveTestToFolder(targetTests[0].id, selectedFolderId);
+		}
 	} else {
-		const testIds = targetTests.map((t) => t.id);
-		await app.bulkMoveTestsToFolder(testIds, selectedFolderId);
+		if (selectedTestIds.length > 0) {
+			await app.bulkMoveTestsToFolder(selectedTestIds, selectedFolderId);
+		}
 	}
 	app.modals.closeMoveToFolder();
 }
@@ -141,10 +108,12 @@ async function handleConfirmMove() {
 					</div>
 					<div>
 						<h2 id="move-folder-modal-title" class="text-base sm:text-lg font-black uppercase tracking-tight text-text-primary">
-							{isSingle ? 'Move Assessment Paper' : `Move ${targetTests.length} Assessments`}
+							{isSingle ? 'Move Assessment Paper' : `Move Assessments`}
 						</h2>
 						<p class="font-mono text-xs text-text-muted truncate max-w-xs sm:max-w-sm">
-							{isSingle ? targetTests[0]?.title : `Moving multiple selected papers`}
+							{isSingle
+								? (targetTests[0]?.title ?? 'Moving paper')
+								: `Moving ${selectedTestIds.length} of ${targetTests.length} selected papers`}
 						</p>
 					</div>
 				</div>
@@ -158,6 +127,47 @@ async function handleConfirmMove() {
 					✕
 				</button>
 			</div>
+
+			<!-- Multiple Tests Checklist Selector (when targetTests > 1) -->
+			{#if !isSingle && targetTests.length > 0}
+				<div class="mb-3 p-2.5 bg-muted/20 border-2 border-border-color space-y-1.5 shrink-0">
+					<div class="flex items-center justify-between text-[11px] font-mono">
+						<span class="font-bold text-text-primary uppercase tracking-tight">
+							Papers to Move ({selectedTestIds.length}/{targetTests.length})
+						</span>
+						<button
+							type="button"
+							onclick={toggleSelectAllTests}
+							class="text-accent-contrast underline hover:opacity-80 cursor-pointer font-bold"
+						>
+							{selectedTestIds.length === targetTests.length ? 'Deselect All' : 'Select All'}
+						</button>
+					</div>
+
+					<div class="space-y-1 max-h-32 overflow-y-auto pr-1 font-mono text-xs">
+						{#each targetTests as test (test.id)}
+							{@const isChecked = selectedTestIds.includes(test.id)}
+							<label
+								class={`flex items-center gap-2 p-1.5 border transition-all cursor-pointer select-none ${
+									isChecked
+										? 'bg-surface border-border-color shadow-[1px_1px_0px_var(--shadow-color)]'
+										: 'bg-muted/30 border-border-color/40 text-text-muted'
+								}`}
+							>
+								<input
+									type="checkbox"
+									checked={isChecked}
+									onchange={() => toggleTestSelection(test.id)}
+									class="accent-accent-contrast h-3.5 w-3.5 cursor-pointer"
+								/>
+								<span class="truncate flex-1 font-bold text-text-primary text-[11px]">
+									{test.title}
+								</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Folder Tree List (Scrollable Area) -->
 			<div class="space-y-1.5 overflow-y-auto flex-1 pr-1 py-1 font-mono text-xs max-h-[46vh]">
@@ -187,7 +197,7 @@ async function handleConfirmMove() {
 				</button>
 
 				<!-- Hierarchical Folder Items -->
-				{#each flattenedFolders as { folder, depth, paperCount } (folder.id)}
+				{#each app.folders.flattenedTree as { folder, depth, paperCount } (folder.id)}
 					{@const isCurrentThis = isSingle && currentFolderId === folder.id}
 					{@const isSelectedThis = selectedFolderId === folder.id}
 
@@ -225,10 +235,7 @@ async function handleConfirmMove() {
 			<!-- Inline "+ Create New Folder" Section (No modal-on-modal stacking) -->
 			<div class="mt-3 pt-3 border-t-2 border-border-color/20 shrink-0">
 				{#if isCreatingFolder}
-					<form
-						onsubmit={handleInlineCreate}
-						class="space-y-2 p-2.5 bg-muted/30 border-2 border-border-color font-mono text-xs animate-slide-down"
-					>
+					<div class="p-2.5 bg-muted/30 border-2 border-border-color font-mono text-xs animate-slide-down space-y-2">
 						<div class="flex items-center justify-between">
 							<span class="font-bold uppercase tracking-wider text-text-secondary text-[10px]">
 								New Folder Details:
@@ -237,55 +244,37 @@ async function handleConfirmMove() {
 								type="button"
 								onclick={() => (isCreatingFolder = false)}
 								class="text-text-muted hover:text-text-primary cursor-pointer"
+								aria-label="Cancel folder creation"
 							>
 								✕
 							</button>
 						</div>
 
-						<input
-							type="text"
-							bind:value={newFolderName}
-							placeholder="Enter folder name..."
-							class="neo-input w-full text-xs font-bold py-1 px-2 bg-surface"
-							required
-						/>
-
-						<div class="flex items-center gap-2">
-							<label for="modal-new-folder-parent" class="text-[10px] text-text-muted uppercase shrink-0">Parent:</label>
+						<div class="flex items-center gap-1.5 font-mono text-[11px]">
+							<label for="move-modal-new-folder-parent" class="text-text-muted shrink-0">Parent:</label>
 							<select
-								id="modal-new-folder-parent"
+								id="move-modal-new-folder-parent"
 								bind:value={newFolderParentId}
-								class="neo-input text-xs py-1 px-1.5 bg-surface flex-1"
+								class="neo-input text-xs py-1 px-1.5 bg-surface flex-1 font-mono"
 							>
-								<option value={null}>🏠 [Root]</option>
-								{#each app.folders.folders as f (f.id)}
-									<option value={f.id}>📁 {f.name}</option>
+								<option value={null}>🏠 [Root Level]</option>
+								{#each app.folders.flattenedTree as row (row.folder.id)}
+									<option value={row.folder.id}>{row.prefix}📁 {row.folder.name}</option>
 								{/each}
 							</select>
 						</div>
 
-						{#if createError}
-							<p class="text-[10px] font-bold text-rose-600 dark:text-rose-400">
-								{createError}
-							</p>
-						{/if}
-
-						<div class="flex items-center justify-end gap-1.5 pt-1">
-							<button
-								type="submit"
-								class="neo-btn neo-btn-primary text-xs py-1 px-3 font-bold cursor-pointer"
-							>
-								Create & Select
-							</button>
-							<button
-								type="button"
-								onclick={() => (isCreatingFolder = false)}
-								class="neo-btn text-xs py-1 px-2 cursor-pointer"
-							>
-								Cancel
-							</button>
-						</div>
-					</form>
+						<InlineFolderCreator
+							parentId={newFolderParentId}
+							placeholder="Enter folder name..."
+							buttonLabel="Create & Select"
+							oncreated={(folder) => {
+								selectedFolderId = folder.id;
+								isCreatingFolder = false;
+							}}
+							oncancel={() => (isCreatingFolder = false)}
+						/>
+					</div>
 				{:else}
 					<button
 						type="button"
@@ -293,7 +282,7 @@ async function handleConfirmMove() {
 							isCreatingFolder = true;
 							newFolderParentId = selectedFolderId;
 						}}
-						class="w-full neo-btn text-xs py-1.5 px-3 font-mono font-bold flex items-center justify-center gap-1.5 bg-surface hover:bg-muted"
+						class="w-full neo-btn text-xs py-1.5 px-3 font-mono font-bold flex items-center justify-center gap-1.5 bg-surface hover:bg-muted cursor-pointer"
 					>
 						<span>+</span>
 						<span>Create New Folder</span>
@@ -314,10 +303,10 @@ async function handleConfirmMove() {
 				<button
 					type="button"
 					onclick={handleConfirmMove}
-					disabled={isSingle && selectedFolderId === currentFolderId}
+					disabled={isSingle ? selectedFolderId === currentFolderId : selectedTestIds.length === 0}
 					class="neo-btn neo-btn-primary text-xs py-2 px-5 font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 				>
-					{isSingle ? 'Move Paper →' : `Move ${targetTests.length} Papers →`}
+					{isSingle ? 'Move Paper →' : `Move ${selectedTestIds.length} Papers →`}
 				</button>
 			</div>
 		</div>

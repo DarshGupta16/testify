@@ -5,8 +5,8 @@
  * Sequential & Uncapped Concurrent worker pools, Dexie persistence, and reactive state.
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { SvelteMap } from 'svelte/reactivity';
+import { v4 as uuidv4 } from 'uuid';
 import { db, fireAndForget } from '$lib/services/db';
 import { executeGenerationJob } from '$lib/services/jobExecutor';
 import { SETTINGS_KEYS } from '$lib/services/settings';
@@ -17,8 +17,8 @@ import type {
 	GenerationJob,
 	QueueMode,
 } from '$lib/types/queue';
-import type { TestItem } from '$lib/types/test';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
+import type { TestItem } from '$lib/types/test';
 import { formatBytes } from '$lib/utils';
 import type { AppStore } from './appContext.svelte';
 
@@ -50,7 +50,9 @@ export class GenerationQueueStore {
 
 	readonly activeCount = $derived(this.activeJobs.length);
 	readonly queuedCount = $derived(this.queuedJobs.length);
-	readonly incompleteCount = $derived(this.activeJobs.length + this.queuedJobs.length + this.pausedJobs.length);
+	readonly incompleteCount = $derived(
+		this.activeJobs.length + this.queuedJobs.length + this.pausedJobs.length
+	);
 	readonly isProcessing = $derived(this.activeJobs.length > 0 || this.queuedJobs.length > 0);
 
 	readonly overallProgress = $derived.by(() => {
@@ -110,7 +112,10 @@ export class GenerationQueueStore {
 				for (const raw of savedJobs) {
 					let job: GenerationJob = { ...raw };
 					// Restore interrupted processing or paused jobs if online
-					if (job.status === 'processing' || (job.status === 'paused' && this.app.network.isOnline)) {
+					if (
+						job.status === 'processing' ||
+						(job.status === 'paused' && this.app.network.isOnline)
+					) {
 						job = {
 							...job,
 							status: 'queued',
@@ -196,7 +201,8 @@ export class GenerationQueueStore {
 			const item = items[i];
 			const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${i}`;
 			const assignedTestId = item.testId || uuidv4();
-			const assignedFolderId = item.folderId !== undefined ? item.folderId : (config.folderId ?? null);
+			const assignedFolderId =
+				item.folderId !== undefined ? item.folderId : (config.folderId ?? null);
 
 			const testFileBlob =
 				item.testFile.rawFile instanceof Blob
@@ -208,7 +214,9 @@ export class GenerationQueueStore {
 				answerKeyBlob =
 					item.answerKeyFile.rawFile instanceof Blob
 						? item.answerKeyFile.rawFile
-						: new Blob([item.answerKeyFile.rawFile as unknown as BlobPart], { type: 'application/pdf' });
+						: new Blob([item.answerKeyFile.rawFile as unknown as BlobPart], {
+								type: 'application/pdf',
+							});
 			}
 
 			const jobTitle = item.autoTitle
@@ -264,7 +272,7 @@ export class GenerationQueueStore {
 			newPlaceholderTests.push(placeholderTest);
 
 			// Pre-allocate placeholder in TestStore and FolderStore inverted index
-			this.app.tests.tests = [placeholderTest, ...this.app.tests.tests];
+			this.app.tests.addPlaceholderTest(placeholderTest);
 			this.app.folders.addTestToFolderIndex(assignedTestId, assignedFolderId);
 		}
 
@@ -306,10 +314,7 @@ export class GenerationQueueStore {
 		const createdAtIso = new Date().toISOString();
 		const jobTitle = options.title?.trim() || `${sourceTest.title} (Similar)`;
 		const targetCount =
-			options.targetQuestionCount ||
-			options.questionCount ||
-			sourceTest.questions?.length ||
-			10;
+			options.targetQuestionCount || options.questionCount || sourceTest.questions?.length || 10;
 		const chosenProvider = options.aiProvider || sourceTest.aiProvider || 'google';
 		const chosenModel = options.aiModel || sourceTest.aiModel || 'gemini-3.7-flash';
 		const chosenSubjectId = options.subjectId || sourceTest.subjectId;
@@ -329,7 +334,7 @@ export class GenerationQueueStore {
 			scale: this.app?.selectedScale || 1.25,
 			durationMinutes: options.durationMinutes ?? sourceTest.durationMinutes,
 			autoDuration: options.autoDuration ?? false,
-			isUntimed: options.isUntimed ?? (sourceTest.durationMinutes === null),
+			isUntimed: options.isUntimed ?? sourceTest.durationMinutes === null,
 			questionCount: targetCount,
 			totalMarks: options.totalMarks ?? sourceTest.totalMarks,
 			description: options.description,
@@ -461,20 +466,8 @@ export class GenerationQueueStore {
 					abortController: undefined,
 				});
 
-				// Save test and docAssets to cache
-				if (createdTest.extractedData) {
-					this.app.tests.docAssetsCache.set(effectiveTestId, createdTest.extractedData);
-				}
-
-				// Update pre-allocated test in TestStore if present, or prepend
-				const existingIndex = this.app.tests.tests.findIndex((t) => t.id === effectiveTestId);
-				if (existingIndex !== -1) {
-					const updatedTests = [...this.app.tests.tests];
-					updatedTests[existingIndex] = createdTest;
-					this.app.tests.tests = updatedTests;
-				} else {
-					this.app.tests.tests = [createdTest, ...this.app.tests.tests];
-				}
+				// Promote pre-allocated placeholder to ready test and cache doc assets
+				this.app.tests.promoteReadyTest(createdTest);
 
 				// Ensure folder index reflects the validated folderId
 				this.app.folders.addTestToFolderIndex(effectiveTestId, targetFolderId);
@@ -562,24 +555,8 @@ export class GenerationQueueStore {
 				});
 
 				// Update pre-allocated test stub to status: 'error' with error message
-				const targetTestId = job.testId;
-				if (targetTestId) {
-					const existingIndex = this.app.tests.tests.findIndex((t) => t.id === targetTestId);
-					if (existingIndex !== -1) {
-						const currentTest = this.app.tests.tests[existingIndex];
-						const errorTest: TestItem = {
-							...currentTest,
-							status: 'error',
-							description: errorMessage,
-						};
-						const updatedTests = [...this.app.tests.tests];
-						updatedTests[existingIndex] = errorTest;
-						this.app.tests.tests = updatedTests;
-						fireAndForget(
-							db.saveTest(errorTest),
-							`Updating test error stub "${targetTestId}" in Dexie`
-						);
-					}
+				if (job.testId) {
+					this.app.tests.markTestError(job.testId, errorMessage);
 				}
 
 				this.app.toast.show(
@@ -639,20 +616,16 @@ export class GenerationQueueStore {
 			abortController: undefined,
 		});
 
-		// Ensure placeholder test stub in this.app.tests.tests has status reset to 'processing' (or recreate placeholder if it was deleted when cancelled)
+		// Ensure placeholder test stub in this.app.tests has status reset to 'processing' (or recreate placeholder if it was deleted when cancelled)
 		if (job?.testId) {
-			const existingIndex = this.app.tests.tests.findIndex((t) => t.id === job.testId);
-			if (existingIndex !== -1) {
-				const current = this.app.tests.tests[existingIndex];
+			const current = this.app.tests.tests.find((t) => t.id === job.testId);
+			if (current) {
 				const updatedTest: TestItem = {
 					...current,
 					status: 'processing',
 					description: job.description || current.description,
 				};
-				const updatedTests = [...this.app.tests.tests];
-				updatedTests[existingIndex] = updatedTest;
-				this.app.tests.tests = updatedTests;
-				fireAndForget(db.saveTest(updatedTest), `Resetting test status for retried job "${job.id}"`);
+				this.app.tests.updateTest(updatedTest);
 			} else {
 				const placeholderTest: TestItem = {
 					id: job.testId,
@@ -669,9 +642,12 @@ export class GenerationQueueStore {
 					status: 'processing',
 					questions: [],
 				};
-				this.app.tests.tests = [placeholderTest, ...this.app.tests.tests];
+				this.app.tests.addPlaceholderTest(placeholderTest);
 				this.app.folders.addTestToFolderIndex(job.testId, job.folderId ?? null);
-				fireAndForget(db.saveTest(placeholderTest), `Recreating placeholder test for retried job "${job.id}"`);
+				fireAndForget(
+					db.saveTest(placeholderTest),
+					`Recreating placeholder test for retried job "${job.id}"`
+				);
 			}
 		}
 
@@ -700,7 +676,7 @@ export class GenerationQueueStore {
 	}
 
 	private deletePlaceholderTest(testId: string, folderId: string | null): void {
-		this.app.tests.tests = this.app.tests.tests.filter((t) => t.id !== testId);
+		this.app.tests.removePlaceholderTest(testId);
 		this.app.folders.removeTestFromFolderIndex(testId, folderId);
 		fireAndForget(db.deleteTest(testId), `Deleting placeholder test "${testId}" from Dexie`);
 	}
@@ -719,7 +695,10 @@ export class GenerationQueueStore {
 				this.jobsMap.delete(id);
 			}
 		}
-		fireAndForget(db.clearCompletedGenerationJobs(), 'Clearing finished generation jobs from Dexie');
+		fireAndForget(
+			db.clearCompletedGenerationJobs(),
+			'Clearing finished generation jobs from Dexie'
+		);
 	}
 
 	/**

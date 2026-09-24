@@ -2,11 +2,7 @@
  * Testify - Centralized Strict JSON Schema Definitions for Structured Outputs
  */
 
-import {
-	toAnthropicTool,
-	toGeminiSchema,
-	toOpenAIStrictSchema,
-} from './schemaTransformers';
+import { toAnthropicTool, toGeminiSchema, toOpenAIStrictSchema } from './schemaTransformers';
 
 /**
  * Canonical JSON Schema for Question Assessment Extraction.

@@ -39,13 +39,17 @@ export class FilterStore {
 	apply(
 		tests: TestItem[],
 		getSubjectName?: (id: string) => string,
-		activeFolderId: string | null = null
+		activeFolderId: string | null = null,
+		getTestIdsInFolder?: (folderId: string | null) => string[]
 	): TestItem[] {
 		let list = [...tests];
 
 		// Folder scope filtering
 		if (this.folderScope === 'current') {
-			if (activeFolderId === null) {
+			if (getTestIdsInFolder) {
+				const matchingIds = new Set(getTestIdsInFolder(activeFolderId));
+				list = list.filter((t) => matchingIds.has(t.id));
+			} else if (activeFolderId === null) {
 				list = list.filter((t) => !t.folderId || t.folderId === null);
 			} else {
 				list = list.filter((t) => t.folderId === activeFolderId);

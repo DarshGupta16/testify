@@ -7,7 +7,6 @@ import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.s
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
-import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
 import type { PdfExtractionResult } from '$lib/types/pdf';
@@ -25,7 +24,7 @@ $effect(() => {
 		if (currentTest.devPipelineTrace) {
 			loadedTrace = currentTest.devPipelineTrace;
 		} else {
-			db.getDevTrace(currentTest.id).then((t) => {
+			app.tests.prefetchDevTrace(currentTest.id).then((t) => {
 				loadedTrace = t || null;
 			});
 		}
@@ -38,7 +37,7 @@ $effect(() => {
 		if (currentTest.extractedData) {
 			loadedDocAssets = currentTest.extractedData;
 		} else {
-			db.getTestDocAssets(currentTest.id).then((assets) => {
+			app.tests.getTestDocAssets(currentTest.id).then((assets) => {
 				loadedDocAssets = assets || null;
 			});
 		}

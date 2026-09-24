@@ -1,13 +1,12 @@
 <script lang="ts">
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { FolderItem } from '$lib/types/folder';
 
 const app = getAppContext();
 
-// New Folder form state
-let newFolderName = $state('');
+// New Folder parent selection
 let newFolderParentId = $state<string | null>(null);
-let addError = $state('');
 
 // Inline Rename state
 let editingFolderId = $state<string | null>(null);
@@ -23,8 +22,6 @@ const confirmFolderDelete = $derived(app.confirmFolderDelete);
 
 function handleClose() {
 	app.modals.closeFolders();
-	newFolderName = '';
-	addError = '';
 	editingFolderId = null;
 	editingName = '';
 	editError = '';
@@ -40,24 +37,6 @@ function handleKeyDown(e: KeyboardEvent) {
 		} else {
 			handleClose();
 		}
-	}
-}
-
-async function handleAddFolder(e?: Event) {
-	e?.preventDefault();
-	addError = '';
-	const trimmed = newFolderName.trim();
-	if (!trimmed) {
-		addError = 'Please enter a folder name.';
-		return;
-	}
-
-	try {
-		const created = await app.folders.addFolder(trimmed, newFolderParentId);
-		app.toast.show(`Folder "${created.name}" created!`, 'success');
-		newFolderName = '';
-	} catch (err) {
-		addError = err instanceof Error ? err.message : 'Failed to add folder.';
 	}
 }
 
@@ -118,44 +97,12 @@ function handleToggleSafetyPreference(checked: boolean) {
 	app.setConfirmFolderDelete(checked);
 }
 
-// Hierarchical folders calculation
-interface FolderRow {
-	folder: FolderItem;
-	depth: number;
-	paperCount: number;
-	subfolderCount: number;
-}
-
-const folderRows = $derived.by<FolderRow[]>(() => {
-	const rows: FolderRow[] = [];
-	const visited = new Set<string>();
-
-	function traverse(parentId: string | null, depth: number) {
-		const children = app.folders.folders
-			.filter((f) => f.parentFolderId === parentId)
-			.sort((a, b) => a.order - b.order);
-
-		for (const child of children) {
-			if (visited.has(child.id)) continue;
-			visited.add(child.id);
-
-			const paperCount = app.tests.tests.filter((t) => t.folderId === child.id).length;
-			const subfolderCount = app.folders.folders.filter((f) => f.parentFolderId === child.id).length;
-			rows.push({ folder: child, depth, paperCount, subfolderCount });
-			traverse(child.id, depth + 1);
-		}
-	}
-
-	traverse(null, 0);
-	return rows;
-});
-
 // Count of papers affected by deleting the confirming folder
 const deleteImpact = $derived.by(() => {
 	if (!confirmingDeleteFolder) return { papers: 0, subfolders: 0 };
 	const descendantIds = app.folders.getDescendantIds(confirmingDeleteFolder.id);
 	const allIds = [confirmingDeleteFolder.id, ...descendantIds];
-	const papers = app.tests.tests.filter((t) => t.folderId && allIds.includes(t.folderId)).length;
+	const papers = allIds.reduce((sum, fid) => sum + app.folders.getTestIdsInFolder(fid).length, 0);
 	return { papers, subfolders: descendantIds.length };
 });
 </script>
@@ -205,54 +152,41 @@ const deleteImpact = $derived.by(() => {
 			</div>
 
 			<!-- Add New Folder Form -->
-			<form onsubmit={handleAddFolder} class="space-y-2 mb-4 p-3 bg-muted/40 border-2 border-border-color shrink-0">
-				<div class="flex items-center justify-between">
+			<div class="space-y-2 mb-4 p-3 bg-muted/40 border-2 border-border-color shrink-0">
+				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 					<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
 						+ Create New Folder
 					</span>
+					<div class="flex items-center gap-1.5">
+						<label for="folders-modal-parent-select" class="font-mono text-[11px] text-text-muted">Parent:</label>
+						<select
+							id="folders-modal-parent-select"
+							bind:value={newFolderParentId}
+							class="neo-input text-xs py-1 px-2 bg-surface font-mono"
+						>
+							<option value={null}>🏠 [Root Level]</option>
+							{#each app.folders.flattenedTree as row (row.folder.id)}
+								<option value={row.folder.id}>{row.prefix}📁 {row.folder.name}</option>
+							{/each}
+						</select>
+					</div>
 				</div>
 
-				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-					<input
-						type="text"
-						bind:value={newFolderName}
-						placeholder="Folder name (e.g. Physics, Midterms 2026)..."
-						class="neo-input text-xs font-bold py-1.5 px-2.5 bg-surface flex-1"
-					/>
-
-					<select
-						bind:value={newFolderParentId}
-						class="neo-input text-xs py-1.5 px-2 bg-surface font-mono"
-					>
-						<option value={null}>🏠 [Root Level]</option>
-						{#each app.folders.folders as f (f.id)}
-							<option value={f.id}>📁 {f.name}</option>
-						{/each}
-					</select>
-
-					<button
-						type="submit"
-						class="neo-btn neo-btn-primary text-xs py-1.5 px-4 font-bold shrink-0 cursor-pointer"
-					>
-						Add Folder
-					</button>
-				</div>
-
-				{#if addError}
-					<p class="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold mt-1">
-						{addError}
-					</p>
-				{/if}
-			</form>
+				<InlineFolderCreator
+					parentId={newFolderParentId}
+					placeholder="Folder name (e.g. Physics, Midterms 2026)..."
+					buttonLabel="Add Folder"
+				/>
+			</div>
 
 			<!-- Folders List Area (Scrollable) -->
 			<div class="space-y-2 overflow-y-auto flex-1 pr-1 font-mono text-xs max-h-[46vh]">
-				{#if folderRows.length === 0}
+				{#if app.folders.flattenedTree.length === 0}
 					<div class="p-6 text-center text-text-muted border-2 border-dashed border-border-color/60 bg-muted/20">
 						No custom folders yet. Create your first folder above!
 					</div>
 				{:else}
-					{#each folderRows as { folder, depth, paperCount, subfolderCount } (folder.id)}
+					{#each app.folders.flattenedTree as { folder, depth, paperCount, subfolderCount } (folder.id)}
 						<div
 							class="neo-box p-2.5 bg-surface border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] flex items-center justify-between gap-2"
 							style={`margin-left: ${Math.min(depth, 3) * 10}px; width: calc(100% - ${Math.min(depth, 3) * 10}px);`}

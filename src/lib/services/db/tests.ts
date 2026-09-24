@@ -12,10 +12,7 @@ export async function getAllTests(db: TestifyDatabase): Promise<TestItem[]> {
 	}
 }
 
-export async function getTestById(
-	db: TestifyDatabase,
-	id: string
-): Promise<TestItem | undefined> {
+export async function getTestById(db: TestifyDatabase, id: string): Promise<TestItem | undefined> {
 	try {
 		return await db.tests.get(id);
 	} catch (err) {
@@ -25,13 +22,6 @@ export async function getTestById(
 }
 
 export async function saveTest(db: TestifyDatabase, test: TestItem): Promise<void> {
-	await db.tests.put(toCloneable(test));
-}
-
-export async function saveSimilarPaperTest(
-	db: TestifyDatabase,
-	test: TestItem
-): Promise<void> {
 	await db.tests.put(toCloneable(test));
 }
 
@@ -93,4 +83,3 @@ export async function atomicCascadeDeleteTests(
 		await db.devTraces.where('testId').anyOf(testIds).delete();
 	});
 }
-

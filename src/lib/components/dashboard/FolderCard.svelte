@@ -19,21 +19,22 @@ let isConfirmingDelete = $state(false);
 $effect(() => {
 	selectedNewParentId = folder.parentFolderId ?? null;
 });
-let renameInputRef = $state<HTMLInputElement | null>(null);
 
-const paperCount = $derived(
-	app.tests.tests.filter((t) => t.folderId === folder.id).length
-);
+function autofocus(node: HTMLInputElement) {
+	node.focus();
+}
+
+const paperCount = $derived(app.folders.getTestIdsInFolder(folder.id).length);
 
 const subfolderCount = $derived(
-	app.folders.folders.filter((f) => f.parentFolderId === folder.id).length
+	app.folders.subfoldersByParent.get(folder.id)?.length ?? 0
 );
 
 // Potential destination folders for moving this folder (cannot move into self or descendants)
 const validMoveDestinations = $derived.by(() => {
 	const descendants = new Set(app.folders.getDescendantIds(folder.id));
 	descendants.add(folder.id);
-	return app.folders.folders.filter((f) => !descendants.has(f.id));
+	return app.folders.flattenedTree.filter((row) => !descendants.has(row.folder.id));
 });
 
 function handleOpenFolder() {
@@ -47,9 +48,6 @@ function handleStartRename(e: Event) {
 	renameName = folder.name;
 	isRenaming = true;
 	isMenuOpen = false;
-	setTimeout(() => {
-		renameInputRef?.focus();
-	}, 50);
 }
 
 async function handleSaveRename(e?: Event) {
@@ -82,7 +80,7 @@ async function handleConfirmMoveFolder(e: Event) {
 	try {
 		await app.folders.moveFolder(folder.id, selectedNewParentId);
 		const targetName = selectedNewParentId
-			? app.folders.folderMap.get(selectedNewParentId)?.name ?? 'Folder'
+			? (app.folders.folderMap.get(selectedNewParentId)?.name ?? 'Folder')
 			: 'Root';
 		app.toast.show(`Moved folder "${folder.name}" to ${targetName}.`, 'success');
 		isMovingFolder = false;
@@ -178,7 +176,7 @@ async function handleDrop(e: DragEvent) {
 						class="flex-1 mr-2 space-y-1.5"
 					>
 						<input
-							bind:this={renameInputRef}
+							use:autofocus
 							type="text"
 							bind:value={renameName}
 							onclick={(e) => e.stopPropagation()}
@@ -326,9 +324,9 @@ async function handleDrop(e: DragEvent) {
 					class="neo-input w-full text-xs py-1 px-2 bg-surface font-sans"
 				>
 					<option value={null}>🏠 [Root / All Assessments]</option>
-					{#each validMoveDestinations as dest (dest.id)}
-						<option value={dest.id} disabled={dest.id === folder.parentFolderId}>
-							📁 {dest.name} {dest.id === folder.parentFolderId ? '(Current Parent)' : ''}
+					{#each validMoveDestinations as row (row.folder.id)}
+						<option value={row.folder.id} disabled={row.folder.id === folder.parentFolderId}>
+							{row.prefix}📁 {row.folder.name} {row.folder.id === folder.parentFolderId ? '(Current Parent)' : ''}
 						</option>
 					{/each}
 				</select>

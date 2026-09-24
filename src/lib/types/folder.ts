@@ -15,3 +15,11 @@ export interface FolderItem {
 	updatedAt: string; // ISO date string
 	description?: string;
 }
+
+export interface FlattenedFolderRow {
+	folder: FolderItem;
+	depth: number;
+	prefix: string;
+	paperCount: number;
+	subfolderCount: number;
+}

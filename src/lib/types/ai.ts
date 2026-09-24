@@ -139,6 +139,7 @@ export interface AIProviderAdapter {
 	readonly id: AIProvider;
 	generateQuestions(payload: AIGenerationPayload): Promise<AIGenerationResult>;
 	generatePaperBlueprint?(payload: PaperBlueprintPayload): Promise<PaperBlueprintResult>;
-	generateSimilarPaper?(payload: SimilarPaperGenerationPayload): Promise<SimilarPaperGenerationResult>;
+	generateSimilarPaper?(
+		payload: SimilarPaperGenerationPayload
+	): Promise<SimilarPaperGenerationResult>;
 }
-
