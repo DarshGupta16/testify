@@ -26,9 +26,7 @@ function autofocus(node: HTMLInputElement) {
 
 const paperCount = $derived(app.folders.getTestIdsInFolder(folder.id).length);
 
-const subfolderCount = $derived(
-	app.folders.subfoldersByParent.get(folder.id)?.length ?? 0
-);
+const subfolderCount = $derived(app.folders.subfoldersByParent.get(folder.id)?.length ?? 0);
 
 // Potential destination folders for moving this folder (cannot move into self or descendants)
 const validMoveDestinations = $derived.by(() => {
@@ -127,7 +125,7 @@ async function handleDrop(e: DragEvent) {
 }
 </script>
 
-<div class="relative group">
+<div class={`relative group ${isMenuOpen ? 'z-30' : ''}`}>
 	<!-- Manila Tab Motif extending above the card -->
 	<div class="flex items-center">
 		<div
@@ -149,6 +147,8 @@ async function handleDrop(e: DragEvent) {
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 		class={`neo-box p-4 bg-surface flex flex-col justify-between select-none transition-all relative ${
+			isMenuOpen ? 'z-30' : ''
+		} ${
 			isDragOver
 				? '!bg-accent-contrast/10 !border-accent-contrast ring-2 ring-accent-contrast shadow-[6px_6px_0px_var(--shadow-color)]'
 				: 'hover:-translate-y-1 hover:shadow-[6px_6px_0px_var(--shadow-color)]'
@@ -168,7 +168,7 @@ async function handleDrop(e: DragEvent) {
 		{/if}
 
 		<!-- Card Top Row: Title & Options Menu -->
-		<div class="relative z-10">
+		<div class={`relative ${isMenuOpen ? 'z-30' : 'z-10'}`}>
 			<div class="flex items-start justify-between gap-2 mb-2">
 				{#if isRenaming}
 					<form
@@ -216,7 +216,7 @@ async function handleDrop(e: DragEvent) {
 				{/if}
 
 				<!-- 3-Dots Action Menu with Decoupled Hitbox -->
-				<div class="relative shrink-0">
+				<div class={`relative shrink-0 ${isMenuOpen ? 'z-30' : ''}`}>
 					<button
 						type="button"
 						onpointerdown={() => {
@@ -257,7 +257,7 @@ async function handleDrop(e: DragEvent) {
 								else e.stopPropagation();
 							}}
 							tabindex="-1"
-							class="absolute right-0 top-full mt-1.5 z-30 w-44 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
+							class="absolute right-0 top-full mt-1.5 z-40 w-44 bg-surface border-2 border-border-color shadow-[4px_4px_0px_var(--shadow-color)] py-1 font-mono text-xs animate-slide-down"
 							role="menu"
 						>
 							<button
