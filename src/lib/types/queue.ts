@@ -131,9 +131,6 @@ export interface BatchUploadItem {
 	} | null;
 }
 
-/**
- * Batch generation configuration applied across multiple documents
- */
 export interface BatchGenerationConfig extends BaseAssessmentConfig {
 	subjectId: string;
 	aiProvider: AIProvider;
@@ -141,4 +138,24 @@ export interface BatchGenerationConfig extends BaseAssessmentConfig {
 	scale: number;
 	mode: QueueMode;
 	concurrency: number;
+}
+
+/**
+ * Options for queuing a similar paper generation job
+ */
+export interface SimilarPaperJobOptions {
+	sourceTest: TestItem;
+	folderId?: string | null;
+	subjectId?: string;
+	title?: string;
+	customInstructions?: string;
+	targetQuestionCount?: number;
+	questionCount?: number;
+	durationMinutes?: number | null;
+	autoDuration?: boolean;
+	isUntimed?: boolean;
+	totalMarks?: number;
+	description?: string;
+	aiProvider?: AIProvider;
+	aiModel?: string;
 }

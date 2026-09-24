@@ -60,6 +60,7 @@ export * from './services/assessmentEvaluator';
 export * from './services/crypto';
 export * from './services/db';
 export * from './services/pdf';
+export * from './services/queue';
 export * from './services/settings';
 export * from './services/testUploader';
 
