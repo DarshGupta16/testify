@@ -24,6 +24,7 @@ export class AuthStore {
 	syncStatus = $state<SyncState>('idle');
 	syncError = $state<string | null>(null);
 	showDeviceSyncPrompt = $state<boolean>(false);
+	pendingLocalTestsCount = $state<number>(0);
 
 	// Derived Auth State
 	isAuthenticated = $derived(Boolean(this.user));
@@ -92,6 +93,7 @@ export class AuthStore {
 
 		// If logging in on another device with existing local papers, prompt user for decision
 		if (hasExistingLocalPapers) {
+			this.pendingLocalTestsCount = localTests.length;
 			this.showDeviceSyncPrompt = true;
 		} else {
 			// Fresh device, pull cloud tests

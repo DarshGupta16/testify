@@ -563,7 +563,7 @@ export class AppStore {
 										parent_folder_id: f.parentFolderId || null,
 										color: f.color,
 										icon: f.icon || null,
-										order_index: f.orderIndex,
+										order_index: f.order,
 										created_at: f.createdAt,
 										updated_at: f.updatedAt || new Date().toISOString(),
 									}),

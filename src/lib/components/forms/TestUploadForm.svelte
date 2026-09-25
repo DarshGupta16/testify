@@ -1,4 +1,5 @@
 <script lang="ts">
+import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import { AI_PROVIDERS, type AIProvider } from '$lib/types/apiKeys';
 import type { BatchGenerationConfig, BatchUploadItem, QueueMode } from '$lib/types/queue';
@@ -8,7 +9,6 @@ import AiProviderSelector from './AiProviderSelector.svelte';
 import BatchPaperList, { type BatchFormEntry } from './BatchPaperList.svelte';
 import PdfDropzone from './PdfDropzone.svelte';
 import QueueConfigBar from './QueueConfigBar.svelte';
-import InlineFolderCreator from '$lib/components/common/InlineFolderCreator.svelte';
 
 const {
 	isModal = false,

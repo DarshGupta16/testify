@@ -13,6 +13,8 @@ export class ModalStore {
 	isSimilarPaperOpen = $state<boolean>(false);
 	isFoldersModalOpen = $state<boolean>(false);
 	isMoveToFolderModalOpen = $state<boolean>(false);
+	isAuthModalOpen = $state<boolean>(false);
+	authModalInitialTab = $state<'signin' | 'signup' | 'forgot'>('signin');
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
 	selectedTest = $state<TestItem | null>(null);
@@ -29,8 +31,20 @@ export class ModalStore {
 			this.isEditModalOpen ||
 			this.isSimilarPaperOpen ||
 			this.isFoldersModalOpen ||
-			this.isMoveToFolderModalOpen
+			this.isMoveToFolderModalOpen ||
+			this.isAuthModalOpen
 	);
+
+	openAuth(tab: 'signin' | 'signup' | 'forgot' = 'signin') {
+		this.authModalInitialTab = tab;
+		this.isAuthModalOpen = true;
+	}
+
+	closeAuth(force = false) {
+		if (force || this.isAuthModalOpen) {
+			this.isAuthModalOpen = false;
+		}
+	}
 
 	openSimilarPaperModal(test: TestItem) {
 		this.similarPaperSourceTest = test;

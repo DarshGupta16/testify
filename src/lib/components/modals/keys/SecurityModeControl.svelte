@@ -181,4 +181,56 @@ async function requestModeSwitch(targetMode: SecurityMode) {
 			</div>
 		{/if}
 	{/if}
+
+	<!-- Cloud Synchronization Preference for Strict Mode -->
+	{#if app.security.securityMode === 'strict'}
+		<div class="pt-3 border-t border-border-color/30 flex items-start justify-between gap-3">
+			<div class="space-y-0.5">
+				<div class="flex items-center gap-1.5">
+					<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
+						Cloud Key Sync
+					</span>
+					<span
+						class="neo-badge text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold uppercase"
+					>
+						AES-256-GCM
+					</span>
+				</div>
+				<p class="font-mono text-[11px] text-text-muted leading-relaxed">
+					Sync your encrypted credentials across devices. Only ciphertext is sent to Supabase; your master password never leaves your browser (zero-knowledge).
+				</p>
+			</div>
+
+			<label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+				<input
+					type="checkbox"
+					checked={app.apiKeys.syncToCloud}
+					onchange={(e) => app.apiKeys.setSyncToCloud(e.currentTarget.checked)}
+					class="sr-only peer"
+				/>
+				<div
+					class="w-9 h-5 bg-muted border-2 border-border-color peer-focus:outline-hidden peer-checked:bg-accent-contrast transition-colors shadow-[1px_1px_0px_var(--shadow-color)]"
+				></div>
+				<div
+					class="absolute left-0.5 top-0.5 bg-surface border-2 border-border-color w-4 h-4 transition-transform peer-checked:translate-x-4"
+				></div>
+			</label>
+		</div>
+	{:else}
+		<div class="pt-2 border-t border-border-color/30 flex items-center justify-between gap-2">
+			<div class="flex items-center gap-1.5 font-mono text-[11px] text-text-muted">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					class="h-3.5 w-3.5 text-amber-500 shrink-0"
+				>
+					<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+				</svg>
+				<span>Cloud sync is disabled for unencrypted Lax mode keys. Switch to Strict mode to enable cross-device key sync.</span>
+			</div>
+		</div>
+	{/if}
 </section>

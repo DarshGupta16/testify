@@ -4,6 +4,8 @@ import favicon from '$lib/assets/favicon.svg';
 import Toast from '$lib/components/common/Toast.svelte';
 import Header from '$lib/components/layout/Header.svelte';
 import ApiKeysModal from '$lib/components/modals/ApiKeysModal.svelte';
+import AuthModal from '$lib/components/modals/AuthModal.svelte';
+import DeviceSyncPromptModal from '$lib/components/modals/DeviceSyncPromptModal.svelte';
 import FoldersModal from '$lib/components/modals/FoldersModal.svelte';
 import MasterPasswordModal from '$lib/components/modals/MasterPasswordModal.svelte';
 import MoveToFolderModal from '$lib/components/modals/MoveToFolderModal.svelte';
@@ -59,6 +61,8 @@ $effect(() => {
 	<SubjectsModal />
 	<FoldersModal />
 	<MoveToFolderModal />
+	<AuthModal />
+	<DeviceSyncPromptModal />
 	<GenerationQueueDock />
 	<Toast />
 </div>
