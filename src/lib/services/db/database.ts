@@ -2,6 +2,7 @@ import Dexie, { type DexieOptions, type EntityTable } from 'dexie';
 import type { AIProvider, StoredApiKeyRecord } from '$lib/types/apiKeys';
 import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
+import type { FolderItem } from '$lib/types/folder';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 import type { StoredGenerationJob } from '$lib/types/queue';
 import type { SubjectItem } from '$lib/types/subject';
@@ -10,6 +11,7 @@ import * as apiKeysRepo from './apiKeys';
 import * as attemptsRepo from './attempts';
 import * as devTracesRepo from './devTraces';
 import * as docAssetsRepo from './docAssets';
+import * as foldersRepo from './folders';
 import * as generationJobsRepo from './generationJobs';
 import * as settingsRepo from './settings';
 import * as subjectsRepo from './subjects';
@@ -28,9 +30,11 @@ import type { AppSettingRecord, TestDocAssetRecord } from './types';
  * 6. Dev-Only AI Pipeline Traces (`devTraces`)
  * 7. Heavy Extracted PDF Document Assets (`testDocAssets`)
  * 8. Background Test Generation Jobs (`generationJobs`)
+ * 9. Hierarchical Folders (`folders`)
  */
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
+	folders!: EntityTable<FolderItem, 'id'>;
 	subjects!: EntityTable<SubjectItem, 'id'>;
 	settings!: EntityTable<AppSettingRecord, 'key'>;
 	apiKeys!: EntityTable<StoredApiKeyRecord, 'provider'>;
@@ -155,6 +159,49 @@ export class TestifyDatabase extends Dexie {
 			testDocAssets: 'testId',
 			generationJobs: 'id, status, createdAt, completedAt',
 		});
+
+		// Version 7 Migration: Add folders table and folderId indexing on tests & generationJobs
+		this.version(7).stores({
+			tests: 'id, title, subjectId, folderId, createdAt, status',
+			folders: 'id, name, parentFolderId, order, createdAt',
+			subjects: 'id, name, createdAt',
+			settings: 'key, updatedAt',
+			apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+			attempts: 'id, testId, status, startedAt, completedAt, score',
+			devTraces: 'id, testId, testTitle, createdAt, provider, model',
+			testDocAssets: 'testId',
+			generationJobs: 'id, folderId, status, createdAt, completedAt',
+		});
+	}
+
+	// --- Folders Operations ---
+	getAllFolders(): Promise<FolderItem[]> {
+		return foldersRepo.getAllFolders(this);
+	}
+	getFolderById(id: string): Promise<FolderItem | undefined> {
+		return foldersRepo.getFolderById(this, id);
+	}
+	saveFolder(folder: FolderItem): Promise<void> {
+		return foldersRepo.saveFolder(this, folder);
+	}
+	bulkSaveFolders(foldersList: FolderItem[]): Promise<void> {
+		return foldersRepo.bulkSaveFolders(this, foldersList);
+	}
+	updateFolder(id: string, updates: Partial<FolderItem>): Promise<void> {
+		return foldersRepo.updateFolder(this, id, updates);
+	}
+	deleteFolder(id: string): Promise<void> {
+		return foldersRepo.deleteFolder(this, id);
+	}
+	clearAllFolders(): Promise<void> {
+		return foldersRepo.clearAllFolders(this);
+	}
+	atomicCascadeDeleteFolder(
+		folderIds: string[],
+		testIds: string[],
+		jobIds: string[] = []
+	): Promise<void> {
+		return foldersRepo.atomicCascadeDeleteFolder(this, folderIds, testIds, jobIds);
 	}
 
 	// --- Subjects Operations ---
@@ -184,9 +231,6 @@ export class TestifyDatabase extends Dexie {
 	saveTest(test: TestItem): Promise<void> {
 		return testsRepo.saveTest(this, test);
 	}
-	saveSimilarPaperTest(test: TestItem): Promise<void> {
-		return testsRepo.saveSimilarPaperTest(this, test);
-	}
 	updateTest(id: string, updates: Partial<TestItem>): Promise<void> {
 		return testsRepo.updateTest(this, id, updates);
 	}
@@ -195,6 +239,12 @@ export class TestifyDatabase extends Dexie {
 	}
 	bulkSaveTests(testsList: TestItem[]): Promise<void> {
 		return testsRepo.bulkSaveTests(this, testsList);
+	}
+	bulkUpdateTestFolder(testIds: string[], folderId: string | null): Promise<void> {
+		return testsRepo.bulkUpdateTestFolder(this, testIds, folderId);
+	}
+	atomicCascadeDeleteTests(testIds: string[]): Promise<void> {
+		return testsRepo.atomicCascadeDeleteTests(this, testIds);
 	}
 	deleteTest(id: string): Promise<void> {
 		return testsRepo.deleteTest(this, id);
@@ -215,6 +265,9 @@ export class TestifyDatabase extends Dexie {
 	}
 	saveAttempt(attempt: TestAttempt): Promise<void> {
 		return attemptsRepo.saveAttempt(this, attempt);
+	}
+	bulkSaveAttempts(attemptsList: TestAttempt[]): Promise<void> {
+		return attemptsRepo.bulkSaveAttempts(this, attemptsList);
 	}
 	deleteAttempt(id: string): Promise<void> {
 		return attemptsRepo.deleteAttempt(this, id);

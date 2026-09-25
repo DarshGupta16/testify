@@ -45,9 +45,11 @@ async function executeDigitizeJob(
 	}
 
 	const payload: TestUploadPayload = {
+		id: job.testId,
 		title: job.autoTitle ? undefined : job.title || undefined,
 		autoTitle: job.autoTitle,
 		subjectId: job.subjectId,
+		folderId: job.folderId ?? null,
 		durationMinutes: job.durationMinutes,
 		autoDuration: job.autoDuration,
 		isUntimed: job.isUntimed,
@@ -150,11 +152,13 @@ export async function executeGenerationJob(
 			let isCountdownActive = true;
 			let timer: ReturnType<typeof setInterval> | undefined;
 
+			const onAbort = () => cleanup();
+
 			const cleanup = (cancel = true) => {
 				if (!isCountdownActive) return;
 				isCountdownActive = false;
 				if (timer) clearInterval(timer);
-				job.abortController?.signal.removeEventListener('abort', () => cleanup());
+				job.abortController?.signal.removeEventListener('abort', onAbort);
 				if (cancel) options.onCancel();
 			};
 
@@ -174,7 +178,7 @@ export async function executeGenerationJob(
 
 			// Listen for instant abort signal during backoff countdown
 			if (job.abortController?.signal.aborted) cleanup();
-			else job.abortController?.signal.addEventListener('abort', () => cleanup());
+			else job.abortController?.signal.addEventListener('abort', onAbort);
 
 			return;
 		}

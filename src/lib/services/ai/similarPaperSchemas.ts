@@ -2,11 +2,7 @@
  * Testify - Centralized Strict JSON Schema Definitions for Biphasic Similar Paper Generation
  */
 
-import {
-	toAnthropicTool,
-	toGeminiSchema,
-	toOpenAIStrictSchema,
-} from './schemaTransformers';
+import { toAnthropicTool, toGeminiSchema, toOpenAIStrictSchema } from './schemaTransformers';
 
 /**
  * Canonical JSON Schema for Phase 1 Blueprint Extraction.
@@ -47,7 +43,8 @@ export const PAPER_BLUEPRINT_CANONICAL_SCHEMA: Record<string, unknown> = {
 				},
 				distinctive_characteristics: {
 					type: 'array',
-					description: 'Key characteristics that distinguish this paper from a generic syllabus test',
+					description:
+						'Key characteristics that distinguish this paper from a generic syllabus test',
 					items: { type: 'string' },
 				},
 			},
@@ -184,7 +181,8 @@ export const PAPER_BLUEPRINT_CANONICAL_SCHEMA: Record<string, unknown> = {
 				},
 				qualitative_vs_quantitative_reasoning: {
 					type: 'array',
-					description: 'Distribution of qualitative reasoning vs quantitative calculation questions',
+					description:
+						'Distribution of qualitative reasoning vs quantitative calculation questions',
 					items: { type: 'string' },
 				},
 				visual_data_usage: {
@@ -365,7 +363,8 @@ export const PAPER_BLUEPRINT_CANONICAL_SCHEMA: Record<string, unknown> = {
 		},
 		surface_vs_deep_patterns: {
 			type: 'array',
-			description: 'Explicit mapping between superficial source details and deep generative patterns',
+			description:
+				'Explicit mapping between superficial source details and deep generative patterns',
 			items: {
 				type: 'object',
 				properties: {
@@ -387,7 +386,8 @@ export const PAPER_BLUEPRINT_CANONICAL_SCHEMA: Record<string, unknown> = {
 		},
 		anti_imitation_constraints: {
 			type: 'array',
-			description: 'Explicit list of quirks, exact numbers, and templates that must NOT be imitated',
+			description:
+				'Explicit list of quirks, exact numbers, and templates that must NOT be imitated',
 			items: { type: 'string' },
 		},
 		uncertainties: {

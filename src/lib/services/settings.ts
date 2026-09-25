@@ -9,6 +9,7 @@ export const SETTINGS_KEYS = {
 	EXTRACTION_SCALE: 'testify_extraction_scale',
 	QUEUE_MODE: 'testify_queue_mode',
 	QUEUE_CONCURRENCY: 'testify_queue_concurrency',
+	CONFIRM_FOLDER_DELETE: 'testify_confirm_folder_delete',
 } as const;
 
 export type SettingKey = (typeof SETTINGS_KEYS)[keyof typeof SETTINGS_KEYS];

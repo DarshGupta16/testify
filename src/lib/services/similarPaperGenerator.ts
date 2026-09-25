@@ -49,7 +49,10 @@ export async function generateSimilarPaperTest(
 	if (blueprint) {
 		options.onProgress(45, 'Reusing cached paper blueprint analysis...');
 	} else {
-		options.onProgress(5, 'Phase 1/2: Analyzing source paper patterns & reverse-engineering blueprint...');
+		options.onProgress(
+			5,
+			'Phase 1/2: Analyzing source paper patterns & reverse-engineering blueprint...'
+		);
 
 		const blueprintResult = await aiService.generatePaperBlueprint({
 			provider: job.aiProvider,
@@ -105,7 +108,7 @@ export async function generateSimilarPaperTest(
 		customInstructions: job.customInstructions,
 		targetQuestionCount,
 		durationMinutes: job.durationMinutes ?? sourceTest.durationMinutes,
-		isUntimed: job.isUntimed ?? (sourceTest.durationMinutes === null),
+		isUntimed: job.isUntimed ?? sourceTest.durationMinutes === null,
 		signal: job.abortController?.signal,
 		onProgress: (statusText, pct) => {
 			const mappedPct = pct ? Math.min(90, Math.round(48 + (pct / 100) * 42)) : 70;
@@ -122,13 +125,10 @@ export async function generateSimilarPaperTest(
 	const compiledQuestions = precompileQuestionsMath(similarResult.questions);
 
 	const finalTitle =
-		job.title?.trim() ||
-		similarResult.title?.trim() ||
-		`${sourceTest.title} (Similar Paper)`;
+		job.title?.trim() || similarResult.title?.trim() || `${sourceTest.title} (Similar Paper)`;
 
 	const finalTotalMarks =
-		similarResult.totalMarks ||
-		compiledQuestions.reduce((acc, q) => acc + (q.marks || 4), 0);
+		similarResult.totalMarks || compiledQuestions.reduce((acc, q) => acc + (q.marks || 4), 0);
 
 	const finalDuration = job.isUntimed
 		? null
@@ -136,8 +136,7 @@ export async function generateSimilarPaperTest(
 			? similarResult.durationMinutes
 			: (job.durationMinutes ?? sourceTest.durationMinutes ?? 60);
 
-	const chosenSubjectId =
-		job.subjectId || sourceTest.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
+	const chosenSubjectId = job.subjectId || sourceTest.subjectId || DEFAULT_SUBJECT_IDS.GENERAL;
 
 	const newId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -148,6 +147,7 @@ export async function generateSimilarPaperTest(
 			job.description ||
 			`Generated similar paper based on "${sourceTest.title}" (${compiledQuestions.length} questions).`,
 		subjectId: chosenSubjectId,
+		folderId: job.folderId !== undefined ? job.folderId : (sourceTest.folderId ?? null),
 		durationMinutes: finalDuration,
 		totalMarks: finalTotalMarks,
 		testFileName: `${finalTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,

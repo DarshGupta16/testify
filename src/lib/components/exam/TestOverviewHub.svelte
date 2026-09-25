@@ -6,7 +6,6 @@ import DevPipelineTraceViewer from '$lib/components/dev/DevPipelineTraceViewer.s
 import DiagramsTab from '$lib/components/exam/tabs/DiagramsTab.svelte';
 import PagesTab from '$lib/components/exam/tabs/PagesTab.svelte';
 import QuestionsTab from '$lib/components/exam/tabs/QuestionsTab.svelte';
-import { db } from '$lib/services/db';
 import { getAppContext } from '$lib/stores/appContext.svelte';
 import type { TestAttemptStats } from '$lib/stores/attemptStore.svelte';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
@@ -38,7 +37,9 @@ const {
 	ondeletetest: () => void;
 } = $props();
 
-let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>('attempts');
+let activeTab = $state<'attempts' | 'questions' | 'diagrams' | 'pages' | 'trace' | 'blueprint'>(
+	'attempts'
+);
 let attemptFilter = $state<'all' | 'exam' | 'practice'>('all');
 let isConfirmingDelete = $state(false);
 let zoomedImage = $state<{ title: string; src: string; info?: string } | null>(null);
@@ -50,7 +51,7 @@ $effect(() => {
 		if (test.devPipelineTrace) {
 			loadedTrace = test.devPipelineTrace;
 		} else {
-			db.getDevTrace(test.id).then((t) => {
+			app.tests.prefetchDevTrace(test.id).then((t) => {
 				loadedTrace = t || null;
 			});
 		}
@@ -62,7 +63,7 @@ $effect(() => {
 		if (test.extractedData) {
 			loadedDocAssets = test.extractedData;
 		} else {
-			db.getTestDocAssets(test.id).then((assets) => {
+			app.tests.getTestDocAssets(test.id).then((assets) => {
 				loadedDocAssets = assets || null;
 			});
 		}
@@ -81,6 +82,7 @@ const allPages = $derived<ExtractedPdfPage[]>(
 const filteredAttempts = $derived(
 	attempts.filter((a) => attemptFilter === 'all' || a.mode === attemptFilter)
 );
+const folderObj = $derived(test.folderId ? app.folders.folderMap.get(test.folderId) : null);
 </script>
 
 <div class="space-y-6 animate-fade-in pb-12">
@@ -90,12 +92,20 @@ const filteredAttempts = $derived(
 		<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b-2 border-border-color pb-4 sm:pb-5">
 			<div>
 				<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-					<a href="/" class="font-mono text-xs text-text-muted hover:text-text-primary mr-1 sm:mr-2">
-						&larr; Dashboard
+					<a
+						href={test.folderId ? `/?folder=${test.folderId}` : '/'}
+						class="font-mono text-xs text-text-muted hover:text-text-primary mr-1 sm:mr-2"
+					>
+						&larr; {folderObj ? folderObj.name : 'Dashboard'}
 					</a>
 					<span class="neo-badge bg-accent-contrast text-accent-contrast-text">
 						{app.subjects.getName(test.subjectId) || '?'}
 					</span>
+					{#if folderObj}
+						<span class="neo-badge bg-muted/80 text-text-primary border border-border-color">
+							📁 {folderObj.name}
+						</span>
+					{/if}
 					{#if dev && (test.extractedDiagramsCount ? test.extractedDiagramsCount > 0 : allDiagrams.length > 0)}
 						<span class="neo-badge bg-amber-500/20 text-amber-600 dark:text-amber-400">
 							🎨 {test.extractedDiagramsCount ?? allDiagrams.length} {(test.extractedDiagramsCount ?? allDiagrams.length) === 1 ? 'Figure' : 'Figures'}

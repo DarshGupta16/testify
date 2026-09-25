@@ -4,6 +4,7 @@ export class FilterStore {
 	searchQuery = $state<string>('');
 	selectedCategory = $state<CategoryFilter>('All');
 	sortBy = $state<SortOption>('newest');
+	folderScope = $state<'current' | 'all'>('current');
 
 	setSearch(query: string) {
 		this.searchQuery = query;
@@ -21,17 +22,40 @@ export class FilterStore {
 		this.sortBy = sort;
 	}
 
+	setFolderScope(scope: 'current' | 'all') {
+		this.folderScope = scope;
+	}
+
 	reset() {
 		this.searchQuery = '';
 		this.selectedCategory = 'All';
 		this.sortBy = 'newest';
+		this.folderScope = 'current';
 	}
 
 	/**
 	 * Pure function to apply current search, subject/category, and sort criteria on a list of tests.
 	 */
-	apply(tests: TestItem[], getSubjectName?: (id: string) => string): TestItem[] {
+	apply(
+		tests: TestItem[],
+		getSubjectName?: (id: string) => string,
+		activeFolderId: string | null = null,
+		getTestIdsInFolder?: (folderId: string | null) => string[]
+	): TestItem[] {
 		let list = [...tests];
+
+		// Folder scope filtering
+		if (this.folderScope === 'current') {
+			if (getTestIdsInFolder) {
+				const matchingIds = new Set(getTestIdsInFolder(activeFolderId));
+				list = list.filter((t) => matchingIds.has(t.id));
+			} else if (activeFolderId === null) {
+				list = list.filter((t) => !t.folderId || t.folderId === null);
+			} else {
+				list = list.filter((t) => t.folderId === activeFolderId);
+			}
+		}
+		// If folderScope === 'all', include tests across all folders
 
 		// Category / Subject filtering
 		if (this.selectedCategory !== 'All') {

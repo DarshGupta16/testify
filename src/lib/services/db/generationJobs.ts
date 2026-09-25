@@ -47,7 +47,9 @@ export async function getAllJobs(db: TestifyDatabase): Promise<StoredGenerationJ
  */
 export async function getIncompleteJobs(db: TestifyDatabase): Promise<StoredGenerationJob[]> {
 	const all = await getAllJobs(db);
-	return all.filter((job) => job.status === 'queued' || job.status === 'processing' || job.status === 'paused');
+	return all.filter(
+		(job) => job.status === 'queued' || job.status === 'processing' || job.status === 'paused'
+	);
 }
 
 /**

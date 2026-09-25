@@ -11,6 +11,7 @@ const app = getAppContext();
 // Local working draft state
 let draftTitle = $state<string>('');
 let draftSubjectId = $state<string>('');
+let draftFolderId = $state<string | null>(null);
 let draftDurationMinutes = $state<number | null>(null);
 let draftDescription = $state<string>('');
 let draftQuestions = $state<QuestionPreview[]>([]);
@@ -25,6 +26,7 @@ $effect(() => {
 			const test = app.modals.editingTest;
 			draftTitle = test.title;
 			draftSubjectId = test.subjectId;
+			draftFolderId = test.folderId ?? null;
 			draftDurationMinutes = test.durationMinutes;
 			draftDescription = test.description || '';
 
@@ -130,6 +132,7 @@ function handleSave() {
 		...plainEditingTest,
 		title: draftTitle.trim(),
 		subjectId: draftSubjectId,
+		folderId: draftFolderId,
 		durationMinutes: draftDurationMinutes,
 		description: draftDescription.trim(),
 		questions: plainQuestions,
@@ -205,11 +208,13 @@ function handleKeyDown(e: KeyboardEvent) {
 				<TestMetadataEditForm
 					title={draftTitle}
 					subjectId={draftSubjectId}
+					folderId={draftFolderId}
 					durationMinutes={draftDurationMinutes}
 					description={draftDescription}
 					subjects={app.subjects.subjects}
 					ontitlechange={(val) => (draftTitle = val)}
 					onsubjectchange={(val) => (draftSubjectId = val)}
+					onfolderchange={(val) => (draftFolderId = val)}
 					ondurationchange={(val) => (draftDurationMinutes = val)}
 					ondescriptionchange={(val) => (draftDescription = val)}
 				/>

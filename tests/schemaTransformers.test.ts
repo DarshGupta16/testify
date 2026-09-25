@@ -2,26 +2,26 @@
 import { describe, expect, it } from 'bun:test';
 import { Type } from '@google/genai';
 import {
-	toGeminiSchema,
-	toOpenAIStrictSchema,
-	toAnthropicTool,
-} from '../src/lib/services/ai/schemaTransformers';
-import {
-	PAPER_BLUEPRINT_CANONICAL_SCHEMA,
-	GEMINI_PAPER_BLUEPRINT_SCHEMA,
-	OPENAI_STRICT_PAPER_BLUEPRINT_SCHEMA,
-	OPENAI_PAPER_BLUEPRINT_SCHEMA,
-	ANTHROPIC_PAPER_BLUEPRINT_TOOL,
-	GROQ_PAPER_BLUEPRINT_SCHEMA,
-} from '../src/lib/services/ai/similarPaperSchemas';
-import {
+	ANTHROPIC_ASSESSMENT_TOOL,
 	ASSESSMENT_CANONICAL_SCHEMA,
 	GEMINI_ASSESSMENT_SCHEMA,
-	OPENAI_STRICT_ASSESSMENT_SCHEMA,
-	OPENAI_ASSESSMENT_SCHEMA,
-	ANTHROPIC_ASSESSMENT_TOOL,
 	GROQ_ASSESSMENT_SCHEMA,
+	OPENAI_ASSESSMENT_SCHEMA,
+	OPENAI_STRICT_ASSESSMENT_SCHEMA,
 } from '../src/lib/services/ai/schemas';
+import {
+	toAnthropicTool,
+	toGeminiSchema,
+	toOpenAIStrictSchema,
+} from '../src/lib/services/ai/schemaTransformers';
+import {
+	ANTHROPIC_PAPER_BLUEPRINT_TOOL,
+	GEMINI_PAPER_BLUEPRINT_SCHEMA,
+	GROQ_PAPER_BLUEPRINT_SCHEMA,
+	OPENAI_PAPER_BLUEPRINT_SCHEMA,
+	OPENAI_STRICT_PAPER_BLUEPRINT_SCHEMA,
+	PAPER_BLUEPRINT_CANONICAL_SCHEMA,
+} from '../src/lib/services/ai/similarPaperSchemas';
 
 describe('schemaTransformers', () => {
 	const sampleSchema = {
@@ -128,11 +128,7 @@ describe('schemaTransformers', () => {
 
 	describe('toAnthropicTool', () => {
 		it('wraps schema into Anthropic tool format with input_schema', () => {
-			const tool = toAnthropicTool(
-				'test_tool',
-				'A test tool description',
-				sampleSchema
-			);
+			const tool = toAnthropicTool('test_tool', 'A test tool description', sampleSchema);
 
 			expect(tool.name).toBe('test_tool');
 			expect(tool.description).toBe('A test tool description');

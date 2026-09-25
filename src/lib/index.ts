@@ -3,11 +3,18 @@ export * from './actions/clickOutside';
 
 // Common & Dashboard Components
 export { default as ImageLightboxModal } from './components/common/ImageLightboxModal.svelte';
+export { default as InlineFolderCreator } from './components/common/InlineFolderCreator.svelte';
 export { default as MathRenderer } from './components/common/MathRenderer.svelte';
 export { default as Toast } from './components/common/Toast.svelte';
+export { default as CardContextMenu } from './components/dashboard/card/CardContextMenu.svelte';
+export { default as CardModeSelector } from './components/dashboard/card/CardModeSelector.svelte';
 export { default as EmptyState } from './components/dashboard/EmptyState.svelte';
 export { default as FilterBar } from './components/dashboard/FilterBar.svelte';
+export { default as FolderBreadcrumbs } from './components/dashboard/FolderBreadcrumbs.svelte';
+export { default as FolderCard } from './components/dashboard/FolderCard.svelte';
+export { default as FolderEmptyState } from './components/dashboard/FolderEmptyState.svelte';
 export { default as StatsBar } from './components/dashboard/StatsBar.svelte';
+export { default as SubfoldersGrid } from './components/dashboard/SubfoldersGrid.svelte';
 export { default as TestCard } from './components/dashboard/TestCard.svelte';
 
 // Exam Suite Components
@@ -34,7 +41,10 @@ export { default as QuestionItemEditor } from './components/modals/edit/Question
 export { default as QuestionListPalette } from './components/modals/edit/QuestionListPalette.svelte';
 export { default as QuestionOptionsEditor } from './components/modals/edit/QuestionOptionsEditor.svelte';
 export { default as TestMetadataEditForm } from './components/modals/edit/TestMetadataEditForm.svelte';
+export { default as FoldersModal } from './components/modals/FoldersModal.svelte';
 export { default as MasterPasswordModal } from './components/modals/MasterPasswordModal.svelte';
+export { default as MoveToFolderModal } from './components/modals/MoveToFolderModal.svelte';
+export { default as SimilarPaperModal } from './components/modals/SimilarPaperModal.svelte';
 export { default as SubjectsModal } from './components/modals/SubjectsModal.svelte';
 export { default as TestDetailsModal } from './components/modals/TestDetailsModal.svelte';
 export { default as TestEditModal } from './components/modals/TestEditModal.svelte';
@@ -50,6 +60,7 @@ export * from './services/assessmentEvaluator';
 export * from './services/crypto';
 export * from './services/db';
 export * from './services/pdf';
+export * from './services/queue';
 export * from './services/settings';
 export * from './services/testUploader';
 
@@ -58,6 +69,7 @@ export * from './stores/apiKeyStore.svelte';
 export * from './stores/appContext.svelte';
 export * from './stores/attemptStore.svelte';
 export * from './stores/filterStore.svelte';
+export * from './stores/folderStore.svelte';
 export * from './stores/modalStore.svelte';
 export * from './stores/securityStore.svelte';
 export * from './stores/subjectStore.svelte';

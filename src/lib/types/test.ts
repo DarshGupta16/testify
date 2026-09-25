@@ -87,6 +87,7 @@ export interface TestItem {
 	title: string;
 	description?: string;
 	subjectId: string;
+	folderId?: string | null;
 	durationMinutes: number | null; // null or 0 indicates untimed
 	totalMarks: number;
 	testFileName: string;
@@ -114,6 +115,7 @@ export interface TestItem {
  */
 export interface BaseAssessmentConfig {
 	subjectId?: string;
+	folderId?: string | null;
 	aiProvider?: AIProvider;
 	aiModel?: string;
 	scale?: number;
@@ -127,7 +129,9 @@ export interface BaseAssessmentConfig {
 }
 
 export interface TestUploadPayload extends BaseAssessmentConfig {
+	id?: string;
 	title?: string;
+	folderId?: string | null;
 	testFile: {
 		name: string;
 		size: number;

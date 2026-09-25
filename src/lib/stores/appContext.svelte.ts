@@ -1,12 +1,15 @@
 import { getContext, setContext } from 'svelte';
+import { goto } from '$app/navigation';
 import { db, fireAndForget } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
+import type { PdfExtractionResult } from '$lib/types/pdf';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
-import type { TestItem, TestUploadPayload } from '$lib/types/test';
+import type { TestItem } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
 import { FilterStore } from './filterStore.svelte';
+import { FolderStore } from './folderStore.svelte';
 import { GenerationQueueStore } from './generationQueueStore.svelte';
 import { ModalStore } from './modalStore.svelte';
 import { NetworkStore } from './networkStore.svelte';
@@ -22,7 +25,8 @@ const APP_CONTEXT_KEY = Symbol.for('TESTIFY_APP_CONTEXT');
 export class AppStore {
 	// Specialized Domain Sub-Stores
 	readonly subjects = new SubjectStore();
-	readonly tests = new TestStore();
+	readonly folders = new FolderStore();
+	readonly tests = new TestStore(db, this.folders);
 	readonly attempts = new AttemptStore();
 	readonly filter = new FilterStore();
 	readonly modals = new ModalStore();
@@ -36,16 +40,49 @@ export class AppStore {
 	// Global extraction scale preference (1.0x, 1.25x, 1.5x, 2.0x)
 	selectedScale = $state<number>(1.25);
 
+	// Global safety preference: confirm before deleting folders
+	confirmFolderDelete = $state<boolean>(true);
+
+	// Guard flag to prevent URL sync effects from wiping undo toasts during active folder deletions
+	isDeletingFolder = $state<boolean>(false);
+
 	// Composed Derived Reactive Queries
 	readonly filteredTests = $derived.by(() => {
-		return this.filter.apply(this.tests.tests, (id) => this.subjects.getName(id));
+		return this.filter.apply(
+			this.tests.tests,
+			(id) => this.subjects.getName(id),
+			this.folders.activeFolderId,
+			(folderId) => this.folders.getTestIdsInFolder(folderId)
+		);
 	});
 
+	constructor() {
+		this.tests.setFolderStore(this.folders);
+	}
+
 	async init() {
-		// 1. Initialize persistent UI preferences, subjects, attempts, & local exam collections
+		// 1. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
 		await this.theme.init();
 		await this.subjects.init();
+		await this.folders.init();
 		await this.tests.init();
+
+		// Sanitize dangling folderId on tests if folder does not exist
+		const testsWithDanglingFolder: TestItem[] = [];
+		for (const test of this.tests.tests) {
+			if (test.folderId && !this.folders.folderMap.has(test.folderId)) {
+				test.folderId = null;
+				testsWithDanglingFolder.push(test);
+			}
+		}
+		if (testsWithDanglingFolder.length > 0) {
+			fireAndForget(
+				db.bulkSaveTests(testsWithDanglingFolder),
+				'Sanitizing tests with dangling folder references in Dexie'
+			);
+		}
+
+		this.folders.rebuildIndices(this.tests.tests);
 		await this.attempts.init();
 
 		// 2. Initialize network & PWA installation status
@@ -79,6 +116,30 @@ export class AppStore {
 		} catch (err) {
 			console.error('[AppStore] Failed loading scale preference:', err);
 		}
+
+		// 7. Load saved folder delete confirmation preference
+		try {
+			const savedConfirm = await db.getSetting<boolean>(SETTINGS_KEYS.CONFIRM_FOLDER_DELETE, true);
+			if (typeof savedConfirm === 'boolean') {
+				this.confirmFolderDelete = savedConfirm;
+			}
+		} catch (err) {
+			console.error('[AppStore] Failed loading confirm folder delete preference:', err);
+		}
+
+		// 8. Register window beforeunload flush for any pending folder deletion
+		if (typeof window !== 'undefined') {
+			window.addEventListener('beforeunload', () => {
+				if (this.commitTimeout) {
+					clearTimeout(this.commitTimeout);
+					this.commitTimeout = null;
+				}
+				if (this.pendingFolderDeleteCommit) {
+					this.pendingFolderDeleteCommit();
+					this.pendingFolderDeleteCommit = null;
+				}
+			});
+		}
 	}
 
 	setScale(scale: number) {
@@ -86,6 +147,14 @@ export class AppStore {
 		fireAndForget(
 			db.setSetting(SETTINGS_KEYS.EXTRACTION_SCALE, scale),
 			`Persisting scale setting (${scale}) to Dexie`
+		);
+	}
+
+	setConfirmFolderDelete(enabled: boolean) {
+		this.confirmFolderDelete = enabled;
+		fireAndForget(
+			db.setSetting(SETTINGS_KEYS.CONFIRM_FOLDER_DELETE, enabled),
+			`Persisting confirm folder delete preference (${enabled})`
 		);
 	}
 
@@ -145,30 +214,15 @@ export class AppStore {
 
 	// --- High-Level Test Orchestration Methods ---
 
-	async handleAddTest(payload: TestUploadPayload): Promise<TestItem | undefined> {
-		try {
-			if (!this.network.isOnline) {
-				throw new Error(
-					'You are currently offline. AI test generation requires an internet connection.'
-				);
-			}
-			if (!payload.scale) {
-				payload.scale = this.selectedScale;
-			}
-			const apiKey = payload.aiProvider ? this.apiKeys.getKey(payload.aiProvider) : undefined;
-			const newTest = await this.tests.createTest(payload, apiKey);
-			this.toast.show(`Test "${newTest.title}" created successfully!`, 'success');
-			this.modals.closeUpload(true);
-			return newTest;
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : 'Failed to process test PDF.';
-			this.toast.show(errorMsg, 'error', 8000);
-			console.error('[AppStore] Upload error:', error);
-			throw error;
-		}
-	}
-
 	handleUpdateTest(updatedTest: TestItem): void {
+		const existing = this.tests.tests.find((t) => t.id === updatedTest.id);
+		if (existing && existing.folderId !== updatedTest.folderId) {
+			this.folders.moveTestInIndex(
+				updatedTest.id,
+				existing.folderId ?? null,
+				updatedTest.folderId ?? null
+			);
+		}
 		this.tests.updateTest(updatedTest);
 		if (this.modals.selectedTest?.id === updatedTest.id) {
 			this.modals.selectedTest = { ...updatedTest };
@@ -180,6 +234,10 @@ export class AppStore {
 	}
 
 	handleDeleteTest(id: string) {
+		const activeJob = this.queue.jobs.find((j) => j.testId === id || j.resultTestId === id);
+		if (activeJob) {
+			this.queue.cancelJob(activeJob.id);
+		}
 		const deleted = this.tests.deleteTest(id);
 		this.attempts.deleteAttemptsForTest(id);
 		if (this.modals.selectedTest?.id === id) {
@@ -215,6 +273,7 @@ export class AppStore {
 	handleClearAllTests() {
 		this.tests.clearAll();
 		this.attempts.clearAll();
+		this.folders.rebuildIndices([]);
 		this.modals.closeDetails();
 		this.toast.show('All tests cleared.', 'warning');
 	}
@@ -225,6 +284,7 @@ export class AppStore {
 
 	async handleCreateSimilarPaperJob(payload: {
 		sourceTest: TestItem;
+		folderId?: string | null;
 		questionCount: number;
 		durationMinutes: number | null;
 		autoDuration?: boolean;
@@ -242,6 +302,7 @@ export class AppStore {
 		}
 
 		await this.queue.enqueueSimilarPaper(payload.sourceTest, {
+			folderId: payload.folderId,
 			questionCount: payload.questionCount,
 			durationMinutes: payload.durationMinutes,
 			autoDuration: payload.autoDuration,
@@ -253,6 +314,187 @@ export class AppStore {
 
 		this.toast.show('Similar paper generation queued', 'success');
 		this.modals.closeSimilarPaperModal(true);
+	}
+
+	private pendingFolderDeleteCommit: (() => Promise<void>) | null = null;
+	private commitTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	async moveTestToFolder(testId: string, folderId: string | null): Promise<void> {
+		const targetTest = this.tests.tests.find((t) => t.id === testId);
+		if (!targetTest) return;
+		const oldFolderId = targetTest.folderId ?? null;
+		if (oldFolderId === folderId) return;
+
+		targetTest.folderId = folderId;
+		this.folders.moveTestInIndex(testId, oldFolderId, folderId);
+		fireAndForget(
+			db.updateTest(testId, { folderId }),
+			`Moving test "${testId}" to folder "${folderId}"`
+		);
+		const folderName = folderId ? (this.folders.folderMap.get(folderId)?.name ?? 'Folder') : 'Root';
+		this.toast.show(`Moved "${targetTest.title}" to ${folderName}.`, 'success');
+	}
+
+	async bulkMoveTestsToFolder(testIds: string[], folderId: string | null): Promise<void> {
+		if (testIds.length === 0) return;
+		const targetFolderName = folderId
+			? (this.folders.folderMap.get(folderId)?.name ?? 'Folder')
+			: 'Root';
+
+		for (const id of testIds) {
+			const targetTest = this.tests.tests.find((t) => t.id === id);
+			if (targetTest) {
+				const oldFolderId = targetTest.folderId ?? null;
+				targetTest.folderId = folderId;
+				this.folders.moveTestInIndex(id, oldFolderId, folderId);
+			}
+		}
+
+		fireAndForget(
+			db.bulkUpdateTestFolder(testIds, folderId),
+			`Bulk moving ${testIds.length} tests to folder "${folderId}"`
+		);
+		this.toast.show(`Moved ${testIds.length} papers to ${targetFolderName}.`, 'success');
+	}
+
+	async deleteFolder(folderId: string): Promise<void> {
+		const folder = this.folders.folderMap.get(folderId);
+		if (!folder) return;
+
+		// 0. Flush any previously pending folder deletion commit and clear existing commitTimeout immediately
+		if (this.commitTimeout) {
+			clearTimeout(this.commitTimeout);
+			this.commitTimeout = null;
+		}
+		if (this.pendingFolderDeleteCommit) {
+			await this.pendingFolderDeleteCommit();
+			this.pendingFolderDeleteCommit = null;
+		}
+
+		// 1. Gather all descendant folder IDs and test IDs
+		const descendantFolderIds = this.folders.getDescendantIds(folderId);
+		const allFolderIdsToDelete = [folderId, ...descendantFolderIds];
+		const folderIdSet = new Set(allFolderIdsToDelete);
+
+		const testsToDelete = this.tests.tests.filter((t) => t.folderId && folderIdSet.has(t.folderId));
+		const testIdsToDelete = testsToDelete.map((t) => t.id);
+		const testIdSet = new Set(testIdsToDelete);
+
+		// 2. Abort/cancel queue jobs (both target folder and similar paper source/result)
+		const jobsToDelete: string[] = [];
+		for (const job of this.queue.jobsMap.values()) {
+			const isTargetFolder = job.folderId && folderIdSet.has(job.folderId);
+			const isSourceTest = job.sourceTestId && testIdSet.has(job.sourceTestId);
+			const isTargetTest =
+				(job.testId && testIdSet.has(job.testId)) ||
+				(job.resultTestId && testIdSet.has(job.resultTestId));
+
+			if (isTargetFolder || isSourceTest || isTargetTest) {
+				this.queue.cancelJob(job.id);
+				jobsToDelete.push(job.id);
+			}
+		}
+
+		// 3. Snapshot in-memory state for 8s undo
+		const deletedFolders = this.folders.folders.filter((f) => folderIdSet.has(f.id));
+		const deletedTests = [...testsToDelete];
+		const deletedAttempts = this.attempts.attempts.filter((a) => testIdSet.has(a.testId));
+		const previousActiveFolderId = this.folders.activeFolderId;
+		const deletedDocAssets = new Map<string, PdfExtractionResult>();
+		for (const id of testIdsToDelete) {
+			const asset = this.tests.docAssetsCache.get(id);
+			if (asset) deletedDocAssets.set(id, asset);
+		}
+
+		// 4. Update in-memory stores and indices
+		this.isDeletingFolder = true;
+		this.folders.folders = this.folders.folders.filter((f) => !folderIdSet.has(f.id));
+		this.tests.tests = this.tests.tests.filter((t) => !testIdSet.has(t.id));
+		for (const id of testIdsToDelete) {
+			this.tests.docAssetsCache.delete(id);
+		}
+		this.attempts.attempts = this.attempts.attempts.filter((a) => !testIdSet.has(a.testId));
+		this.folders.rebuildIndices(this.tests.tests);
+
+		// 5. Repoint activeFolderId if viewing deleted subtree
+		if (this.folders.activeFolderId && folderIdSet.has(this.folders.activeFolderId)) {
+			const parentId = folder.parentFolderId;
+			const safeParentId = parentId && !folderIdSet.has(parentId) ? parentId : null;
+			this.folders.setActiveFolder(safeParentId);
+			goto(safeParentId ? `?folder=${safeParentId}` : '/', { replaceState: true }).finally(() => {
+				this.isDeletingFolder = false;
+			});
+		} else {
+			this.isDeletingFolder = false;
+		}
+
+		// 6. Schedule atomic Dexie transaction across all 6 tables with 8-second Undo Toast
+		let isUndone = false;
+
+		const commitPermanentDelete = async () => {
+			if (isUndone) return;
+			if (this.commitTimeout) {
+				clearTimeout(this.commitTimeout);
+				this.commitTimeout = null;
+			}
+			this.pendingFolderDeleteCommit = null;
+			try {
+				await db.atomicCascadeDeleteFolder(allFolderIdsToDelete, testIdsToDelete, jobsToDelete);
+			} catch (err) {
+				console.error('[AppStore] Failed cascade delete in Dexie:', err);
+			}
+		};
+
+		this.pendingFolderDeleteCommit = commitPermanentDelete;
+		this.commitTimeout = setTimeout(commitPermanentDelete, 8000);
+
+		this.toast.show(
+			`Deleted folder "${folder.name}" (${testsToDelete.length} ${testsToDelete.length === 1 ? 'paper' : 'papers'}).`,
+			'info',
+			8000,
+			{
+				label: 'UNDO',
+				onClick: () => {
+					isUndone = true;
+					if (this.commitTimeout) {
+						clearTimeout(this.commitTimeout);
+						this.commitTimeout = null;
+					}
+					this.pendingFolderDeleteCommit = null;
+
+					// Restore in-memory state
+					this.folders.folders = [...this.folders.folders, ...deletedFolders];
+					this.tests.tests = [...this.tests.tests, ...deletedTests];
+					for (const [id, asset] of deletedDocAssets) {
+						this.tests.docAssetsCache.set(id, asset);
+					}
+					for (const attempt of deletedAttempts) {
+						if (!this.attempts.attempts.some((a) => a.id === attempt.id)) {
+							this.attempts.attempts = [...this.attempts.attempts, attempt];
+						}
+					}
+					this.folders.setActiveFolder(previousActiveFolderId);
+					this.folders.rebuildIndices(this.tests.tests);
+					if (previousActiveFolderId) {
+						goto(`?folder=${previousActiveFolderId}`, { replaceState: true });
+					} else {
+						goto('/', { replaceState: true });
+					}
+
+					// Re-persist restored items back to Dexie so that if a commit occurred or after page reload, the restored entities are never lost
+					fireAndForget(db.bulkSaveFolders(deletedFolders), 'Restoring undone folders to Dexie');
+					fireAndForget(db.bulkSaveTests(deletedTests), 'Restoring undone tests to Dexie');
+					if (deletedAttempts.length > 0) {
+						fireAndForget(
+							db.bulkSaveAttempts(deletedAttempts),
+							'Restoring undone attempts to Dexie'
+						);
+					}
+
+					this.toast.show(`Restored folder "${folder.name}".`, 'success');
+				},
+			}
+		);
 	}
 }
 
