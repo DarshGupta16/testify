@@ -6,11 +6,26 @@ const app = getAppContext();
 
 let isDeleting = $state(false);
 let selectedMode = $state<'cloud_only' | 'everything' | null>(null);
+let confirmationInput = $state('');
+
+const isEverythingConfirmed = $derived(
+	confirmationInput.trim() === 'DELETE' ||
+		(Boolean(app.auth.userEmail) &&
+			confirmationInput.trim().toLowerCase() === (app.auth.userEmail ?? '').toLowerCase())
+);
+
+$effect(() => {
+	if (!app.modals.isDeleteAccountModalOpen) {
+		confirmationInput = '';
+		selectedMode = null;
+	}
+});
 
 function handleClose() {
 	if (!isDeleting) {
 		app.modals.closeDeleteAccount();
 		selectedMode = null;
+		confirmationInput = '';
 	}
 }
 
@@ -21,6 +36,9 @@ function handleKeyDown(e: KeyboardEvent) {
 }
 
 async function confirmDelete(mode: 'cloud_only' | 'everything') {
+	if (mode === 'everything' && !isEverythingConfirmed) {
+		return;
+	}
 	selectedMode = mode;
 	isDeleting = true;
 	try {
@@ -34,6 +52,7 @@ async function confirmDelete(mode: 'cloud_only' | 'everything') {
 	} finally {
 		isDeleting = false;
 		selectedMode = null;
+		confirmationInput = '';
 	}
 }
 </script>
@@ -158,11 +177,31 @@ async function confirmDelete(mode: 'cloud_only' | 'everything') {
 							</p>
 						</div>
 
+						<!-- Strict Confirmation Barrier -->
+						<div class="space-y-1.5 pt-1 border-t border-rose-500/20">
+							<label
+								for="delete-confirm-input"
+								class="block font-mono text-[11px] font-bold text-text-secondary uppercase"
+							>
+								Type <span class="text-rose-600 dark:text-rose-400 font-black">DELETE</span> or your email to confirm:
+							</label>
+							<input
+								id="delete-confirm-input"
+								type="text"
+								bind:value={confirmationInput}
+								disabled={isDeleting}
+								placeholder={app.auth.userEmail ? `DELETE or ${app.auth.userEmail}` : 'DELETE'}
+								autocomplete="off"
+								spellcheck="false"
+								class="neo-input w-full text-xs font-mono py-2"
+							/>
+						</div>
+
 						<button
 							type="button"
 							onclick={() => confirmDelete('everything')}
-							disabled={isDeleting}
-							class="neo-btn w-full py-2.5 px-3 bg-rose-500 text-white hover:bg-rose-600 border-rose-700 text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0px_var(--shadow-color)] flex items-center justify-center gap-2"
+							disabled={isDeleting || !isEverythingConfirmed}
+							class="neo-btn w-full py-2.5 px-3 bg-rose-500 text-white hover:bg-rose-600 border-rose-700 text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0px_var(--shadow-color)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
 						>
 							{#if isDeleting && selectedMode === 'everything'}
 								<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>

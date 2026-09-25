@@ -124,9 +124,7 @@ export class FolderStore {
 	}
 
 	// Derived: Flattened hierarchical folder tree with depth, prefix, paperCount, and subfolderCount
-	get flattenedTree(): FlattenedFolderRow[] {
-		return this.computeFlattenedTree();
-	}
+	flattenedTree = $derived.by(() => this.computeFlattenedTree());
 
 	// Derived: Root-level folders sorted by order
 	rootFolders = $derived(

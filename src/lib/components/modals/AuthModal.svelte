@@ -194,45 +194,62 @@ async function handleOAuth(provider: 'google' | 'github') {
 				</button>
 			</div>
 
-			<!-- Tab Navigation Switcher -->
-			<div class="grid grid-cols-2 border-b-2 border-border-color bg-muted/30">
-				<button
-					type="button"
-					onclick={() => {
-						activeTab = 'signin';
-						errorMessage = null;
-						successMessage = null;
-					}}
-					class={`py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors border-r-2 border-border-color ${
-						activeTab === 'signin'
-							? 'bg-surface text-accent-contrast border-b-2 border-b-accent-contrast -mb-[2px]'
-							: 'text-text-muted hover:text-text-primary'
-					}`}
-				>
-					Sign In
-				</button>
-				<button
-					type="button"
-					onclick={() => {
-						activeTab = 'signup';
-						errorMessage = null;
-						successMessage = null;
-					}}
-					class={`py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
-						activeTab === 'signup'
-							? 'bg-surface text-accent-contrast border-b-2 border-b-accent-contrast -mb-[2px]'
-							: 'text-text-muted hover:text-text-primary'
-					}`}
-				>
-					Sign Up
-				</button>
-			</div>
+			<!-- Tab Navigation Switcher / Back Header -->
+			{#if activeTab === 'forgot'}
+				<div class="flex items-center px-4 py-2.5 border-b-2 border-border-color bg-muted/30">
+					<button
+						type="button"
+						onclick={() => {
+							activeTab = 'signin';
+							errorMessage = null;
+							successMessage = null;
+						}}
+						class="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-accent-contrast hover:underline cursor-pointer"
+					>
+						← Back to Sign In
+					</button>
+				</div>
+			{:else}
+				<div class="grid grid-cols-2 border-b-2 border-border-color bg-muted/30">
+					<button
+						type="button"
+						onclick={() => {
+							activeTab = 'signin';
+							errorMessage = null;
+							successMessage = null;
+						}}
+						class={`py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors border-r-2 border-border-color ${
+							activeTab === 'signin'
+								? 'bg-surface text-accent-contrast border-b-2 border-b-accent-contrast -mb-[2px]'
+								: 'text-text-muted hover:text-text-primary'
+						}`}
+					>
+						Sign In
+					</button>
+					<button
+						type="button"
+						onclick={() => {
+							activeTab = 'signup';
+							errorMessage = null;
+							successMessage = null;
+						}}
+						class={`py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+							activeTab === 'signup'
+								? 'bg-surface text-accent-contrast border-b-2 border-b-accent-contrast -mb-[2px]'
+								: 'text-text-muted hover:text-text-primary'
+						}`}
+					>
+						Sign Up
+					</button>
+				</div>
+			{/if}
 
 			<!-- Modal Body (Scrollable) -->
 			<div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 				<!-- Error / Success Notices -->
 				{#if errorMessage}
 					<div
+						role="alert"
 						class="neo-box p-3 bg-rose-500/10 border-2 border-rose-500 text-rose-600 dark:text-rose-400 font-mono text-xs flex items-start gap-2"
 					>
 						<span class="font-bold">✕</span>
@@ -321,7 +338,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								required
 								placeholder="name@example.com"
 								autocomplete="email"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 
@@ -352,7 +369,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								required
 								placeholder="••••••••"
 								autocomplete="current-password"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 
@@ -388,7 +405,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								required
 								placeholder="name@example.com"
 								autocomplete="email"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 
@@ -407,7 +424,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								minlength="6"
 								placeholder="••••••••"
 								autocomplete="new-password"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 
@@ -426,7 +443,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								minlength="6"
 								placeholder="••••••••"
 								autocomplete="new-password"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 
@@ -466,7 +483,7 @@ async function handleOAuth(provider: 'google' | 'github') {
 								required
 								placeholder="name@example.com"
 								autocomplete="email"
-								class="w-full border-2 border-border-color bg-surface px-3 py-2 text-sm font-sans text-text-primary placeholder:text-text-muted focus:border-accent-contrast focus:outline-hidden shadow-[2px_2px_0px_var(--shadow-color)]"
+								class="neo-input w-full text-sm font-sans placeholder:text-text-muted"
 							/>
 						</div>
 

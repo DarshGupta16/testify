@@ -14,7 +14,6 @@ let {
 } = $props();
 
 let selectedOption = $state<string | null>(null);
-let activeQuestionIndex = $state<number>(0);
 
 const sampleOptions = [
 	{ id: 'A', text: 'π / 4', isCorrect: true },
@@ -92,7 +91,7 @@ function resetPreview() {
 				</p>
 
 				<!-- Options Grid -->
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1" role="radiogroup" aria-label="Answer options">
 					{#each sampleOptions as option (option.id)}
 						{@const isSelected = selectedOption === option.id}
 						{@const showCorrect = evaluationMode === 'study' && selectedOption && option.isCorrect}
@@ -100,6 +99,8 @@ function resetPreview() {
 
 						<button
 							type="button"
+							role="radio"
+							aria-checked={isSelected}
 							onclick={() => selectOption(option.id)}
 							class="text-left p-2.5 border-2 text-xs font-mono transition-all flex items-center justify-between {showCorrect
 								? 'bg-emerald-500/20 border-emerald-500 text-emerald-800 dark:text-emerald-200 font-bold'
