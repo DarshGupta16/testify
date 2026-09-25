@@ -16,6 +16,7 @@ import { GenerationQueueStore } from './generationQueueStore.svelte';
 import { ModalStore } from './modalStore.svelte';
 import { NetworkStore } from './networkStore.svelte';
 import { SecurityStore } from './securityStore.svelte';
+import { SettingsStore } from './settingsStore.svelte';
 import { SubjectStore } from './subjectStore.svelte';
 import { TestStore } from './testStore.svelte';
 import { ThemeStore } from './themeStore.svelte';
@@ -39,6 +40,7 @@ export class AppStore {
 	readonly apiKeys = new ApiKeyStore();
 	readonly network = new NetworkStore();
 	readonly queue = new GenerationQueueStore();
+	readonly settings = new SettingsStore();
 
 	// Global extraction scale preference (1.0x, 1.25x, 1.5x, 2.0x)
 	selectedScale = $state<number>(1.25);
@@ -113,6 +115,9 @@ export class AppStore {
 
 		// 6. Initialize Supabase cloud auth session & synchronization engine
 		await this.auth.init(this);
+
+		// 7. Initialize persistent application preferences
+		await this.settings.init();
 
 		// 6. Load saved extraction scale from Dexie
 		try {
