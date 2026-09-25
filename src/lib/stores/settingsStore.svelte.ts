@@ -196,4 +196,26 @@ export class SettingsStore {
 		this.audioFeedback = enabled;
 		this.persistSetting(SETTINGS_KEYS.AUDIO_FEEDBACK, enabled, 'audio feedback');
 	}
+
+	setDefaultMarks(positive: number, negative: number): void {
+		this.setDefaultPositiveMarks(positive);
+		this.setDefaultNegativeMarks(negative);
+	}
+
+	async resetToDefaults(): Promise<void> {
+		this.setDefaultAiProvider('google');
+		this.setDefaultAiModel('gemini-3.7-flash');
+		this.setDefaultDurationMinutes(60);
+		this.setDefaultIsUntimed(false);
+		this.setAutoTitleDefault(true);
+		this.setGlobalCustomInstructions('');
+		this.setAutoPurgePageCanvases(false);
+		this.setKatexFontSize('standard');
+		this.setExamViewMode('focus');
+		this.setEvaluationMode('exam');
+		this.setDefaultPositiveMarks(4);
+		this.setDefaultNegativeMarks(1);
+		this.setAutoSaveInterval(5);
+		this.setAudioFeedback(true);
+	}
 }
