@@ -27,9 +27,9 @@ let batchItems = $state<BatchFormEntry[]>([]);
 let selectedSubjectId = $state(app.subjects.subjects[0]?.id || DEFAULT_SUBJECT_IDS.STEM);
 let selectedFolderId = $state<string | null>(app.folders.activeFolderId);
 let isAddingFolder = $state(false);
-let autoDuration = $state(false);
-let durationMinutes = $state(60);
-let globalAutoTitle = $state(false);
+let autoDuration = $state(app.settings.defaultIsUntimed);
+let durationMinutes = $state(app.settings.defaultDurationMinutes);
+let globalAutoTitle = $state(app.settings.autoTitleDefault);
 let formError = $state<string | null>(null);
 
 // Sync target folder with active folder when it changes
