@@ -7,6 +7,7 @@ import {
 	uint8ArrayToBase64,
 } from '$lib/services/crypto';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { AIProvider, SecurityMode, StoredApiKeyRecord } from '$lib/types/apiKeys';
 
 export class ApiKeyStore {
@@ -23,6 +24,9 @@ export class ApiKeyStore {
 	// Plaintext credentials cache in active memory
 	memoryKeys = $state<Partial<Record<AIProvider, string>>>({});
 
+	// User toggle for syncing encrypted keys to Supabase cloud in Strict mode
+	syncToCloud = $state<boolean>(false);
+
 	// Derived Properties
 	hasAnyConfigured = $derived.by(() => {
 		return Object.values(this.configuredProviders).some(Boolean);
@@ -38,6 +42,7 @@ export class ApiKeyStore {
 
 	async init(securityMode: SecurityMode) {
 		const records = await this.database.getAllApiKeys();
+		this.syncToCloud = await this.database.getSetting<boolean>('sync_api_keys_to_cloud', false);
 
 		const nextConfigured: Record<AIProvider, boolean> = {
 			openai: false,
@@ -104,6 +109,24 @@ export class ApiKeyStore {
 						updatedAt: new Date().toISOString(),
 					};
 					await this.database.saveApiKeyRecord(record);
+
+					if (this.syncToCloud) {
+						fireAndForget(
+							trySupabaseOrQueue(
+								async () =>
+									supabase.from('synced_api_keys').upsert({
+										provider,
+										security_mode: 'strict',
+										ciphertext: encrypted.ciphertext,
+										iv: encrypted.iv,
+										salt: encrypted.salt,
+										updated_at: record.updatedAt,
+									}),
+								{ table: 'synced_api_keys', action: 'create', recordId: provider, data: record }
+							),
+							`Syncing encrypted ${provider} key to Supabase`
+						);
+					}
 				}
 			})(),
 			`Saving ${provider} API Key`
@@ -117,6 +140,59 @@ export class ApiKeyStore {
 		delete this.memoryKeys[provider];
 		this.configuredProviders[provider] = false;
 		fireAndForget(this.database.deleteApiKeyRecord(provider), `Deleting ${provider} API Key`);
+
+		if (this.syncToCloud) {
+			fireAndForget(
+				trySupabaseOrQueue(
+					async () => supabase.from('synced_api_keys').delete().eq('provider', provider),
+					{ table: 'synced_api_keys', action: 'delete', recordId: provider, data: null }
+				),
+				`Deleting ${provider} key from Supabase`
+			);
+		}
+	}
+
+	/**
+	 * Toggles user preference for syncing encrypted API keys to Supabase in Strict mode.
+	 */
+	async setSyncToCloud(enabled: boolean): Promise<void> {
+		this.syncToCloud = enabled;
+		fireAndForget(
+			this.database.setSetting('sync_api_keys_to_cloud', enabled),
+			'Saving API key cloud sync setting'
+		);
+
+		if (enabled) {
+			const records = await this.database.getAllApiKeys();
+			for (const r of records) {
+				const { ciphertext, iv, salt } = r;
+				if (r.isEncrypted && ciphertext && iv && salt) {
+					fireAndForget(
+						trySupabaseOrQueue(
+							async () =>
+								supabase.from('synced_api_keys').upsert({
+									provider: r.provider,
+									security_mode: 'strict',
+									ciphertext,
+									iv,
+									salt,
+									updated_at: r.updatedAt,
+								}),
+							{ table: 'synced_api_keys', action: 'create', recordId: r.provider, data: r }
+						),
+						`Uploading encrypted ${r.provider} key to cloud`
+					);
+				}
+			}
+		} else {
+			fireAndForget(
+				trySupabaseOrQueue(
+					async () => supabase.from('synced_api_keys').delete().neq('provider', ''),
+					{ table: 'synced_api_keys', action: 'delete', recordId: 'ALL', data: null }
+				),
+				'Purging synced API keys from Supabase'
+			);
+		}
 	}
 
 	/**

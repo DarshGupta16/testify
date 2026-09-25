@@ -2,12 +2,14 @@ import { getContext, setContext } from 'svelte';
 import { goto } from '$app/navigation';
 import { db, fireAndForget } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
+import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
 import type { PdfExtractionResult } from '$lib/types/pdf';
 import { DEFAULT_SUBJECT_IDS } from '$lib/types/subject';
 import type { TestItem } from '$lib/types/test';
 import { ApiKeyStore } from './apiKeyStore.svelte';
 import { AttemptStore } from './attemptStore.svelte';
+import { AuthStore } from './authStore.svelte';
 import { FilterStore } from './filterStore.svelte';
 import { FolderStore } from './folderStore.svelte';
 import { GenerationQueueStore } from './generationQueueStore.svelte';
@@ -24,6 +26,7 @@ const APP_CONTEXT_KEY = Symbol.for('TESTIFY_APP_CONTEXT');
 
 export class AppStore {
 	// Specialized Domain Sub-Stores
+	readonly auth = new AuthStore();
 	readonly subjects = new SubjectStore();
 	readonly folders = new FolderStore();
 	readonly tests = new TestStore(db, this.folders);
@@ -89,6 +92,7 @@ export class AppStore {
 		this.network.init(
 			() => {
 				this.toast.show('Back online! Internet connection restored.', 'info', 4000);
+				this.auth.startSyncCycle();
 			},
 			() => {
 				this.toast.show('You are offline. Testify is running from local storage.', 'warning', 5000);
@@ -106,6 +110,9 @@ export class AppStore {
 
 		// 5. Initialize background generation queue worker & restore session jobs
 		await this.queue.init(this);
+
+		// 6. Initialize Supabase cloud auth session & synchronization engine
+		await this.auth.init(this);
 
 		// 6. Load saved extraction scale from Dexie
 		try {
@@ -325,11 +332,26 @@ export class AppStore {
 		const oldFolderId = targetTest.folderId ?? null;
 		if (oldFolderId === folderId) return;
 
+		const now = new Date().toISOString();
 		targetTest.folderId = folderId;
+		targetTest.updatedAt = now;
 		this.folders.moveTestInIndex(testId, oldFolderId, folderId);
 		fireAndForget(
-			db.updateTest(testId, { folderId }),
+			db.updateTest(testId, { folderId, updatedAt: now }),
 			`Moving test "${testId}" to folder "${folderId}"`
+		);
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('tests').update({ folder_id: folderId, updated_at: now }).eq('id', testId),
+				{
+					table: 'tests',
+					action: 'update',
+					recordId: testId,
+					data: { ...targetTest, folderId, updatedAt: now },
+				}
+			),
+			`Syncing moved test "${testId}" to Supabase`
 		);
 		const folderName = folderId ? (this.folders.folderMap.get(folderId)?.name ?? 'Folder') : 'Root';
 		this.toast.show(`Moved "${targetTest.title}" to ${folderName}.`, 'success');
@@ -340,12 +362,14 @@ export class AppStore {
 		const targetFolderName = folderId
 			? (this.folders.folderMap.get(folderId)?.name ?? 'Folder')
 			: 'Root';
+		const now = new Date().toISOString();
 
 		for (const id of testIds) {
 			const targetTest = this.tests.tests.find((t) => t.id === id);
 			if (targetTest) {
 				const oldFolderId = targetTest.folderId ?? null;
 				targetTest.folderId = folderId;
+				targetTest.updatedAt = now;
 				this.folders.moveTestInIndex(id, oldFolderId, folderId);
 			}
 		}
@@ -353,6 +377,19 @@ export class AppStore {
 		fireAndForget(
 			db.bulkUpdateTestFolder(testIds, folderId),
 			`Bulk moving ${testIds.length} tests to folder "${folderId}"`
+		);
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('tests').update({ folder_id: folderId, updated_at: now }).in('id', testIds),
+				{
+					table: 'tests',
+					action: 'update',
+					recordId: testIds.join(','),
+					data: { folderId, updatedAt: now },
+				}
+			),
+			`Bulk syncing moved tests to Supabase`
 		);
 		this.toast.show(`Moved ${testIds.length} papers to ${targetFolderName}.`, 'success');
 	}
@@ -443,6 +480,30 @@ export class AppStore {
 			} catch (err) {
 				console.error('[AppStore] Failed cascade delete in Dexie:', err);
 			}
+
+			// Fire-and-forget Supabase cascade deletions
+			for (const fid of allFolderIdsToDelete) {
+				fireAndForget(
+					trySupabaseOrQueue(async () => supabase.from('folders').delete().eq('id', fid), {
+						table: 'folders',
+						action: 'delete',
+						recordId: fid,
+						data: null,
+					}),
+					`Deleting folder "${fid}" from Supabase`
+				);
+			}
+			for (const tid of testIdsToDelete) {
+				fireAndForget(
+					trySupabaseOrQueue(async () => supabase.from('tests').delete().eq('id', tid), {
+						table: 'tests',
+						action: 'delete',
+						recordId: tid,
+						data: null,
+					}),
+					`Deleting test "${tid}" from Supabase`
+				);
+			}
 		};
 
 		this.pendingFolderDeleteCommit = commitPermanentDelete;
@@ -488,6 +549,33 @@ export class AppStore {
 						fireAndForget(
 							db.bulkSaveAttempts(deletedAttempts),
 							'Restoring undone attempts to Dexie'
+						);
+					}
+
+					// Restore to Supabase
+					for (const f of deletedFolders) {
+						fireAndForget(
+							trySupabaseOrQueue(
+								async () =>
+									supabase.from('folders').upsert({
+										id: f.id,
+										name: f.name,
+										parent_folder_id: f.parentFolderId || null,
+										color: f.color,
+										icon: f.icon || null,
+										order_index: f.orderIndex,
+										created_at: f.createdAt,
+										updated_at: f.updatedAt || new Date().toISOString(),
+									}),
+								{ table: 'folders', action: 'create', recordId: f.id, data: f }
+							),
+							`Restoring folder "${f.name}" to Supabase`
+						);
+					}
+					for (const t of deletedTests) {
+						fireAndForget(
+							this.tests.syncTestToCloud(t, 'create'),
+							`Restoring test "${t.title}" to Supabase`
 						);
 					}
 

@@ -9,6 +9,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import { v4 as uuidv4 } from 'uuid';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { FlattenedFolderRow, FolderItem } from '$lib/types/folder';
 import type { TestItem } from '$lib/types/test';
 
@@ -308,6 +309,26 @@ export class FolderStore {
 			`Saving folder "${newFolder.name}" to Dexie`
 		);
 
+		// 4. Supabase cloud sync
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('folders').upsert({
+						id: newFolder.id,
+						name: newFolder.name,
+						parent_folder_id: newFolder.parentFolderId || null,
+						color: newFolder.color || null,
+						icon: newFolder.icon || null,
+						order_index: newFolder.order,
+						description: newFolder.description || null,
+						created_at: newFolder.createdAt,
+						updated_at: newFolder.updatedAt,
+					}),
+				{ table: 'folders', action: 'create', recordId: newFolder.id, data: newFolder }
+			),
+			`Syncing folder "${newFolder.name}" to Supabase`
+		);
+
 		return newFolder;
 	}
 
@@ -363,6 +384,26 @@ export class FolderStore {
 		fireAndForget(
 			this.database.updateFolder(id, updated),
 			`Updating folder "${updated.name}" in Dexie`
+		);
+
+		// Supabase persistence
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('folders').upsert({
+						id: updated.id,
+						name: updated.name,
+						parent_folder_id: updated.parentFolderId || null,
+						color: updated.color || null,
+						icon: updated.icon || null,
+						order_index: updated.order,
+						description: updated.description || null,
+						created_at: updated.createdAt,
+						updated_at: updated.updatedAt,
+					}),
+				{ table: 'folders', action: 'update', recordId: updated.id, data: updated }
+			),
+			`Updating folder "${updated.name}" in Supabase`
 		);
 
 		return updated;

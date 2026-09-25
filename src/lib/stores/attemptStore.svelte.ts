@@ -3,6 +3,7 @@
  */
 
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { TestAttempt } from '$lib/types/test';
 
 export interface TestAttemptStats {
@@ -120,6 +121,8 @@ export class AttemptStore {
 	}
 
 	recordAttempt(attempt: TestAttempt): void {
+		attempt.updatedAt = new Date().toISOString();
+
 		// 1. In-memory update
 		const existingIndex = this.attempts.findIndex((a) => a.id === attempt.id);
 		if (existingIndex >= 0) {
@@ -133,11 +136,50 @@ export class AttemptStore {
 			this.database.saveAttempt(attempt),
 			`Persisting Exam Attempt "${attempt.id}" to Dexie`
 		);
+
+		// 3. Fire-and-forget Supabase cloud write
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('attempts').upsert({
+						id: attempt.id,
+						test_id: attempt.testId,
+						test_title: attempt.testTitle,
+						started_at: attempt.startedAt,
+						completed_at: attempt.completedAt || null,
+						duration_seconds_taken: attempt.durationSecondsTaken,
+						mode: attempt.mode,
+						status: attempt.status,
+						responses: attempt.responses as unknown as import('$lib/services/supabase/types').Json,
+						score: attempt.score,
+						max_possible_score: attempt.maxPossibleScore,
+						accuracy_percentage: attempt.accuracyPercentage,
+						total_questions: attempt.totalQuestions,
+						answered_count: attempt.answeredCount,
+						correct_count: attempt.correctCount,
+						incorrect_count: attempt.incorrectCount,
+						unattempted_count: attempt.unattemptedCount,
+						review_count: attempt.reviewCount,
+						updated_at: attempt.updatedAt,
+					}),
+				{ table: 'attempts', action: 'create', recordId: attempt.id, data: attempt }
+			),
+			`Syncing attempt "${attempt.id}" to Supabase`
+		);
 	}
 
 	deleteAttempt(id: string): void {
 		this.attempts = this.attempts.filter((a) => a.id !== id);
 		fireAndForget(this.database.deleteAttempt(id), `Deleting Exam Attempt "${id}" from Dexie`);
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('attempts').delete().eq('id', id), {
+				table: 'attempts',
+				action: 'delete',
+				recordId: id,
+				data: null,
+			}),
+			`Deleting Exam Attempt "${id}" from Supabase`
+		);
 	}
 
 	deleteAttemptsForTest(testId: string): void {
@@ -146,10 +188,28 @@ export class AttemptStore {
 			this.database.deleteAttemptsByTestId(testId),
 			`Deleting all attempts for test "${testId}" from Dexie`
 		);
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('attempts').delete().eq('test_id', testId), {
+				table: 'attempts',
+				action: 'delete',
+				recordId: `test:${testId}`,
+				data: null,
+			}),
+			`Deleting all attempts for test "${testId}" from Supabase`
+		);
 	}
 
 	clearAll(): void {
 		this.attempts = [];
 		fireAndForget(this.database.clearAllAttempts(), 'Clearing all attempts from Dexie');
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('attempts').delete().neq('id', ''), {
+				table: 'attempts',
+				action: 'delete',
+				recordId: 'ALL',
+				data: null,
+			}),
+			'Clearing all attempts from Supabase'
+		);
 	}
 }

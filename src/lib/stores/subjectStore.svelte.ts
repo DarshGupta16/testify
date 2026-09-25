@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import { DEFAULT_SUBJECTS, type SubjectItem } from '$lib/types/subject';
 
 export class SubjectStore {
@@ -101,10 +102,12 @@ export class SubjectStore {
 			throw new Error(`A subject named "${trimmed}" already exists.`);
 		}
 
+		const now = new Date().toISOString();
 		const newSubject: SubjectItem = {
 			id: uuidv4(),
 			name: trimmed,
-			createdAt: new Date().toISOString(),
+			createdAt: now,
+			updatedAt: now,
 		};
 
 		// 1. In-memory update synchronously
@@ -114,6 +117,21 @@ export class SubjectStore {
 		fireAndForget(
 			this.database.saveSubject(newSubject),
 			`Saving subject "${newSubject.name}" to Dexie`
+		);
+
+		// 3. Fire-and-forget Supabase cloud sync
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('subjects').upsert({
+						id: newSubject.id,
+						name: newSubject.name,
+						created_at: newSubject.createdAt,
+						updated_at: newSubject.updatedAt,
+					}),
+				{ table: 'subjects', action: 'create', recordId: newSubject.id, data: newSubject }
+			),
+			`Syncing subject "${newSubject.name}" to Supabase`
 		);
 
 		return newSubject;
@@ -145,6 +163,7 @@ export class SubjectStore {
 		const updated: SubjectItem = {
 			...target,
 			name: trimmed,
+			updatedAt: new Date().toISOString(),
 		};
 
 		// 1. In-memory update synchronously
@@ -156,6 +175,21 @@ export class SubjectStore {
 		fireAndForget(
 			this.database.saveSubject(updated),
 			`Updating subject "${updated.name}" in Dexie`
+		);
+
+		// 3. Fire-and-forget Supabase cloud persistence
+		fireAndForget(
+			trySupabaseOrQueue(
+				async () =>
+					supabase.from('subjects').upsert({
+						id: updated.id,
+						name: updated.name,
+						created_at: updated.createdAt,
+						updated_at: updated.updatedAt,
+					}),
+				{ table: 'subjects', action: 'update', recordId: updated.id, data: updated }
+			),
+			`Updating subject "${updated.name}" in Supabase`
 		);
 
 		return updated;
@@ -177,6 +211,17 @@ export class SubjectStore {
 
 		// 2. Fire-and-forget Dexie persistence
 		fireAndForget(this.database.deleteSubject(id), `Deleting subject "${target.name}" from Dexie`);
+
+		// 3. Fire-and-forget Supabase cloud deletion
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('subjects').delete().eq('id', id), {
+				table: 'subjects',
+				action: 'delete',
+				recordId: id,
+				data: null,
+			}),
+			`Deleting subject "${target.name}" from Supabase`
+		);
 
 		return true;
 	}

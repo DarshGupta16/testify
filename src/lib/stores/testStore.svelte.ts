@@ -1,5 +1,6 @@
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { precompileQuestionsMath } from '$lib/services/mathHtmlCompiler';
+import { supabase, trySupabaseOrQueue, uploadQuestionDiagrams } from '$lib/services/supabase';
 import type { FolderStore } from '$lib/stores/folderStore.svelte';
 import type { PaperBlueprint } from '$lib/types/blueprint';
 import type { DevPipelineTrace } from '$lib/types/devTrace';
@@ -109,9 +110,64 @@ export class TestStore {
 	}
 
 	/**
+	 * Dispatches cloud sync for a test to Supabase, uploading diagrams if authenticated.
+	 */
+	public async syncTestToCloud(test: TestItem, action: 'create' | 'update'): Promise<void> {
+		const { data: sessionData } = await supabase.auth.getSession();
+		const userId = sessionData.session?.user?.id;
+		if (!userId) return;
+
+		let questionsToSync = test.questions;
+		if (test.questions && test.questions.length > 0) {
+			questionsToSync = await uploadQuestionDiagrams(userId, test.id, test.questions);
+			if (questionsToSync !== test.questions) {
+				test.questions = questionsToSync;
+				// Persist updated diagram URLs back to local Dexie
+				fireAndForget(
+					this.database.saveTest(test),
+					`Updating CDN diagram URLs for test "${test.title}"`
+				);
+			}
+		}
+
+		await trySupabaseOrQueue(
+			async () => {
+				return await supabase.from('tests').upsert({
+					id: test.id,
+					title: test.title,
+					description: test.description || null,
+					subject_id: test.subjectId,
+					folder_id: test.folderId || null,
+					duration_minutes: test.durationMinutes,
+					total_marks: test.totalMarks,
+					test_file_name: test.testFileName,
+					test_file_size_formatted: test.testFileSizeFormatted,
+					answer_key_file_name: test.answerKeyFileName || null,
+					answer_key_file_size_formatted: test.answerKeyFileSizeFormatted || null,
+					status: test.status,
+					questions: questionsToSync as unknown as import('$lib/services/supabase/types').Json,
+					blueprint: test.blueprint as unknown as import('$lib/services/supabase/types').Json,
+					token_usage: test.tokenUsage as unknown as import('$lib/services/supabase/types').Json,
+					ai_provider: test.aiProvider || null,
+					ai_model: test.aiModel || null,
+					created_at: test.createdAt,
+					updated_at: test.updatedAt || new Date().toISOString(),
+				});
+			},
+			{
+				table: 'tests',
+				action,
+				recordId: test.id,
+				data: { ...test, questions: questionsToSync },
+			}
+		);
+	}
+
+	/**
 	 * Promotes a generated test from placeholder/stub to ready in-memory and caches its doc assets.
 	 */
 	promoteReadyTest(test: TestItem): void {
+		test.updatedAt = new Date().toISOString();
 		if (test.extractedData) {
 			this.docAssetsCache.set(test.id, test.extractedData);
 		}
@@ -123,6 +179,7 @@ export class TestStore {
 		} else {
 			this.tests = [test, ...this.tests];
 		}
+		fireAndForget(this.syncTestToCloud(test, 'create'), `Syncing test "${test.title}" to Supabase`);
 	}
 
 	/**
@@ -135,6 +192,7 @@ export class TestStore {
 				...this.tests[index],
 				status: 'error',
 				description: error,
+				updatedAt: new Date().toISOString(),
 			};
 			const updatedTests = [...this.tests];
 			updatedTests[index] = errorTest;
@@ -142,6 +200,10 @@ export class TestStore {
 			fireAndForget(
 				this.database.saveTest(errorTest),
 				`Updating test error stub "${testId}" in Dexie`
+			);
+			fireAndForget(
+				this.syncTestToCloud(errorTest, 'update'),
+				`Syncing error stub "${testId}" to Supabase`
 			);
 		}
 	}
@@ -167,6 +229,17 @@ export class TestStore {
 
 		// 3. Fire-and-forget async Dexie deletion
 		fireAndForget(this.database.deleteTest(id), `Deleting Test "${id}" from Dexie`);
+
+		// 4. Fire-and-forget Supabase cloud deletion
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('tests').delete().eq('id', id), {
+				table: 'tests',
+				action: 'delete',
+				recordId: id,
+				data: null,
+			}),
+			`Deleting Test "${id}" from Supabase`
+		);
 
 		return target;
 	}
@@ -194,8 +267,14 @@ export class TestStore {
 				this.docAssetsCache.set(updated.id, updated.extractedData);
 			}
 
+			updated.updatedAt = new Date().toISOString();
 			this.tests[index] = updated;
+
 			fireAndForget(this.database.saveTest(updated), `Updating Test "${updated.title}" in Dexie`);
+			fireAndForget(
+				this.syncTestToCloud(updated, 'update'),
+				`Updating Test "${updated.title}" in Supabase`
+			);
 		}
 	}
 
@@ -206,11 +285,16 @@ export class TestStore {
 		const target = this.tests.find((t) => t.id === id);
 		if (target) {
 			target.blueprint = blueprint;
+			target.updatedAt = new Date().toISOString();
+			fireAndForget(
+				this.database.updateTestBlueprint(id, blueprint),
+				`Caching blueprint on test "${id}" in Dexie`
+			);
+			fireAndForget(
+				this.syncTestToCloud(target, 'update'),
+				`Syncing blueprint for "${id}" to Supabase`
+			);
 		}
-		fireAndForget(
-			this.database.updateTestBlueprint(id, blueprint),
-			`Caching blueprint on test "${id}" in Dexie`
-		);
 	}
 
 	/**
@@ -220,14 +304,20 @@ export class TestStore {
 		const affectedTests = this.tests.filter((t) => t.subjectId === oldSubjectId);
 		if (affectedTests.length === 0) return;
 
+		const now = new Date().toISOString();
 		this.tests = this.tests.map((t) =>
-			t.subjectId === oldSubjectId ? { ...t, subjectId: newSubjectId } : t
+			t.subjectId === oldSubjectId ? { ...t, subjectId: newSubjectId, updatedAt: now } : t
 		);
 
 		for (const t of affectedTests) {
+			const updated = { ...t, subjectId: newSubjectId, updatedAt: now };
 			fireAndForget(
-				this.database.saveTest({ ...t, subjectId: newSubjectId }),
-				`Reassigning test "${t.title}" to subject "${newSubjectId}"`
+				this.database.saveTest(updated),
+				`Reassigning test "${t.title}" to subject "${newSubjectId}" in Dexie`
+			);
+			fireAndForget(
+				this.syncTestToCloud(updated, 'update'),
+				`Reassigning test "${t.title}" in Supabase`
 			);
 		}
 	}
@@ -239,6 +329,17 @@ export class TestStore {
 
 		// 2. Fire-and-forget async Dexie clear
 		fireAndForget(this.database.clearAllTests(), 'Clearing all tests from Dexie');
+
+		// 3. Fire-and-forget Supabase clear
+		fireAndForget(
+			trySupabaseOrQueue(async () => supabase.from('tests').delete().neq('id', ''), {
+				table: 'tests',
+				action: 'delete',
+				recordId: 'ALL',
+				data: null,
+			}),
+			'Clearing tests from Supabase'
+		);
 	}
 
 	/**
