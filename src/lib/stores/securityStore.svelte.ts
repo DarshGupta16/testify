@@ -1,8 +1,10 @@
+import { decryptApiKey, encryptApiKey } from '$lib/services/crypto';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { SecurityMode } from '$lib/types/apiKeys';
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
+export const CANARY_PLAINTEXT = 'TESTIFY_CANARY_VALID';
 
 export class SecurityStore {
 	private database: TestifyDatabase;
@@ -145,16 +147,35 @@ export class SecurityStore {
 			this.scheduleMemoryWipe();
 			this.startTicker();
 
-			fireAndForget(
-				(async () => {
-					await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
-					await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
-				})(),
-				'Saving master password settings'
-			);
+			const canary = await encryptApiKey(CANARY_PLAINTEXT, password);
+
+			await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+			await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
+			await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, canary);
 		} finally {
 			this.isBusy = false;
 			this.busyMessage = '';
+		}
+	}
+
+	/**
+	 * Verifies a candidate password against the stored canary token.
+	 * Returns true if valid or if no canary is configured, false if invalid.
+	 */
+	async verifyCanary(password: string): Promise<boolean> {
+		const canary = await this.database.getSetting<{
+			ciphertext: string;
+			iv: string;
+			salt: string;
+		} | null>(SETTINGS_KEYS.CANARY_TOKEN, null);
+		if (!canary || !canary.ciphertext || !canary.iv || !canary.salt) {
+			return true;
+		}
+		try {
+			const decrypted = await decryptApiKey(canary, password);
+			return decrypted === CANARY_PLAINTEXT;
+		} catch {
+			return false;
 		}
 	}
 
@@ -214,13 +235,9 @@ export class SecurityStore {
 			this.wipeTimer = null;
 		}
 
-		fireAndForget(
-			(async () => {
-				await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, false);
-				await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax');
-			})(),
-			'Resetting master password setting'
-		);
+		await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, false);
+		await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax');
+		await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, null);
 	}
 
 	/**
@@ -244,13 +261,11 @@ export class SecurityStore {
 				this.scheduleMemoryWipe();
 				this.startTicker();
 
-				fireAndForget(
-					(async () => {
-						await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
-						await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
-					})(),
-					'Migrating settings to Strict Mode'
-				);
+				const canary = await encryptApiKey(CANARY_PLAINTEXT, password);
+
+				await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+				await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
+				await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, canary);
 			} else {
 				this.securityMode = 'lax';
 				this.isUnlocked = true;
@@ -260,10 +275,8 @@ export class SecurityStore {
 				this.expiresAt = null;
 				this.stopTicker();
 
-				fireAndForget(
-					this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax'),
-					'Migrating settings to Lax Mode'
-				);
+				await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax');
+				await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, null);
 			}
 		} finally {
 			this.isBusy = false;

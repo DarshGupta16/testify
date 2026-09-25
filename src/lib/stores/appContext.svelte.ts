@@ -63,6 +63,7 @@ export class AppStore {
 
 	constructor() {
 		this.tests.setFolderStore(this.folders);
+		this.settings.setApp(this);
 	}
 
 	async init() {

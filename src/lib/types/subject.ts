@@ -9,6 +9,57 @@ export interface SubjectItem {
 	updatedAt?: string; // ISO date string
 }
 
+function generateUUID(): string {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+		return crypto.randomUUID();
+	}
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+		const r = (Math.random() * 16) | 0;
+		const v = c === 'x' ? r : (r & 0x3) | 0x8;
+		return v.toString(16);
+	});
+}
+
+/**
+ * Generates fresh default subjects with unique client-side UUIDs to ensure
+ * no primary-key collisions across users in Postgres upon cloud synchronization.
+ */
+export function createDefaultSubjects(): SubjectItem[] {
+	const now = new Date().toISOString();
+	return [
+		{
+			id: generateUUID(),
+			name: 'STEM',
+			createdAt: now,
+			updatedAt: now,
+		},
+		{
+			id: generateUUID(),
+			name: 'Computer Science',
+			createdAt: now,
+			updatedAt: now,
+		},
+		{
+			id: generateUUID(),
+			name: 'Humanities',
+			createdAt: now,
+			updatedAt: now,
+		},
+		{
+			id: generateUUID(),
+			name: 'Languages',
+			createdAt: now,
+			updatedAt: now,
+		},
+		{
+			id: generateUUID(),
+			name: 'General',
+			createdAt: now,
+			updatedAt: now,
+		},
+	];
+}
+
 export const DEFAULT_SUBJECT_IDS = {
 	STEM: '00000000-0000-4000-8000-000000000001',
 	COMPUTER_SCIENCE: '00000000-0000-4000-8000-000000000002',
@@ -17,35 +68,4 @@ export const DEFAULT_SUBJECT_IDS = {
 	GENERAL: '00000000-0000-4000-8000-000000000005',
 } as const;
 
-export const DEFAULT_SUBJECTS: SubjectItem[] = [
-	{
-		id: DEFAULT_SUBJECT_IDS.STEM,
-		name: 'STEM',
-		createdAt: new Date(0).toISOString(),
-		updatedAt: new Date(0).toISOString(),
-	},
-	{
-		id: DEFAULT_SUBJECT_IDS.COMPUTER_SCIENCE,
-		name: 'Computer Science',
-		createdAt: new Date(0).toISOString(),
-		updatedAt: new Date(0).toISOString(),
-	},
-	{
-		id: DEFAULT_SUBJECT_IDS.HUMANITIES,
-		name: 'Humanities',
-		createdAt: new Date(0).toISOString(),
-		updatedAt: new Date(0).toISOString(),
-	},
-	{
-		id: DEFAULT_SUBJECT_IDS.LANGUAGES,
-		name: 'Languages',
-		createdAt: new Date(0).toISOString(),
-		updatedAt: new Date(0).toISOString(),
-	},
-	{
-		id: DEFAULT_SUBJECT_IDS.GENERAL,
-		name: 'General',
-		createdAt: new Date(0).toISOString(),
-		updatedAt: new Date(0).toISOString(),
-	},
-];
+export const DEFAULT_SUBJECTS: SubjectItem[] = createDefaultSubjects();

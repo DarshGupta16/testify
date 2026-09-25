@@ -1,5 +1,6 @@
 export * from './client';
 export * from './sync/localToSupabaseSync';
+export * from './sync/mappers';
 export * from './sync/realtimeSubscriptions';
 export * from './sync/storageSync';
 export * from './sync/supabaseDeltaSync';

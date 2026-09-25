@@ -7,6 +7,7 @@ import {
 	uint8ArrayToBase64,
 } from '$lib/services/crypto';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { AIProvider, SecurityMode, StoredApiKeyRecord } from '$lib/types/apiKeys';
 
@@ -197,10 +198,30 @@ export class ApiKeyStore {
 
 	/**
 	 * Atomically decrypts all stored records in parallel into active memory cache using the single-derivation crypto workflow.
-	 * Throws if the master password fails authentication for any encrypted key.
+	 * Throws if the master password fails authentication for any encrypted key or against the canary token.
 	 */
 	async decryptAllKeys(password: string): Promise<void> {
 		const records = await this.database.getAllApiKeys();
+		const hasEncryptedKeys = records.some((r) => r.isEncrypted && r.ciphertext && r.iv && r.salt);
+
+		// Canary Token Verification:
+		// When unlocking Strict Mode with 0 encrypted API keys configured, validate
+		// against the stored canary token to prevent vacuously returning true with an incorrect password.
+		if (!hasEncryptedKeys) {
+			const canary = await this.database.getSetting<{
+				ciphertext: string;
+				iv: string;
+				salt: string;
+			} | null>(SETTINGS_KEYS.CANARY_TOKEN, null);
+
+			if (canary && canary.ciphertext && canary.iv && canary.salt) {
+				const decrypted = await decryptApiKey(canary, password);
+				if (decrypted !== 'TESTIFY_CANARY_VALID') {
+					throw new Error('Invalid master password.');
+				}
+			}
+		}
+
 		const unlockedMap: Partial<Record<AIProvider, string>> = {};
 
 		const decryptionTasks = records.map(async (record) => {
@@ -255,6 +276,10 @@ export class ApiKeyStore {
 				});
 			}
 		}
+
+		// Always ensure the canary token is saved / updated
+		const canary = await encryptApiKey('TESTIFY_CANARY_VALID', password);
+		await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, canary);
 	}
 
 	/**

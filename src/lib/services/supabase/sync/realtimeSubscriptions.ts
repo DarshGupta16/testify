@@ -9,6 +9,20 @@ import { supabaseDeltaSync } from './supabaseDeltaSync';
  * echo loops from locally dispatched mutations.
  */
 export function setupRealtimeSubscriptions(app: AppStore): () => void {
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const scheduleDeltaSync = () => {
+		if (debounceTimer) clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(async () => {
+			debounceTimer = null;
+			try {
+				await supabaseDeltaSync(app);
+			} catch (err) {
+				console.error('[Realtime] Debounced delta sync failed:', err);
+			}
+		}, 300);
+	};
+
 	const channel = supabase
 		.channel('public:testify_sync')
 		.on('postgres_changes', { event: '*', schema: 'public', table: 'tests' }, async (payload) => {
@@ -29,7 +43,7 @@ export function setupRealtimeSubscriptions(app: AppStore): () => void {
 				return;
 			}
 
-			await supabaseDeltaSync(app);
+			scheduleDeltaSync();
 		})
 		.on('postgres_changes', { event: '*', schema: 'public', table: 'folders' }, async (payload) => {
 			if (payload.eventType === 'DELETE') {
@@ -49,7 +63,7 @@ export function setupRealtimeSubscriptions(app: AppStore): () => void {
 				return;
 			}
 
-			await supabaseDeltaSync(app);
+			scheduleDeltaSync();
 		})
 		.on(
 			'postgres_changes',
@@ -71,7 +85,7 @@ export function setupRealtimeSubscriptions(app: AppStore): () => void {
 					return;
 				}
 
-				await supabaseDeltaSync(app);
+				scheduleDeltaSync();
 			}
 		)
 		.on(
@@ -94,7 +108,7 @@ export function setupRealtimeSubscriptions(app: AppStore): () => void {
 					return;
 				}
 
-				await supabaseDeltaSync(app);
+				scheduleDeltaSync();
 			}
 		)
 		.subscribe((status) => {
@@ -104,6 +118,10 @@ export function setupRealtimeSubscriptions(app: AppStore): () => void {
 		});
 
 	return () => {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
 		supabase.removeChannel(channel);
 	};
 }

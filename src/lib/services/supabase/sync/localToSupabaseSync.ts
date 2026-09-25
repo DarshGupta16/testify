@@ -3,6 +3,7 @@ import { supabase } from '$lib/services/supabase/client';
 import type { FolderItem } from '$lib/types/folder';
 import type { SubjectItem } from '$lib/types/subject';
 import type { TestAttempt, TestItem } from '$lib/types/test';
+import { attemptToRow, folderToRow, subjectToRow, testToRow } from './mappers';
 
 /**
  * Replays all queued local offline operations to Supabase in FIFO timestamp order.
@@ -23,92 +24,38 @@ export async function localToSupabaseSync(): Promise<void> {
 		}
 
 		try {
+			let res: {
+				error?: { message?: string; status?: number; code?: string } | null;
+				status?: number;
+			} | null = null;
+
 			if (op.action === 'delete') {
 				if (op.table === 'tests') {
-					await supabase.from('tests').delete().eq('id', op.recordId);
+					res = await supabase.from('tests').delete().eq('id', op.recordId);
 				} else if (op.table === 'folders') {
-					await supabase.from('folders').delete().eq('id', op.recordId);
+					res = await supabase.from('folders').delete().eq('id', op.recordId);
 				} else if (op.table === 'subjects') {
-					await supabase.from('subjects').delete().eq('id', op.recordId);
+					res = await supabase.from('subjects').delete().eq('id', op.recordId);
 				} else if (op.table === 'attempts') {
-					await supabase.from('attempts').delete().eq('id', op.recordId);
+					res = await supabase.from('attempts').delete().eq('id', op.recordId);
 				} else if (op.table === 'settings') {
-					await supabase.from('settings').delete().eq('key', op.recordId);
+					res = await supabase.from('settings').delete().eq('key', op.recordId);
 				} else if (op.table === 'synced_api_keys') {
-					await supabase.from('synced_api_keys').delete().eq('provider', op.recordId);
+					res = await supabase.from('synced_api_keys').delete().eq('provider', op.recordId);
 				}
 			} else {
 				// Create or Update (Upsert)
 				if (op.table === 'tests') {
-					const t = op.data as TestItem;
-					await supabase.from('tests').upsert({
-						id: t.id,
-						title: t.title,
-						description: t.description || null,
-						subject_id: t.subjectId,
-						folder_id: t.folderId || null,
-						duration_minutes: t.durationMinutes,
-						total_marks: t.totalMarks,
-						test_file_name: t.testFileName,
-						test_file_size_formatted: t.testFileSizeFormatted,
-						answer_key_file_name: t.answerKeyFileName || null,
-						answer_key_file_size_formatted: t.answerKeyFileSizeFormatted || null,
-						status: t.status,
-						questions: t.questions as unknown as import('$lib/services/supabase/types').Json,
-						blueprint: t.blueprint as unknown as import('$lib/services/supabase/types').Json,
-						token_usage: t.tokenUsage as unknown as import('$lib/services/supabase/types').Json,
-						ai_provider: t.aiProvider || null,
-						ai_model: t.aiModel || null,
-						created_at: t.createdAt,
-						updated_at: t.updatedAt || new Date().toISOString(),
-					});
+					res = await supabase.from('tests').upsert(testToRow(op.data as TestItem));
 				} else if (op.table === 'folders') {
-					const f = op.data as FolderItem;
-					await supabase.from('folders').upsert({
-						id: f.id,
-						name: f.name,
-						parent_folder_id: f.parentFolderId || null,
-						color: f.color || null,
-						icon: f.icon || null,
-						order_index: f.order,
-						description: f.description || null,
-						created_at: f.createdAt,
-						updated_at: f.updatedAt,
-					});
+					res = await supabase.from('folders').upsert(folderToRow(op.data as FolderItem));
 				} else if (op.table === 'subjects') {
-					const s = op.data as SubjectItem;
-					await supabase.from('subjects').upsert({
-						id: s.id,
-						name: s.name,
-						created_at: s.createdAt,
-						updated_at: s.updatedAt || new Date().toISOString(),
-					});
+					res = await supabase.from('subjects').upsert(subjectToRow(op.data as SubjectItem));
 				} else if (op.table === 'attempts') {
-					const a = op.data as TestAttempt;
-					await supabase.from('attempts').upsert({
-						id: a.id,
-						test_id: a.testId,
-						test_title: a.testTitle,
-						started_at: a.startedAt,
-						completed_at: a.completedAt || null,
-						duration_seconds_taken: a.durationSecondsTaken,
-						mode: a.mode,
-						status: a.status,
-						responses: a.responses as unknown as import('$lib/services/supabase/types').Json,
-						score: a.score,
-						max_possible_score: a.maxPossibleScore,
-						accuracy_percentage: a.accuracyPercentage,
-						total_questions: a.totalQuestions,
-						answered_count: a.answeredCount,
-						correct_count: a.correctCount,
-						incorrect_count: a.incorrectCount,
-						unattempted_count: a.unattemptedCount,
-						review_count: a.reviewCount,
-						updated_at: a.updatedAt || new Date().toISOString(),
-					});
+					res = await supabase.from('attempts').upsert(attemptToRow(op.data as TestAttempt));
 				} else if (op.table === 'settings') {
 					const setting = op.data as { key: string; value: unknown; updatedAt: string };
-					await supabase.from('settings').upsert({
+					res = await supabase.from('settings').upsert({
 						key: setting.key,
 						value: setting.value as unknown as import('$lib/services/supabase/types').Json,
 						updated_at: setting.updatedAt,
@@ -122,7 +69,7 @@ export async function localToSupabaseSync(): Promise<void> {
 						salt: string;
 						updatedAt: string;
 					};
-					await supabase.from('synced_api_keys').upsert({
+					res = await supabase.from('synced_api_keys').upsert({
 						provider: keyRec.provider,
 						security_mode: keyRec.securityMode,
 						ciphertext: keyRec.ciphertext,
@@ -133,14 +80,35 @@ export async function localToSupabaseSync(): Promise<void> {
 				}
 			}
 
-			if (op.id !== undefined) {
-				await db.deleteOfflineOp(op.id);
+			if (res?.error) {
+				const status = (res as any)?.status ?? res.error?.status;
+				const is4xx = typeof status === 'number' && status >= 400 && status < 500;
+				if (is4xx) {
+					console.error(
+						`[Sync Engine] Non-retryable error for op ${op.id} (${op.table}:${op.recordId}) status ${status}:`,
+						res.error
+					);
+					if (op.id !== undefined) {
+						await db.deleteOfflineOp(op.id);
+					}
+				} else {
+					console.warn(
+						`[Sync Engine] Server error (${status}) for op ${op.id} (${op.table}:${op.recordId}), retaining in queue:`,
+						res.error
+					);
+					break;
+				}
+			} else {
+				if (op.id !== undefined) {
+					await db.deleteOfflineOp(op.id);
+				}
 			}
 		} catch (err) {
 			console.error(`[Sync Engine] Failed to replay op ${op.id} (${op.table}):`, err);
 			if (typeof navigator !== 'undefined' && !navigator.onLine) {
 				break;
 			}
+			break;
 		}
 	}
 }

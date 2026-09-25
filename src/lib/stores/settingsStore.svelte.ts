@@ -9,6 +9,8 @@ import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { AIProvider } from '$lib/types/apiKeys';
 
 export class SettingsStore {
+	private app?: { auth: { isAuthenticated: boolean } };
+
 	// AI & Generation Defaults
 	defaultAiProvider = $state<AIProvider>('google');
 	defaultAiModel = $state<string>('gemini-3.7-flash');
@@ -32,6 +34,14 @@ export class SettingsStore {
 	audioFeedback = $state<boolean>(true);
 
 	isLoaded = $state<boolean>(false);
+
+	constructor(app?: { auth: { isAuthenticated: boolean } }) {
+		this.app = app;
+	}
+
+	setApp(app: { auth: { isAuthenticated: boolean } }): void {
+		this.app = app;
+	}
 
 	/**
 	 * Initialize settings from local Dexie IndexedDB cache.
@@ -97,26 +107,28 @@ export class SettingsStore {
 	private persistSetting<T>(key: string, value: T, description: string) {
 		fireAndForget(db.setSetting(key, value), `Persisting ${description} (${key}) to Dexie`);
 
-		// Async cloud sync for authenticated users
-		fireAndForget(
-			trySupabaseOrQueue(
-				async () => {
-					const now = new Date().toISOString();
-					return supabase.from('settings').upsert({
-						key,
-						value: value as unknown as import('$lib/services/supabase/types').Json,
-						updated_at: now,
-					});
-				},
-				{
-					table: 'settings',
-					action: 'update',
-					recordId: key,
-					data: { key, value },
-				}
-			),
-			`Syncing setting ${key} to Supabase`
-		);
+		// Async cloud sync guarded for authenticated users only
+		if (this.app?.auth?.isAuthenticated) {
+			fireAndForget(
+				trySupabaseOrQueue(
+					async () => {
+						const now = new Date().toISOString();
+						return supabase.from('settings').upsert({
+							key,
+							value: value as unknown as import('$lib/services/supabase/types').Json,
+							updated_at: now,
+						});
+					},
+					{
+						table: 'settings',
+						action: 'update',
+						recordId: key,
+						data: { key, value },
+					}
+				),
+				`Syncing setting ${key} to Supabase`
+			);
+		}
 	}
 
 	setDefaultAiProvider(provider: AIProvider): void {

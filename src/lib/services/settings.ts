@@ -10,6 +10,7 @@ export const SETTINGS_KEYS = {
 	QUEUE_MODE: 'testify_queue_mode',
 	QUEUE_CONCURRENCY: 'testify_queue_concurrency',
 	CONFIRM_FOLDER_DELETE: 'testify_confirm_folder_delete',
+	CANARY_TOKEN: 'testify_canary_token',
 	// AI & Generation Defaults
 	DEFAULT_AI_PROVIDER: 'testify_default_ai_provider',
 	DEFAULT_AI_MODEL: 'testify_default_ai_model',

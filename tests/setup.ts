@@ -45,7 +45,35 @@ if (!globalScope.$state) {
 
 if (!globalScope.$derived) {
 	globalScope.$derived = Object.assign(<T>(val: T): T => val, {
-		by: <T>(fn: () => T): T => fn(),
+		by: <T>(fn: () => T): T => {
+			return new Proxy({} as any, {
+				get(_target, prop, receiver) {
+					const targetObj = fn();
+					if (targetObj === null || targetObj === undefined) {
+						return (targetObj as any)?.[prop];
+					}
+					const val = Reflect.get(targetObj as any, prop);
+					if (typeof val === 'function') {
+						return val.bind(targetObj);
+					}
+					return val;
+				},
+				has(_target, prop) {
+					const targetObj = fn();
+					return targetObj != null && Reflect.has(targetObj as any, prop);
+				},
+				ownKeys(_target) {
+					const targetObj = fn();
+					return targetObj != null ? Reflect.ownKeys(targetObj as any) : [];
+				},
+				getOwnPropertyDescriptor(_target, prop) {
+					const targetObj = fn();
+					return targetObj != null
+						? Reflect.getOwnPropertyDescriptor(targetObj as any, prop)
+						: undefined;
+				},
+			});
+		},
 	});
 }
 

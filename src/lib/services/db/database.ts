@@ -200,6 +200,15 @@ export class TestifyDatabase extends Dexie {
 					}
 				}
 
+				const foldersTable = tx.table('folders');
+				const allFolders = await foldersTable.toArray();
+				for (const f of allFolders) {
+					if (!f.updatedAt) {
+						f.updatedAt = f.createdAt || now;
+						await foldersTable.put(f);
+					}
+				}
+
 				const subjectsTable = tx.table('subjects');
 				const allSubjects = await subjectsTable.toArray();
 				for (const s of allSubjects) {

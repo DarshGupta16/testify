@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db, fireAndForget, type TestifyDatabase } from '$lib/services/db';
 import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
-import { DEFAULT_SUBJECTS, type SubjectItem } from '$lib/types/subject';
+import { createDefaultSubjects, DEFAULT_SUBJECTS, type SubjectItem } from '$lib/types/subject';
 
 export class SubjectStore {
 	private database: TestifyDatabase;
@@ -47,16 +47,17 @@ export class SubjectStore {
 					);
 				}
 			} else {
-				// Seed with default built-in subjects
-				this.subjects = [...DEFAULT_SUBJECTS];
+				// Seed with unique default subjects to prevent collisions across users
+				const defaults = createDefaultSubjects();
+				this.subjects = [...defaults];
 				fireAndForget(
-					this.database.bulkSaveSubjects(DEFAULT_SUBJECTS),
+					this.database.bulkSaveSubjects(defaults),
 					'Seeding default subjects to Dexie'
 				);
 			}
 		} catch (err) {
 			console.error('[SubjectStore] Error initializing subjects:', err);
-			this.subjects = [...DEFAULT_SUBJECTS];
+			this.subjects = createDefaultSubjects();
 		}
 	}
 
