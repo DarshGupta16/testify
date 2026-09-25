@@ -15,6 +15,18 @@ mock.module('$app/navigation', () => ({
 	afterNavigate: () => {},
 }));
 
+mock.module('$env/dynamic/public', () => ({
+	env: {
+		PUBLIC_SUPABASE_URL: process.env.PUBLIC_SUPABASE_URL || 'https://mock.supabase.co',
+		PUBLIC_SUPABASE_ANON_KEY: process.env.PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key',
+	},
+}));
+
+mock.module('$env/static/public', () => ({
+	PUBLIC_SUPABASE_URL: process.env.PUBLIC_SUPABASE_URL || 'https://mock.supabase.co',
+	PUBLIC_SUPABASE_ANON_KEY: process.env.PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key',
+}));
+
 // Polyfill Svelte 5 runes for headless unit tests in Bun
 const globalScope = globalThis as unknown as Record<string, unknown>;
 
@@ -35,4 +47,19 @@ if (!globalScope.$derived) {
 	globalScope.$derived = Object.assign(<T>(val: T): T => val, {
 		by: <T>(fn: () => T): T => fn(),
 	});
+}
+
+// Polyfill navigator.onLine for headless test runner
+if (typeof navigator === 'undefined') {
+	(globalThis as unknown as { navigator: { onLine: boolean } }).navigator = { onLine: true };
+} else {
+	try {
+		Object.defineProperty(navigator, 'onLine', {
+			value: true,
+			configurable: true,
+			writable: true,
+		});
+	} catch {
+		// Ignore if non-configurable
+	}
 }
