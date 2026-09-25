@@ -8,6 +8,7 @@ export * from './docAssets';
 export * from './folders';
 export * from './generationJobs';
 export * from './helpers';
+export * from './offlineOps';
 export * from './settings';
 export * from './subjects';
 export * from './tests';

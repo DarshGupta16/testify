@@ -22,7 +22,11 @@ export async function getTestById(db: TestifyDatabase, id: string): Promise<Test
 }
 
 export async function saveTest(db: TestifyDatabase, test: TestItem): Promise<void> {
-	await db.tests.put(toCloneable(test));
+	const record = {
+		...test,
+		updatedAt: test.updatedAt || new Date().toISOString(),
+	};
+	await db.tests.put(toCloneable(record));
 }
 
 export async function updateTest(
@@ -30,7 +34,13 @@ export async function updateTest(
 	id: string,
 	updates: Partial<TestItem>
 ): Promise<void> {
-	await db.tests.update(id, toCloneable(updates));
+	await db.tests.update(
+		id,
+		toCloneable({
+			...updates,
+			updatedAt: updates.updatedAt || new Date().toISOString(),
+		})
+	);
 }
 
 export async function updateTestBlueprint(
@@ -38,11 +48,19 @@ export async function updateTestBlueprint(
 	id: string,
 	blueprint: PaperBlueprint
 ): Promise<void> {
-	await db.tests.update(id, { blueprint: toCloneable(blueprint) });
+	await db.tests.update(id, {
+		blueprint: toCloneable(blueprint),
+		updatedAt: new Date().toISOString(),
+	});
 }
 
 export async function bulkSaveTests(db: TestifyDatabase, testsList: TestItem[]): Promise<void> {
-	await db.tests.bulkPut(toCloneable(testsList));
+	const now = new Date().toISOString();
+	const stamped = testsList.map((t) => ({
+		...t,
+		updatedAt: t.updatedAt || now,
+	}));
+	await db.tests.bulkPut(toCloneable(stamped));
 }
 
 export async function deleteTest(db: TestifyDatabase, id: string): Promise<void> {
@@ -64,9 +82,10 @@ export async function bulkUpdateTestFolder(
 	folderId: string | null
 ): Promise<void> {
 	if (testIds.length === 0) return;
+	const now = new Date().toISOString();
 	await db.transaction('rw', db.tests, async () => {
 		for (const id of testIds) {
-			await db.tests.update(id, { folderId });
+			await db.tests.update(id, { folderId, updatedAt: now });
 		}
 	});
 }

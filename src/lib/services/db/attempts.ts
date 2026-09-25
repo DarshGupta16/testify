@@ -36,14 +36,23 @@ export async function getAttempt(
 }
 
 export async function saveAttempt(db: TestifyDatabase, attempt: TestAttempt): Promise<void> {
-	await db.attempts.put(toCloneable(attempt));
+	const record = {
+		...attempt,
+		updatedAt: attempt.updatedAt || new Date().toISOString(),
+	};
+	await db.attempts.put(toCloneable(record));
 }
 
 export async function bulkSaveAttempts(
 	db: TestifyDatabase,
 	attemptsList: TestAttempt[]
 ): Promise<void> {
-	await db.attempts.bulkPut(toCloneable(attemptsList));
+	const now = new Date().toISOString();
+	const stamped = attemptsList.map((a) => ({
+		...a,
+		updatedAt: a.updatedAt || now,
+	}));
+	await db.attempts.bulkPut(toCloneable(stamped));
 }
 
 export async function deleteAttempt(db: TestifyDatabase, id: string): Promise<void> {

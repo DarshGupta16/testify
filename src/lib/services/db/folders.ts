@@ -24,14 +24,23 @@ export async function getFolderById(
 }
 
 export async function saveFolder(db: TestifyDatabase, folder: FolderItem): Promise<void> {
-	await db.folders.put(toCloneable(folder));
+	const record = {
+		...folder,
+		updatedAt: folder.updatedAt || new Date().toISOString(),
+	};
+	await db.folders.put(toCloneable(record));
 }
 
 export async function bulkSaveFolders(
 	db: TestifyDatabase,
 	foldersList: FolderItem[]
 ): Promise<void> {
-	await db.folders.bulkPut(toCloneable(foldersList));
+	const now = new Date().toISOString();
+	const stamped = foldersList.map((f) => ({
+		...f,
+		updatedAt: f.updatedAt || now,
+	}));
+	await db.folders.bulkPut(toCloneable(stamped));
 }
 
 export async function updateFolder(
@@ -39,7 +48,13 @@ export async function updateFolder(
 	id: string,
 	updates: Partial<FolderItem>
 ): Promise<void> {
-	await db.folders.update(id, toCloneable(updates));
+	await db.folders.update(
+		id,
+		toCloneable({
+			...updates,
+			updatedAt: updates.updatedAt || new Date().toISOString(),
+		})
+	);
 }
 
 export async function deleteFolder(db: TestifyDatabase, id: string): Promise<void> {

@@ -59,6 +59,7 @@ export interface TestAttempt {
 	testTitle: string;
 	startedAt: string; // ISO date string
 	completedAt?: string; // ISO date string
+	updatedAt?: string; // ISO date string
 	durationSecondsTaken: number;
 	mode: TestMode;
 	status: AttemptStatus;
@@ -95,6 +96,7 @@ export interface TestItem {
 	answerKeyFileName?: string;
 	answerKeyFileSizeFormatted?: string;
 	createdAt: string; // ISO date string
+	updatedAt?: string; // ISO date string
 	status: TestStatus;
 	questions?: QuestionPreview[];
 	// Extracted PDF assets and metrics

@@ -13,10 +13,11 @@ import * as devTracesRepo from './devTraces';
 import * as docAssetsRepo from './docAssets';
 import * as foldersRepo from './folders';
 import * as generationJobsRepo from './generationJobs';
+import * as offlineOpsRepo from './offlineOps';
 import * as settingsRepo from './settings';
 import * as subjectsRepo from './subjects';
 import * as testsRepo from './tests';
-import type { AppSettingRecord, TestDocAssetRecord } from './types';
+import type { AppSettingRecord, OfflineOp, TestDocAssetRecord } from './types';
 
 /**
  * TestifyDatabase - Dexie IndexedDB Store
@@ -42,6 +43,7 @@ export class TestifyDatabase extends Dexie {
 	devTraces!: EntityTable<DevPipelineTrace, 'id'>;
 	testDocAssets!: EntityTable<TestDocAssetRecord, 'testId'>;
 	generationJobs!: EntityTable<StoredGenerationJob, 'id'>;
+	offlineOps!: EntityTable<OfflineOp, 'id'>;
 
 	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
 		super(dbName, options);
@@ -172,6 +174,50 @@ export class TestifyDatabase extends Dexie {
 			testDocAssets: 'testId',
 			generationJobs: 'id, folderId, status, createdAt, completedAt',
 		});
+
+		// Version 8 Migration: Add offlineOps table and updatedAt indexing for cross-device sync
+		this.version(8)
+			.stores({
+				tests: 'id, title, subjectId, folderId, createdAt, updatedAt, status',
+				folders: 'id, name, parentFolderId, order, createdAt, updatedAt',
+				subjects: 'id, name, createdAt, updatedAt',
+				settings: 'key, updatedAt',
+				apiKeys: 'provider, securityMode, isEncrypted, updatedAt',
+				attempts: 'id, testId, status, startedAt, completedAt, updatedAt, score',
+				devTraces: 'id, testId, testTitle, createdAt, provider, model',
+				testDocAssets: 'testId',
+				generationJobs: 'id, folderId, status, createdAt, completedAt',
+				offlineOps: '++id, table, action, recordId, timestamp',
+			})
+			.upgrade(async (tx) => {
+				const now = new Date().toISOString();
+				const testsTable = tx.table('tests');
+				const allTests = await testsTable.toArray();
+				for (const t of allTests) {
+					if (!t.updatedAt) {
+						t.updatedAt = t.createdAt || now;
+						await testsTable.put(t);
+					}
+				}
+
+				const subjectsTable = tx.table('subjects');
+				const allSubjects = await subjectsTable.toArray();
+				for (const s of allSubjects) {
+					if (!s.updatedAt) {
+						s.updatedAt = s.createdAt || now;
+						await subjectsTable.put(s);
+					}
+				}
+
+				const attemptsTable = tx.table('attempts');
+				const allAttempts = await attemptsTable.toArray();
+				for (const a of allAttempts) {
+					if (!a.updatedAt) {
+						a.updatedAt = a.completedAt || a.startedAt || now;
+						await attemptsTable.put(a);
+					}
+				}
+			});
 	}
 
 	// --- Folders Operations ---
@@ -359,5 +405,19 @@ export class TestifyDatabase extends Dexie {
 	}
 	clearAllGenerationJobs(): Promise<void> {
 		return generationJobsRepo.clearAllJobs(this);
+	}
+
+	// --- Offline Operations ---
+	getAllOfflineOps(): Promise<OfflineOp[]> {
+		return offlineOpsRepo.getAllOfflineOps(this);
+	}
+	addOfflineOp(op: Omit<OfflineOp, 'id' | 'timestamp'>): Promise<number | undefined> {
+		return offlineOpsRepo.addOfflineOp(this, op);
+	}
+	deleteOfflineOp(id: number): Promise<void> {
+		return offlineOpsRepo.deleteOfflineOp(this, id);
+	}
+	clearAllOfflineOps(): Promise<void> {
+		return offlineOpsRepo.clearAllOfflineOps(this);
 	}
 }

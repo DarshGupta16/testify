@@ -12,14 +12,23 @@ export async function getAllSubjects(db: TestifyDatabase): Promise<SubjectItem[]
 }
 
 export async function saveSubject(db: TestifyDatabase, subject: SubjectItem): Promise<void> {
-	await db.subjects.put(toCloneable(subject));
+	const record = {
+		...subject,
+		updatedAt: subject.updatedAt || new Date().toISOString(),
+	};
+	await db.subjects.put(toCloneable(record));
 }
 
 export async function bulkSaveSubjects(
 	db: TestifyDatabase,
 	subjectsList: SubjectItem[]
 ): Promise<void> {
-	await db.subjects.bulkPut(toCloneable(subjectsList));
+	const now = new Date().toISOString();
+	const stamped = subjectsList.map((s) => ({
+		...s,
+		updatedAt: s.updatedAt || now,
+	}));
+	await db.subjects.bulkPut(toCloneable(stamped));
 }
 
 export async function deleteSubject(db: TestifyDatabase, id: string): Promise<void> {
