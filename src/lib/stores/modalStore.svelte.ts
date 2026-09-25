@@ -14,6 +14,7 @@ export class ModalStore {
 	isFoldersModalOpen = $state<boolean>(false);
 	isMoveToFolderModalOpen = $state<boolean>(false);
 	isAuthModalOpen = $state<boolean>(false);
+	isDeleteAccountModalOpen = $state<boolean>(false);
 	authModalInitialTab = $state<'signin' | 'signup' | 'forgot'>('signin');
 	masterPasswordModalMode = $state<MasterPasswordModalMode>('set');
 
@@ -32,7 +33,8 @@ export class ModalStore {
 			this.isSimilarPaperOpen ||
 			this.isFoldersModalOpen ||
 			this.isMoveToFolderModalOpen ||
-			this.isAuthModalOpen
+			this.isAuthModalOpen ||
+			this.isDeleteAccountModalOpen
 	);
 
 	openAuth(tab: 'signin' | 'signup' | 'forgot' = 'signin') {
@@ -43,6 +45,16 @@ export class ModalStore {
 	closeAuth(force = false) {
 		if (force || this.isAuthModalOpen) {
 			this.isAuthModalOpen = false;
+		}
+	}
+
+	openDeleteAccount() {
+		this.isDeleteAccountModalOpen = true;
+	}
+
+	closeDeleteAccount(force = false) {
+		if (force || this.isDeleteAccountModalOpen) {
+			this.isDeleteAccountModalOpen = false;
 		}
 	}
 

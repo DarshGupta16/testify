@@ -344,4 +344,105 @@ export class AuthStore {
 			this.isLoading = false;
 		}
 	}
+
+	async updateEmail(newEmail: string): Promise<{ error: Error | null; message?: string }> {
+		this.isLoading = true;
+		try {
+			const { error } = await supabase.auth.updateUser({ email: newEmail });
+			if (error) throw error;
+			return {
+				error: null,
+				message: `Confirmation email sent to ${newEmail}. Please click the link in your inbox to confirm the change.`,
+			};
+		} catch (err) {
+			return { error: err as Error };
+		} finally {
+			this.isLoading = false;
+		}
+	}
+
+	async updatePassword(newPassword: string): Promise<{ error: Error | null }> {
+		this.isLoading = true;
+		try {
+			const { error } = await supabase.auth.updateUser({ password: newPassword });
+			if (error) throw error;
+			return { error: null };
+		} catch (err) {
+			return { error: err as Error };
+		} finally {
+			this.isLoading = false;
+		}
+	}
+
+	async getCloudTelemetry(): Promise<{ testCount: number; attemptCount: number }> {
+		if (!this.user) return { testCount: 0, attemptCount: 0 };
+		try {
+			const [testsRes, attemptsRes] = await Promise.all([
+				supabase.from('tests').select('id', { count: 'exact', head: true }),
+				supabase.from('attempts').select('id', { count: 'exact', head: true }),
+			]);
+			return {
+				testCount: testsRes.count || 0,
+				attemptCount: attemptsRes.count || 0,
+			};
+		} catch (err) {
+			console.error('[AuthStore] Failed fetching cloud telemetry:', err);
+			return { testCount: 0, attemptCount: 0 };
+		}
+	}
+
+	async deleteAccount(mode: 'cloud_only' | 'everything'): Promise<{ error: Error | null }> {
+		this.isLoading = true;
+		try {
+			const userId = this.user?.id;
+			if (userId) {
+				// 1. Purge all records from Supabase tables
+				await Promise.allSettled([
+					supabase.from('tests').delete().eq('user_id', userId),
+					supabase.from('folders').delete().eq('user_id', userId),
+					supabase.from('subjects').delete().eq('user_id', userId),
+					supabase.from('attempts').delete().eq('user_id', userId),
+					supabase.from('settings').delete().eq('user_id', userId),
+					supabase.from('synced_api_keys').delete().eq('user_id', userId),
+				]);
+
+				// 2. Sign out of Supabase
+				await supabase.auth.signOut();
+			}
+
+			// 3. Handle local state according to chosen mode
+			if (mode === 'everything') {
+				if (this.app) {
+					this.app.tests.clearAll();
+					this.app.folders.folders = [];
+					this.app.folders.rebuildIndices([]);
+					this.app.attempts.clearAll();
+					await db.clearAllFolders();
+					await db.offlineOps.clear();
+					await db.testDocAssets.clear();
+					await this.app.apiKeys.clearAllKeys();
+				}
+				this.handleUserLoggedOut();
+				if (this.app) {
+					this.app.toast.show('Account and all assessment data permanently erased.', 'warning');
+				}
+			} else {
+				// 'cloud_only': Local tests, folders, attempts, and assets are fully preserved
+				this.handleUserLoggedOut();
+				if (this.app) {
+					this.app.toast.show(
+						'Cloud data deleted. Local papers preserved on this device.',
+						'success'
+					);
+				}
+			}
+
+			return { error: null };
+		} catch (err) {
+			console.error('[AuthStore] Error deleting account:', err);
+			return { error: err as Error };
+		} finally {
+			this.isLoading = false;
+		}
+	}
 }
