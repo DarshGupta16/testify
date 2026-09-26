@@ -155,28 +155,22 @@ export class AuthStore {
 	}
 
 	/**
-	 * Handles newly authenticated user, checking whether local data reconciliation is needed.
+	 * Handles newly authenticated user, checking whether guest data migration is needed.
 	 */
 	private async handleUserAuthenticated(event: string): Promise<void> {
 		if (!this.app) return;
 
-		const localTests = await db.getAllTests();
-		const hasExistingLocalPapers = localTests.length > 0;
+		// 1. Rehydrate stores so the UI immediately reflects the newly active user database
+		await this.app.rehydrateUserStores();
 
-		// First-time signup automatically uploads all local papers
-		if (event === 'SIGNED_UP' && hasExistingLocalPapers) {
-			await this.mergeAndUploadLocalData();
-			await this.startSyncCycle();
-			return;
-		}
-
-		// If logging in on another device with existing local papers, prompt user for decision
-		if (hasExistingLocalPapers) {
-			this.pendingLocalTestsCount = localTests.length;
+		// 2. Check if the guest partition has any assessments that need migration decision
+		const guestDb = getDatabaseForUser(null);
+		const guestTests = await guestDb.getAllTests();
+		if (guestTests.length > 0) {
+			this.pendingLocalTestsCount = guestTests.length;
 			this.showDeviceSyncPrompt = true;
 		} else {
-			// Fresh device, pull cloud tests
-			await this.keepCloudOnly();
+			// No guest papers to migrate, proceed with normal cloud sync
 			await this.startSyncCycle();
 		}
 	}
@@ -221,21 +215,44 @@ export class AuthStore {
 	}
 
 	/**
-	 * Uploads and reconciles all local tests, folders, subjects, and attempts with user's Supabase account.
+	 * Moves all local assessments, folders, and attempts from guest profile to the authenticated user's account,
+	 * clears the guest partition, rehydrates UI, and uploads data to Supabase cloud.
 	 */
 	async mergeAndUploadLocalData(): Promise<void> {
 		if (!this.user || !this.app) return;
 		this.syncStatus = 'syncing';
 
 		try {
-			const [tests, folders, subjects, attempts] = await Promise.all([
-				db.getAllTests(),
-				db.getAllFolders(),
-				db.getAllSubjects(),
-				db.getAllAttempts(),
+			const guestDb = getDatabaseForUser(null);
+			const userDb = getDatabaseForUser(this.user.id);
+
+			const [tests, folders, subjects, attempts, docAssets] = await Promise.all([
+				guestDb.tests.toArray().catch(() => []),
+				guestDb.folders.toArray().catch(() => []),
+				guestDb.subjects.toArray().catch(() => []),
+				guestDb.attempts.toArray().catch(() => []),
+				guestDb.testDocAssets.toArray().catch(() => []),
 			]);
 
-			// 1. Upsert subjects
+			// 1. Copy data from guest database into user database partition
+			if (subjects.length > 0) await userDb.subjects.bulkPut(subjects);
+			if (folders.length > 0) await userDb.folders.bulkPut(folders);
+			if (tests.length > 0) await userDb.tests.bulkPut(tests);
+			if (attempts.length > 0) await userDb.attempts.bulkPut(attempts);
+			if (docAssets.length > 0) await userDb.testDocAssets.bulkPut(docAssets);
+
+			// 2. Clear all data from guest database so guest profile is reset
+			await Promise.all([
+				guestDb.tests.clear().catch(() => {}),
+				guestDb.folders.clear().catch(() => {}),
+				guestDb.subjects.clear().catch(() => {}),
+				guestDb.attempts.clear().catch(() => {}),
+				guestDb.testDocAssets.clear().catch(() => {}),
+				guestDb.generationJobs.clear().catch(() => {}),
+				guestDb.offlineOps.clear().catch(() => {}),
+			]);
+
+			// 3. Upsert subjects to Supabase cloud
 			for (const s of subjects) {
 				await supabase.from('subjects').upsert({
 					id: s.id,
@@ -245,7 +262,7 @@ export class AuthStore {
 				});
 			}
 
-			// 2. Upsert folders
+			// 4. Upsert folders to Supabase cloud
 			for (const f of folders) {
 				await supabase.from('folders').upsert({
 					id: f.id,
@@ -260,7 +277,7 @@ export class AuthStore {
 				});
 			}
 
-			// 3. Upsert tests
+			// 5. Upsert tests to Supabase cloud
 			for (const t of tests) {
 				await supabase.from('tests').upsert({
 					id: t.id,
@@ -285,7 +302,7 @@ export class AuthStore {
 				});
 			}
 
-			// 4. Upsert attempts
+			// 6. Upsert attempts to Supabase cloud
 			for (const a of attempts) {
 				await supabase.from('attempts').upsert({
 					id: a.id,
@@ -310,18 +327,26 @@ export class AuthStore {
 				});
 			}
 
+			// 7. Rehydrate in-memory stores so UI immediately displays newly moved papers
+			await this.app.rehydrateUserStores();
 			this.showDeviceSyncPrompt = false;
+
 			await this.startSyncCycle();
-			this.app.toast.show('Local assessments merged and uploaded to cloud.', 'success');
+			this.app.toast.show('Guest papers moved to your account and synced to cloud.', 'success');
 		} catch (err) {
 			console.error('[AuthStore] Failed merging local data:', err);
 			this.syncStatus = 'error';
 			this.syncError = (err as Error).message || 'Failed to merge local assessments';
+		} finally {
+			if (this.app) {
+				await this.app.rehydrateUserStores();
+			}
+			this.showDeviceSyncPrompt = false;
 		}
 	}
 
 	/**
-	 * Discards unlinked local papers and hydrates exclusively from user's Supabase account.
+	 * Preserves Guest profile as separate and hydrates user stores from cloud account.
 	 */
 	async keepCloudOnly(): Promise<void> {
 		if (!this.user || !this.app) return;
@@ -329,13 +354,15 @@ export class AuthStore {
 
 		try {
 			await supabaseToLocalSync(this.app);
-			this.showDeviceSyncPrompt = false;
 			this.syncStatus = 'synced';
-			this.app.toast.show('Synchronized assessments from your cloud account.', 'success');
+			this.app.toast.show('Guest profile kept separate. Synchronized from cloud.', 'info');
 		} catch (err) {
 			console.error('[AuthStore] Failed keeping cloud only:', err);
 			this.syncStatus = 'error';
 			this.syncError = (err as Error).message || 'Failed pulling cloud assessments';
+		} finally {
+			await this.app.rehydrateUserStores();
+			this.showDeviceSyncPrompt = false;
 		}
 	}
 
@@ -344,6 +371,16 @@ export class AuthStore {
 	 */
 	async syncNow(): Promise<void> {
 		if (!this.user) return;
+
+		// Check if there are guest papers on this machine that should be moved to this account
+		const guestDb = getDatabaseForUser(null);
+		const guestTests = await guestDb.getAllTests();
+		if (guestTests.length > 0) {
+			this.pendingLocalTestsCount = guestTests.length;
+			this.showDeviceSyncPrompt = true;
+			return;
+		}
+
 		await this.startSyncCycle();
 		if (this.app) {
 			this.app.toast.show('Synchronization complete.', 'success');
@@ -420,17 +457,10 @@ export class AuthStore {
 		const account = this.savedAccounts.find((a) => a.userId === userId);
 		if (!account) return;
 
-		// 0. Disconnect previous realtime subscription and clear local client session
+		// 0. Disconnect previous realtime subscription
 		if (this.unsubscribeRealtime) {
 			this.unsubscribeRealtime();
 			this.unsubscribeRealtime = null;
-		}
-		if (isSupabaseConfigured) {
-			try {
-				await supabase.auth.signOut({ scope: 'local' });
-			} catch (err) {
-				console.warn('[AuthStore] Supabase local signOut warning during switchAccount:', err);
-			}
 		}
 
 		// 1. Immediately switch physical Dexie partition to this user
@@ -494,12 +524,14 @@ export class AuthStore {
 			this.unsubscribeRealtime = null;
 		}
 
-		// Clear client storage session without revoking remote tokens on server
+		// Clear active client session locally without revoking remote tokens on server
 		if (isSupabaseConfigured) {
 			try {
-				await supabase.auth.signOut({ scope: 'local' });
+				if (typeof (supabase.auth as any)._removeSession === 'function') {
+					await (supabase.auth as any)._removeSession();
+				}
 			} catch (err) {
-				console.warn('[AuthStore] Supabase local signOut warning during switchToGuest:', err);
+				console.warn('[AuthStore] Supabase _removeSession warning during switchToGuest:', err);
 			}
 		}
 
@@ -531,8 +563,15 @@ export class AuthStore {
 		try {
 			if (isSupabaseConfigured) {
 				try {
-					// Use global scope if wiping to revoke server token; use local scope to preserve saved profile tokens
-					await supabase.auth.signOut({ scope: shouldWipe ? 'global' : 'local' });
+					if (shouldWipe) {
+						// Global scope explicitly revokes server session
+						await supabase.auth.signOut({ scope: 'global' });
+					} else {
+						// Preserve saved tokens in session registry; clear local client session only
+						if (typeof (supabase.auth as any)._removeSession === 'function') {
+							await (supabase.auth as any)._removeSession();
+						}
+					}
 				} catch (err) {
 					console.warn('[AuthStore] Supabase signOut error:', err);
 				}

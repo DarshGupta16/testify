@@ -4,6 +4,7 @@ import {
 	db,
 	fireAndForget,
 	getActiveDatabase,
+	getDatabaseForUser,
 	migrateLegacyDatabaseIfNeeded,
 } from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
@@ -73,7 +74,7 @@ export class AppStore {
 
 	async init() {
 		// 0. Perform legacy unpartitioned database migration if necessary
-		await migrateLegacyDatabaseIfNeeded(getActiveDatabase());
+		await migrateLegacyDatabaseIfNeeded(getDatabaseForUser(null));
 
 		// 1. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
 		await this.theme.init();

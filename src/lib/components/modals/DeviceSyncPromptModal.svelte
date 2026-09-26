@@ -14,14 +14,7 @@ async function handleMerge() {
 	}
 }
 
-async function handleKeepCloud() {
-	if (
-		!window.confirm(
-			'Are you sure you want to replace local papers with your cloud library? Any papers only stored locally on this machine will be lost.'
-		)
-	) {
-		return;
-	}
+async function handleKeepSeparate() {
 	isProcessing = true;
 	try {
 		await app.auth.keepCloudOnly();
@@ -30,13 +23,8 @@ async function handleKeepCloud() {
 	}
 }
 
-async function handleSignOut() {
-	isProcessing = true;
-	try {
-		await app.auth.signOut();
-	} finally {
-		isProcessing = false;
-	}
+function handleDismiss() {
+	app.auth.showDeviceSyncPrompt = false;
 }
 </script>
 
@@ -47,10 +35,11 @@ async function handleSignOut() {
 		aria-modal="true"
 		aria-labelledby="device-sync-prompt-title"
 	>
-		<!-- Backdrop (non-dismissible on outside click to prevent unhandled sync state) -->
+		<!-- Backdrop -->
 		<div
 			class="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity"
 			aria-hidden="true"
+			onclick={handleDismiss}
 		></div>
 
 		<!-- Modal Dialog Box -->
@@ -82,28 +71,38 @@ async function handleSignOut() {
 							id="device-sync-prompt-title"
 							class="font-sans text-base sm:text-lg font-extrabold uppercase tracking-tight"
 						>
-							Device Sync Reconciliation
+							Move Guest Papers to Your Account?
 						</h2>
 						<p class="font-mono text-xs text-text-muted">
-							Local assessments detected on this machine
+							Guest profile assessments detected
 						</p>
 					</div>
 				</div>
 
-				<span class="neo-badge bg-amber-500 text-black border-amber-600 text-[10px] font-bold">
-					{app.auth.pendingLocalTestsCount} {app.auth.pendingLocalTestsCount === 1 ? 'Paper' : 'Papers'}
-				</span>
+				<div class="flex items-center gap-2">
+					<span class="neo-badge bg-amber-500 text-black border-amber-600 text-[10px] font-bold">
+						{app.auth.pendingLocalTestsCount} {app.auth.pendingLocalTestsCount === 1 ? 'Paper' : 'Papers'}
+					</span>
+					<button
+						type="button"
+						onclick={handleDismiss}
+						class="flex h-7 w-7 items-center justify-center border-2 border-border-color bg-surface text-text-muted hover:text-text-primary hover:bg-muted font-bold transition-colors cursor-pointer"
+						aria-label="Close dialog"
+					>
+						&times;
+					</button>
+				</div>
 			</div>
 
 			<!-- Body -->
 			<div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 				<p class="font-mono text-xs sm:text-sm text-text-secondary leading-relaxed">
-					You signed into account <span class="font-bold text-text-primary underline">{app.auth.userEmail}</span>, but this device already contains <span class="font-bold text-text-primary">{app.auth.pendingLocalTestsCount} test {app.auth.pendingLocalTestsCount === 1 ? 'paper' : 'papers'}</span> stored locally in offline storage. How would you like to handle them?
+					You are signed into <span class="font-bold text-text-primary underline">{app.auth.userEmail}</span>, but this machine has <span class="font-bold text-text-primary">{app.auth.pendingLocalTestsCount} {app.auth.pendingLocalTestsCount === 1 ? 'assessment paper' : 'assessment papers'}</span> in the Guest profile. Would you like to move them to your account?
 				</p>
 
 				<!-- Options Selection Grid -->
 				<div class="space-y-3">
-					<!-- Option 1: Merge & Upload (Recommended) -->
+					<!-- Option 1: Move to My Account (Recommended) -->
 					<div
 						class="neo-box p-4 bg-muted/30 border-2 border-border-color hover:border-accent-contrast transition-colors space-y-2 relative"
 					>
@@ -111,14 +110,14 @@ async function handleSignOut() {
 							<div class="space-y-1">
 								<div class="flex items-center gap-2">
 									<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-										1. Merge & Upload to Cloud
+										1. Yes, Move to My Account & Sync
 									</span>
 									<span class="neo-badge bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/50 text-[9px] uppercase font-bold">
 										Recommended
 									</span>
 								</div>
 								<p class="font-mono text-xs text-text-muted leading-relaxed">
-									Upload your local test papers, folders, subjects, and attempt history to your cloud account. All devices will sync together seamlessly.
+									Transfers all guest papers, folders, and history into your account and syncs them to your cloud backup. The Guest profile will be cleared.
 								</p>
 							</div>
 						</div>
@@ -127,37 +126,42 @@ async function handleSignOut() {
 							type="button"
 							onclick={handleMerge}
 							disabled={isProcessing}
-							class="neo-btn w-full mt-2 py-2.5 px-3 bg-accent-contrast text-accent-contrast-text text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0px_var(--shadow-color)] flex items-center justify-center gap-2"
+							class="neo-btn w-full mt-2 py-2.5 px-3 bg-accent-contrast text-accent-contrast-text text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0px_var(--shadow-color)] flex items-center justify-center gap-2 cursor-pointer"
 						>
 							{#if isProcessing}
 								<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-								<span>Merging & Uploading...</span>
+								<span>Moving & Syncing...</span>
 							{:else}
-								<span>Merge & Upload Local Papers</span>
+								<span>Move to My Account & Sync to Cloud</span>
 							{/if}
 						</button>
 					</div>
 
-					<!-- Option 2: Keep Cloud Only -->
+					<!-- Option 2: Keep Guest Separate -->
 					<div
-						class="neo-box p-4 bg-muted/30 border-2 border-border-color hover:border-rose-500 transition-colors space-y-2"
+						class="neo-box p-4 bg-muted/30 border-2 border-border-color hover:border-accent-contrast transition-colors space-y-2"
 					>
 						<div class="space-y-1">
 							<span class="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
-								2. Keep Cloud Only
+								2. No, Keep Guest Separate
 							</span>
 							<p class="font-mono text-xs text-text-muted leading-relaxed">
-								Discard local tests on this device and pull only what is saved in your cloud account. Use this if the local papers are disposable or outdated duplicates.
+								Keep the guest papers separate in the Guest profile. Your account will start clean or load only what is in your cloud library.
 							</p>
 						</div>
 
 						<button
 							type="button"
-							onclick={handleKeepCloud}
+							onclick={handleKeepSeparate}
 							disabled={isProcessing}
-							class="neo-btn w-full mt-2 py-2 px-3 bg-surface hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/50 text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0px_var(--shadow-color)]"
+							class="neo-btn w-full mt-2 py-2 px-3 bg-surface hover:bg-muted text-text-primary border-2 border-border-color text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
 						>
-							Discard Local & Pull Cloud Only
+							{#if isProcessing}
+								<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+								<span>Applying...</span>
+							{:else}
+								<span>Keep Guest Separate</span>
+							{/if}
 						</button>
 					</div>
 				</div>
@@ -166,11 +170,11 @@ async function handleSignOut() {
 				<div class="pt-2 text-center">
 					<button
 						type="button"
-						onclick={handleSignOut}
+						onclick={handleDismiss}
 						disabled={isProcessing}
 						class="font-mono text-xs text-text-muted hover:text-text-primary uppercase tracking-wider underline cursor-pointer"
 					>
-						Sign Out and Stay Guest (Local-Only)
+						Decide Later / Dismiss
 					</button>
 				</div>
 			</div>

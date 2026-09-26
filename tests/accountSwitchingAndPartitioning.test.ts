@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
+import Dexie from 'dexie';
 import {
 	_resetDatabaseInstancesForTesting,
 	db,
 	deleteUserDatabase,
 	getActiveDatabase,
+	getDatabaseForUser,
 	getUserDbName,
+	migrateLegacyDatabaseIfNeeded,
 	switchActiveDatabase,
 	TestifyDatabase,
 } from '$lib/services/db';
@@ -367,5 +370,118 @@ describe('AuthStore & Multi-Account Switching Integration', () => {
 		expect(app.modals.isEditModalOpen).toBe(false);
 		expect(app.filter.searchQuery).toBe('');
 		expect(app.modals.editingTest).toBeNull();
+	});
+
+	it('migrateLegacyDatabaseIfNeeded unconditionally deletes TestifyDatabase even if guest already has data', async () => {
+		let deleteCalledWith: string | null = null;
+		const originalDelete = Dexie.delete;
+		const originalExists = Dexie.exists;
+		const originalIndexedDB = (globalThis as any).indexedDB;
+
+		(globalThis as any).indexedDB = {} as any;
+		(Dexie as any).exists = async (name: string) => name === 'TestifyDatabase';
+		(Dexie as any).delete = async (name: string) => {
+			deleteCalledWith = name;
+		};
+
+		_resetDatabaseInstancesForTesting();
+
+		const guestDb = getDatabaseForUser(null);
+		guestDb.tests = { count: async () => 5 } as any;
+		guestDb.folders = { count: async () => 0 } as any;
+		guestDb.getSetting = async () => false as any;
+		guestDb.setSetting = async () => {};
+
+		await migrateLegacyDatabaseIfNeeded(guestDb);
+
+		expect(deleteCalledWith as string | null).toBe('TestifyDatabase');
+
+		(Dexie as any).delete = originalDelete;
+		(Dexie as any).exists = originalExists;
+		(globalThis as any).indexedDB = originalIndexedDB;
+	});
+
+	it('mergeAndUploadLocalData moves guest papers into user DB and clears testify_guest', async () => {
+		const auth = new AuthStore();
+		auth.user = { id: 'user-migrate', email: 'migrate@test.com' } as any;
+
+		const guestDb = getDatabaseForUser(null);
+		const userDb = getDatabaseForUser('user-migrate');
+
+		// Seed guest database with mock records
+		const mockTest = { id: 'guest-paper-1', title: 'Guest Math Exam', subjectId: 'math', questions: [] } as any;
+		(guestDb.tests as any).toArray = async () => [mockTest];
+		(guestDb.folders as any).toArray = async () => [];
+		(guestDb.subjects as any).toArray = async () => [];
+		(guestDb.attempts as any).toArray = async () => [];
+		(guestDb.testDocAssets as any).toArray = async () => [];
+
+		let userDbBulkPutCount = 0;
+		(userDb.tests as any).bulkPut = async (items: any[]) => {
+			userDbBulkPutCount = items.length;
+		};
+
+		let guestTestsCleared = false;
+		(guestDb.tests as any).clear = async () => {
+			guestTestsCleared = true;
+		};
+
+		let rehydrateCalled = false;
+		const mockApp = {
+			rehydrateUserStores: async () => {
+				rehydrateCalled = true;
+			},
+			toast: { show: () => {} },
+		} as any;
+
+		(auth as any).app = mockApp;
+		auth.startSyncCycle = async () => {};
+
+		await auth.mergeAndUploadLocalData();
+
+		expect(userDbBulkPutCount).toBe(1);
+		expect(guestTestsCleared).toBe(true);
+		expect(rehydrateCalled).toBe(true);
+		expect(auth.showDeviceSyncPrompt).toBe(false);
+	});
+
+	it('syncNow triggers showDeviceSyncPrompt when guest assessments exist', async () => {
+		const auth = new AuthStore();
+		auth.user = { id: 'user-sync-prompt', email: 'sync@test.com' } as any;
+
+		const guestDb = getDatabaseForUser(null);
+		guestDb.getAllTests = async () => [{ id: 'guest-1', title: 'Sample' } as any];
+
+		await auth.syncNow();
+
+		expect(auth.showDeviceSyncPrompt).toBe(true);
+		expect(auth.pendingLocalTestsCount).toBe(1);
+	});
+
+	it('keepCloudOnly leaves guestDb untouched and rehydrates user stores', async () => {
+		const auth = new AuthStore();
+		auth.user = { id: 'user-keep-cloud', email: 'keep@test.com' } as any;
+		auth.showDeviceSyncPrompt = true;
+
+		const guestDb = getDatabaseForUser(null);
+		let guestCleared = false;
+		(guestDb.tests as any).clear = async () => {
+			guestCleared = true;
+		};
+
+		let rehydrateCalled = false;
+		const mockApp = {
+			rehydrateUserStores: async () => {
+				rehydrateCalled = true;
+			},
+			toast: { show: () => {} },
+		} as any;
+		(auth as any).app = mockApp;
+
+		await auth.keepCloudOnly();
+
+		expect(guestCleared).toBe(false);
+		expect(rehydrateCalled).toBe(true);
+		expect(auth.showDeviceSyncPrompt).toBe(false);
 	});
 });

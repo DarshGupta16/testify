@@ -516,10 +516,11 @@ export async function deleteUserDatabase(userId: string): Promise<void> {
 
 /**
  * Migrates data from the legacy unpartitioned 'TestifyDatabase' into 'testify_guest'
- * if the legacy database exists and 'testify_guest' is empty/new.
+ * if the legacy database exists.
+ * Always ensures the legacy 'TestifyDatabase' is unconditionally deleted from IndexedDB.
  */
 let legacyMigrationAttempted = false;
-export async function migrateLegacyDatabaseIfNeeded(guestDb: TestifyDatabase): Promise<void> {
+export async function migrateLegacyDatabaseIfNeeded(guestDb?: TestifyDatabase): Promise<void> {
 	if (legacyMigrationAttempted) return;
 	legacyMigrationAttempted = true;
 
@@ -531,69 +532,86 @@ export async function migrateLegacyDatabaseIfNeeded(guestDb: TestifyDatabase): P
 		const legacyExists = await Dexie.exists('TestifyDatabase');
 		if (!legacyExists) return;
 
+		const targetGuestDb = guestDb ?? getDatabaseForUser(null);
+
 		// Check if migration has already been completed in the past
-		const isMigrated = await guestDb.getSetting<boolean>('legacy_database_migrated', false);
-		if (isMigrated) return;
+		const isMigrated = await targetGuestDb.getSetting<boolean>('legacy_database_migrated', false).catch(() => false);
 
-		// Check if guest database already has data
-		const [guestTests, guestFolders] = await Promise.all([
-			guestDb.tests.count().catch(() => 0),
-			guestDb.folders.count().catch(() => 0),
-		]);
+		if (!isMigrated) {
+			// Check if guest database already has data
+			const [guestTests, guestFolders] = await Promise.all([
+				targetGuestDb.tests.count().catch(() => 0),
+				targetGuestDb.folders.count().catch(() => 0),
+			]);
 
-		if (guestTests > 0 || guestFolders > 0) {
-			await guestDb.setSetting('legacy_database_migrated', true);
-			return; // guest already has data, preserve as-is
+			if (guestTests === 0 && guestFolders === 0) {
+				const legacyDb = new TestifyDatabase('TestifyDatabase');
+				try {
+					await legacyDb.open();
+
+					const [
+						tests,
+						folders,
+						subjects,
+						settings,
+						apiKeys,
+						attempts,
+						devTraces,
+						testDocAssets,
+						generationJobs,
+						offlineOps,
+					] = await Promise.all([
+						legacyDb.tests.toArray().catch(() => []),
+						legacyDb.folders.toArray().catch(() => []),
+						legacyDb.subjects.toArray().catch(() => []),
+						legacyDb.settings.toArray().catch(() => []),
+						legacyDb.apiKeys.toArray().catch(() => []),
+						legacyDb.attempts.toArray().catch(() => []),
+						legacyDb.devTraces.toArray().catch(() => []),
+						legacyDb.testDocAssets.toArray().catch(() => []),
+						legacyDb.generationJobs.toArray().catch(() => []),
+						legacyDb.offlineOps.toArray().catch(() => []),
+					]);
+
+					if (tests.length > 0) await targetGuestDb.tests.bulkPut(tests);
+					if (folders.length > 0) await targetGuestDb.folders.bulkPut(folders);
+					if (subjects.length > 0) await targetGuestDb.subjects.bulkPut(subjects);
+					if (settings.length > 0) await targetGuestDb.settings.bulkPut(settings);
+					if (apiKeys.length > 0) await targetGuestDb.apiKeys.bulkPut(apiKeys);
+					if (attempts.length > 0) await targetGuestDb.attempts.bulkPut(attempts);
+					if (devTraces.length > 0) await targetGuestDb.devTraces.bulkPut(devTraces);
+					if (testDocAssets.length > 0) await targetGuestDb.testDocAssets.bulkPut(testDocAssets);
+					if (generationJobs.length > 0) await targetGuestDb.generationJobs.bulkPut(generationJobs);
+					if (offlineOps.length > 0) await targetGuestDb.offlineOps.bulkPut(offlineOps);
+
+					console.info('[Dexie Partitioning] Legacy data successfully migrated to testify_guest');
+				} catch (copyErr) {
+					console.warn('[Dexie Partitioning] Legacy copy warning:', copyErr);
+				} finally {
+					legacyDb.close();
+				}
+			}
+
+			await targetGuestDb.setSetting('legacy_database_migrated', true).catch(() => {});
 		}
 
-		const legacyDb = new TestifyDatabase('TestifyDatabase');
-		await legacyDb.open();
-
-		const [
-			tests,
-			folders,
-			subjects,
-			settings,
-			apiKeys,
-			attempts,
-			devTraces,
-			testDocAssets,
-			generationJobs,
-			offlineOps,
-		] = await Promise.all([
-			legacyDb.tests.toArray().catch(() => []),
-			legacyDb.folders.toArray().catch(() => []),
-			legacyDb.subjects.toArray().catch(() => []),
-			legacyDb.settings.toArray().catch(() => []),
-			legacyDb.apiKeys.toArray().catch(() => []),
-			legacyDb.attempts.toArray().catch(() => []),
-			legacyDb.devTraces.toArray().catch(() => []),
-			legacyDb.testDocAssets.toArray().catch(() => []),
-			legacyDb.generationJobs.toArray().catch(() => []),
-			legacyDb.offlineOps.toArray().catch(() => []),
-		]);
-
-		if (tests.length > 0) await guestDb.tests.bulkPut(tests);
-		if (folders.length > 0) await guestDb.folders.bulkPut(folders);
-		if (subjects.length > 0) await guestDb.subjects.bulkPut(subjects);
-		if (settings.length > 0) await guestDb.settings.bulkPut(settings);
-		if (apiKeys.length > 0) await guestDb.apiKeys.bulkPut(apiKeys);
-		if (attempts.length > 0) await guestDb.attempts.bulkPut(attempts);
-		if (devTraces.length > 0) await guestDb.devTraces.bulkPut(devTraces);
-		if (testDocAssets.length > 0) await guestDb.testDocAssets.bulkPut(testDocAssets);
-		if (generationJobs.length > 0) await guestDb.generationJobs.bulkPut(generationJobs);
-		if (offlineOps.length > 0) await guestDb.offlineOps.bulkPut(offlineOps);
-
-		await guestDb.setSetting('legacy_database_migrated', true);
-		legacyDb.close();
+		// ALWAYS ensure any open or cached connection to TestifyDatabase is closed, then delete it
+		const cachedLegacy = databaseInstances.get('TestifyDatabase');
+		if (cachedLegacy) {
+			try {
+				cachedLegacy.close();
+			} catch {
+				// ignore
+			}
+			databaseInstances.delete('TestifyDatabase');
+		}
 
 		try {
 			await Dexie.delete('TestifyDatabase');
+			console.info('[Dexie Partitioning] Legacy TestifyDatabase deleted from IndexedDB');
 		} catch (delErr) {
 			console.warn('[Dexie Partitioning] Failed deleting legacy TestifyDatabase:', delErr);
 		}
-
-		console.info('[Dexie Partitioning] Legacy data successfully migrated to testify_guest');
 	} catch (err) {
 		console.warn('[Dexie Partitioning] Legacy migration error or skipped:', err);
 	}
