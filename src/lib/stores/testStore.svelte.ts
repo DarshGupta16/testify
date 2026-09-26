@@ -35,6 +35,7 @@ export class TestStore {
 
 	async init() {
 		try {
+			this.docAssetsCache.clear();
 			const savedTests = await this.database.getAllTests();
 			if (savedTests && savedTests.length > 0) {
 				let hasLegacyFields = false;
@@ -96,9 +97,12 @@ export class TestStore {
 						setTimeout(runBackgroundMathCompilation, 100);
 					}
 				}
+			} else {
+				this.tests = [];
 			}
 		} catch (err) {
 			console.error('[TestStore] Error initializing from Dexie:', err);
+			this.tests = [];
 		}
 	}
 

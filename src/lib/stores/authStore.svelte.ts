@@ -1,12 +1,19 @@
 import type { Session, User } from '@supabase/supabase-js';
-import { db } from '$lib/services/db';
+import { db, deleteUserDatabase, getDatabaseForUser, switchActiveDatabase } from '$lib/services/db';
 import {
+	getAccountSessionTokens,
+	getSavedAccounts,
 	isSupabaseConfigured,
 	localToSupabaseSync,
+	removeAccountSession,
+	type SavedAccountSummary,
+	saveAccountSession,
 	setupRealtimeSubscriptions,
 	supabase,
 	supabaseDeltaSync,
 	supabaseToLocalSync,
+	updateAccountLastActive,
+	updateAccountTokens,
 } from '$lib/services/supabase';
 import type { AppStore } from '$lib/stores/appContext.svelte';
 
@@ -19,6 +26,7 @@ export class AuthStore {
 	// Reactive Auth & Sync State
 	user = $state<User | null>(null);
 	session = $state<Session | null>(null);
+	savedAccounts = $state<SavedAccountSummary[]>([]);
 	isInitialized = $state<boolean>(false);
 	isLoading = $state<boolean>(false);
 	syncStatus = $state<SyncState>('idle');
@@ -27,14 +35,26 @@ export class AuthStore {
 	pendingLocalTestsCount = $state<number>(0);
 
 	// Derived Auth State
-	isAuthenticated = $derived(Boolean(this.user));
-	userEmail = $derived(this.user?.email || '');
+	get isAuthenticated(): boolean {
+		return Boolean(this.user);
+	}
+	get userEmail(): string {
+		return this.user?.email || '';
+	}
 
 	/**
 	 * Initialize authentication session and register auth state listener
 	 */
 	async init(app: AppStore): Promise<void> {
 		this.app = app;
+
+		// 1. Load saved accounts from origin-private encrypted session vault
+		try {
+			this.savedAccounts = await getSavedAccounts();
+		} catch (err) {
+			console.warn('[AuthStore] Error loading saved accounts:', err);
+		}
+
 		if (!isSupabaseConfigured) {
 			console.warn('[AuthStore] Supabase credentials not configured in environment.');
 			this.isInitialized = true;
@@ -48,19 +68,78 @@ export class AuthStore {
 			} else {
 				this.session = data.session;
 				this.user = data.session?.user || null;
+
+				if (data.session?.user) {
+					// Activate physical database partition for this user
+					switchActiveDatabase(data.session.user.id);
+
+					// Persist/refresh session in vault
+					await saveAccountSession(
+						{
+							userId: data.session.user.id,
+							email: data.session.user.email || '',
+							displayName:
+								data.session.user.user_metadata?.full_name ||
+								data.session.user.user_metadata?.name ||
+								null,
+							avatarUrl: data.session.user.user_metadata?.avatar_url || null,
+						},
+						{
+							accessToken: data.session.access_token,
+							refreshToken: data.session.refresh_token,
+							expiresAt: data.session.expires_at,
+						}
+					);
+					this.savedAccounts = await getSavedAccounts();
+				}
 			}
 
 			// Listen for auth state transitions (Sign In, Sign Out, Token Refresh)
 			supabase.auth.onAuthStateChange(async (event, newSession) => {
 				const previousUser = this.user;
-				this.session = newSession;
-				this.user = newSession?.user || null;
 
-				if (newSession?.user && (!previousUser || previousUser.id !== newSession.user.id)) {
-					// User logged in or switched account
-					await this.handleUserAuthenticated(event);
-				} else if (!newSession?.user && previousUser) {
-					// User logged out
+				if (newSession?.user) {
+					this.session = newSession;
+					this.user = newSession.user;
+
+					if (event === 'TOKEN_REFRESHED') {
+						// Update rotated token in encrypted vault
+						await updateAccountTokens(newSession.user.id, {
+							accessToken: newSession.access_token,
+							refreshToken: newSession.refresh_token,
+							expiresAt: newSession.expires_at,
+						});
+						this.savedAccounts = await getSavedAccounts();
+					} else {
+						// Register or update active session
+						await saveAccountSession(
+							{
+								userId: newSession.user.id,
+								email: newSession.user.email || '',
+								displayName:
+									newSession.user.user_metadata?.full_name ||
+									newSession.user.user_metadata?.name ||
+									null,
+								avatarUrl: newSession.user.user_metadata?.avatar_url || null,
+							},
+							{
+								accessToken: newSession.access_token,
+								refreshToken: newSession.refresh_token,
+								expiresAt: newSession.expires_at,
+							}
+						);
+						this.savedAccounts = await getSavedAccounts();
+					}
+
+					if (!previousUser || previousUser.id !== newSession.user.id) {
+						// User logged in or switched account: switch active Dexie partition
+						switchActiveDatabase(newSession.user.id);
+						await this.handleUserAuthenticated(event);
+					}
+				} else if (event === 'SIGNED_OUT') {
+					// Explicit cloud sign out
+					this.session = null;
+					this.user = null;
 					this.handleUserLoggedOut();
 				}
 			});
@@ -330,16 +409,156 @@ export class AuthStore {
 		}
 	}
 
-	async signOut(): Promise<void> {
+	/**
+	 * Switches active profile to a saved user account.
+	 * Swaps local database partition and rehydrates UI stores immediately (0ms latency, works completely offline).
+	 * Clears local client JWT credentials before switching so no cross-tenant spillover occurs,
+	 * then asynchronously restores cloud session in the background without blocking.
+	 */
+	async switchAccount(userId: string): Promise<void> {
+		if (!userId) return;
+		const account = this.savedAccounts.find((a) => a.userId === userId);
+		if (!account) return;
+
+		// 0. Disconnect previous realtime subscription and clear local client session
+		if (this.unsubscribeRealtime) {
+			this.unsubscribeRealtime();
+			this.unsubscribeRealtime = null;
+		}
+		if (isSupabaseConfigured) {
+			try {
+				await supabase.auth.signOut({ scope: 'local' });
+			} catch (err) {
+				console.warn('[AuthStore] Supabase local signOut warning during switchAccount:', err);
+			}
+		}
+
+		// 1. Immediately switch physical Dexie partition to this user
+		switchActiveDatabase(userId);
+		await updateAccountLastActive(userId);
+		this.savedAccounts = await getSavedAccounts();
+
+		// 2. Set optimistic user state for instant UI responsiveness
+		this.user = {
+			id: account.userId,
+			email: account.email,
+			user_metadata: {
+				full_name: account.displayName,
+				avatar_url: account.avatarUrl,
+			},
+			app_metadata: {},
+			aud: 'authenticated',
+			created_at: account.lastActiveAt,
+		} as unknown as User;
+		this.session = null;
+		this.syncStatus = 'idle';
+
+		// 3. Rehydrate all domain stores from local database partition
+		if (this.app) {
+			await this.app.rehydrateUserStores();
+			this.app.toast.show(`Switched to ${account.email}`, 'success');
+		}
+
+		// 4. Asynchronously restore Supabase cloud session in the background
+		if (typeof window !== 'undefined' && navigator.onLine && isSupabaseConfigured) {
+			(async () => {
+				try {
+					const tokens = await getAccountSessionTokens(userId);
+					if (tokens) {
+						const { data, error } = await supabase.auth.setSession({
+							access_token: tokens.accessToken,
+							refresh_token: tokens.refreshToken,
+						});
+						if (error) {
+							console.warn('[AuthStore] Background session restoration warning:', error);
+						} else if (data.session) {
+							this.session = data.session;
+							this.user = data.session.user;
+							await this.startSyncCycle();
+						}
+					}
+				} catch (err) {
+					console.warn('[AuthStore] Background cloud session restoration error:', err);
+				}
+			})();
+		}
+	}
+
+	/**
+	 * Switches active profile to the local Guest partition (testify_guest).
+	 * Disconnects cloud sync listeners, clears local Supabase session, and rehydrates stores immediately.
+	 */
+	async switchToGuest(): Promise<void> {
+		if (this.unsubscribeRealtime) {
+			this.unsubscribeRealtime();
+			this.unsubscribeRealtime = null;
+		}
+
+		// Clear client storage session without revoking remote tokens on server
+		if (isSupabaseConfigured) {
+			try {
+				await supabase.auth.signOut({ scope: 'local' });
+			} catch (err) {
+				console.warn('[AuthStore] Supabase local signOut warning during switchToGuest:', err);
+			}
+		}
+
+		// Switch Dexie database to testify_guest
+		switchActiveDatabase(null);
+
+		this.user = null;
+		this.session = null;
+		this.syncStatus = 'idle';
+		this.syncError = null;
+		this.showDeviceSyncPrompt = false;
+
+		if (this.app) {
+			await this.app.rehydrateUserStores();
+			this.app.toast.show('Switched to Guest profile.', 'info');
+		}
+	}
+
+	/**
+	 * Signs out of the current account.
+	 * - If wipeLocalData is true (public computers): revokes session on server, wipes testify_${userId} partition and vault session.
+	 * - If wipeLocalData is false (family computers): performs local sign-out, preserves partition and switches to guest.
+	 */
+	async signOut(options: { wipeLocalData?: boolean } = {}): Promise<void> {
 		this.isLoading = true;
+		const currentUserId = this.user?.id;
+		const shouldWipe = Boolean(options.wipeLocalData);
+
 		try {
-			await supabase.auth.signOut();
-			this.handleUserLoggedOut();
+			if (isSupabaseConfigured) {
+				try {
+					// Use global scope if wiping to revoke server token; use local scope to preserve saved profile tokens
+					await supabase.auth.signOut({ scope: shouldWipe ? 'global' : 'local' });
+				} catch (err) {
+					console.warn('[AuthStore] Supabase signOut error:', err);
+				}
+			}
+
+			if (currentUserId) {
+				if (shouldWipe) {
+					await removeAccountSession(currentUserId);
+					await deleteUserDatabase(currentUserId);
+				} else {
+					await updateAccountLastActive(currentUserId);
+				}
+			}
+
+			this.savedAccounts = await getSavedAccounts();
+			await this.switchToGuest();
+
 			if (this.app) {
-				this.app.toast.show('Signed out successfully.', 'info');
+				if (shouldWipe) {
+					this.app.toast.show('Signed out and erased local partition.', 'warning');
+				} else {
+					this.app.toast.show('Signed out. Local papers preserved on this device.', 'info');
+				}
 			}
 		} catch (err) {
-			console.error('[AuthStore] Failed signing out:', err);
+			console.error('[AuthStore] Error during signOut:', err);
 		} finally {
 			this.isLoading = false;
 		}
@@ -421,28 +640,50 @@ export class AuthStore {
 
 			// 3. Handle local state according to chosen mode
 			if (mode === 'everything') {
-				if (this.app) {
-					this.app.tests.clearAll();
-					this.app.folders.folders = [];
-					this.app.folders.rebuildIndices([]);
-					this.app.attempts.clearAll();
-					await db.clearAllFolders();
-					await db.offlineOps.clear();
-					await db.testDocAssets.clear();
-					await db.subjects.clear();
-					this.app.subjects.subjects = [];
-					await this.app.apiKeys.clearAllKeys();
+				if (userId) {
+					await removeAccountSession(userId);
+					await deleteUserDatabase(userId);
 				}
-				this.handleUserLoggedOut();
+				this.savedAccounts = await getSavedAccounts();
+				await this.switchToGuest();
 				if (this.app) {
 					this.app.toast.show('Account and all assessment data permanently erased.', 'warning');
 				}
 			} else {
-				// 'cloud_only': Local tests, folders, attempts, and assets are fully preserved
-				this.handleUserLoggedOut();
+				// 'cloud_only': Copy local assessments from user partition to guest partition so they are preserved
+				if (userId) {
+					try {
+						const userDb = getDatabaseForUser(userId);
+						const guestDb = getDatabaseForUser(null);
+						await userDb.open();
+						await guestDb.open();
+
+						const [tests, folders, subjects, attempts, docAssets] = await Promise.all([
+							userDb.tests.toArray().catch(() => []),
+							userDb.folders.toArray().catch(() => []),
+							userDb.subjects.toArray().catch(() => []),
+							userDb.attempts.toArray().catch(() => []),
+							userDb.testDocAssets.toArray().catch(() => []),
+						]);
+
+						if (tests.length > 0) await guestDb.tests.bulkPut(tests);
+						if (folders.length > 0) await guestDb.folders.bulkPut(folders);
+						if (subjects.length > 0) await guestDb.subjects.bulkPut(subjects);
+						if (attempts.length > 0) await guestDb.attempts.bulkPut(attempts);
+						if (docAssets.length > 0) await guestDb.testDocAssets.bulkPut(docAssets);
+					} catch (migErr) {
+						console.warn('[AuthStore] Failed transferring records to guest partition:', migErr);
+					}
+
+					await removeAccountSession(userId);
+					await deleteUserDatabase(userId);
+				}
+
+				this.savedAccounts = await getSavedAccounts();
+				await this.switchToGuest();
 				if (this.app) {
 					this.app.toast.show(
-						'Cloud data deleted. Local papers preserved on this device.',
+						'Cloud data deleted. Local papers preserved in Guest profile.',
 						'success'
 					);
 				}

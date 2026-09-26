@@ -1,6 +1,11 @@
 import { getContext, setContext } from 'svelte';
 import { goto } from '$app/navigation';
-import { db, fireAndForget } from '$lib/services/db';
+import {
+	db,
+	fireAndForget,
+	getActiveDatabase,
+	migrateLegacyDatabaseIfNeeded,
+} from '$lib/services/db';
 import { SETTINGS_KEYS } from '$lib/services/settings';
 import { supabase, trySupabaseOrQueue } from '$lib/services/supabase';
 import type { AIProvider, SecurityMode } from '$lib/types/apiKeys';
@@ -67,6 +72,9 @@ export class AppStore {
 	}
 
 	async init() {
+		// 0. Perform legacy unpartitioned database migration if necessary
+		await migrateLegacyDatabaseIfNeeded(getActiveDatabase());
+
 		// 1. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
 		await this.theme.init();
 		await this.subjects.init();
@@ -169,6 +177,76 @@ export class AppStore {
 			db.setSetting(SETTINGS_KEYS.CONFIRM_FOLDER_DELETE, enabled),
 			`Persisting confirm folder delete preference (${enabled})`
 		);
+	}
+
+	/**
+	 * Rehydrates all user-partitioned domain stores when the active account / Dexie database changes.
+	 * Operates purely locally with 0ms network latency for instant offline switching.
+	 */
+	async rehydrateUserStores(): Promise<void> {
+		// 0. Flush any pending folder deletion commit on the previous account immediately
+		if (this.commitTimeout) {
+			clearTimeout(this.commitTimeout);
+			this.commitTimeout = null;
+		}
+		if (this.pendingFolderDeleteCommit) {
+			await this.pendingFolderDeleteCommit();
+			this.pendingFolderDeleteCommit = null;
+		}
+
+		// 1. Lock previous session and re-initialize security store from active user partition
+		this.handleLock();
+		await this.security.init();
+
+		// 2. Reload domain entities from the active user Dexie database
+		await this.subjects.init();
+		await this.folders.init();
+		await this.tests.init();
+
+		// Sanitize dangling folderId on tests if folder does not exist
+		const testsWithDanglingFolder: TestItem[] = [];
+		for (const test of this.tests.tests) {
+			if (test.folderId && !this.folders.folderMap.has(test.folderId)) {
+				test.folderId = null;
+				testsWithDanglingFolder.push(test);
+			}
+		}
+		if (testsWithDanglingFolder.length > 0) {
+			fireAndForget(
+				db.bulkSaveTests(testsWithDanglingFolder),
+				'Sanitizing tests with dangling folder references in Dexie'
+			);
+		}
+
+		this.folders.rebuildIndices(this.tests.tests);
+		await this.attempts.init();
+
+		// 3. Reload credentials, queue, and preferences
+		await this.apiKeys.init(this.security.securityMode);
+		await this.settings.init();
+
+		// Abort any in-flight background generation from previous account before re-initializing
+		this.queue.reset();
+		await this.queue.init(this);
+
+		// 4. Reset active folder, search filters, and close all open dialogs
+		this.filter.reset();
+		this.folders.setActiveFolder(null);
+		this.modals.closeAll();
+
+		// 5. Reload extraction scale & confirm folder delete settings for this account
+		try {
+			const savedScale = await db.getSetting<number>(SETTINGS_KEYS.EXTRACTION_SCALE, 1.25);
+			if (typeof savedScale === 'number' && savedScale > 0) {
+				this.selectedScale = savedScale;
+			}
+			const savedConfirm = await db.getSetting<boolean>(SETTINGS_KEYS.CONFIRM_FOLDER_DELETE, true);
+			if (typeof savedConfirm === 'boolean') {
+				this.confirmFolderDelete = savedConfirm;
+			}
+		} catch (err) {
+			console.warn('[AppStore] Failed loading per-user settings during rehydration:', err);
+		}
 	}
 
 	// --- Linear Security & Authentication Orchestration ---

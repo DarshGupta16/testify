@@ -1,4 +1,5 @@
 export * from './client';
+export * from './sessionRegistry';
 export * from './sync/localToSupabaseSync';
 export * from './sync/mappers';
 export * from './sync/realtimeSubscriptions';

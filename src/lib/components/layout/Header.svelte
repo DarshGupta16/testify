@@ -144,32 +144,7 @@ let isDevTraceModalOpen = $state(false);
 			</button>
 
 			<!-- Authentication & Cloud Sync Section -->
-			{#if app.auth.isAuthenticated}
-				<UserNavMenu />
-			{:else}
-				<!-- Sign In CTA (Guest Mode) -->
-				<button
-					type="button"
-					onclick={() => app.modals.openAuth('signin')}
-					class="neo-btn text-[11px] sm:text-xs py-1 px-2.5 sm:py-1.5 sm:px-3 bg-accent-contrast text-accent-contrast-text font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-[2px_2px_0px_var(--shadow-color)]"
-					aria-label="Sign In or Create Account"
-					title="Sign in to enable cross-device cloud sync and backup"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="square"
-						class="h-3 w-3 sm:h-3.5 sm:w-3.5"
-					>
-						<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-						<circle cx="12" cy="7" r="4" />
-					</svg>
-					<span>Sign In</span>
-				</button>
-			{/if}
+			<UserNavMenu />
 
 			<!-- Theme Toggle Button -->
 			<button

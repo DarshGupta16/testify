@@ -29,6 +29,7 @@ import type { AppStore } from './appContext.svelte';
 export class GenerationQueueStore implements QueueDispatcherHost {
 	app!: AppStore;
 	private dispatcher = new QueueDispatcher();
+	private hasRegisteredOnlineListener = false;
 
 	// Primary O(1) Key-Value Store
 	readonly jobsMap = new SvelteMap<string, GenerationJob>();
@@ -145,7 +146,8 @@ export class GenerationQueueStore implements QueueDispatcherHost {
 
 			this.isInitialized = true;
 
-			if (typeof window !== 'undefined') {
+			if (typeof window !== 'undefined' && !this.hasRegisteredOnlineListener) {
+				this.hasRegisteredOnlineListener = true;
 				window.addEventListener('online', () => this.handleNetworkRestored());
 			}
 
@@ -437,5 +439,23 @@ export class GenerationQueueStore implements QueueDispatcherHost {
 			db.saveGenerationJob(serializable),
 			`Persisting generation job "${job.id}" update to Dexie`
 		);
+	}
+
+	/**
+	 * Aborts all in-flight generation workers, clears execution dispatch slots,
+	 * and clears in-memory jobs. Used during account switching.
+	 */
+	reset(): void {
+		for (const job of this.jobsMap.values()) {
+			if (job.abortController) {
+				try {
+					job.abortController.abort();
+				} catch {
+					// Ignore abort errors
+				}
+			}
+		}
+		this.dispatcher.clearAll();
+		this.jobsMap.clear();
 	}
 }

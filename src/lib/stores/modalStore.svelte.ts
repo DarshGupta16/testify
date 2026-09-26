@@ -164,4 +164,26 @@ export class ModalStore {
 			this.moveTargetTests = [];
 		}
 	}
+
+	/**
+	 * Closes all open modals and resets modal selections.
+	 * Used during account switching and user profile rehydration.
+	 */
+	closeAll(): void {
+		this.isUploadModalOpen = false;
+		this.isDetailsModalOpen = false;
+		this.isApiKeysModalOpen = false;
+		this.isMasterPasswordModalOpen = false;
+		this.isSubjectsModalOpen = false;
+		this.isEditModalOpen = false;
+		this.isSimilarPaperOpen = false;
+		this.isFoldersModalOpen = false;
+		this.isMoveToFolderModalOpen = false;
+		this.isAuthModalOpen = false;
+		this.isDeleteAccountModalOpen = false;
+		this.selectedTest = null;
+		this.editingTest = null;
+		this.similarPaperSourceTest = null;
+		this.moveTargetTests = [];
+	}
 }

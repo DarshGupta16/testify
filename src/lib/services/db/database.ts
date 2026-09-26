@@ -33,6 +33,17 @@ import type { AppSettingRecord, OfflineOp, TestDocAssetRecord } from './types';
  * 8. Background Test Generation Jobs (`generationJobs`)
  * 9. Hierarchical Folders (`folders`)
  */
+/**
+ * Resolves the physical Dexie database name for a user.
+ * Database naming: testify_guest for guest, testify_${userId} for authenticated users.
+ */
+export function getUserDbName(userId?: string | null): string {
+	if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+		return 'testify_guest';
+	}
+	return `testify_${userId.trim()}`;
+}
+
 export class TestifyDatabase extends Dexie {
 	tests!: EntityTable<TestItem, 'id'>;
 	folders!: EntityTable<FolderItem, 'id'>;
@@ -45,7 +56,7 @@ export class TestifyDatabase extends Dexie {
 	generationJobs!: EntityTable<StoredGenerationJob, 'id'>;
 	offlineOps!: EntityTable<OfflineOp, 'id'>;
 
-	constructor(dbName = 'TestifyDatabase', options?: DexieOptions) {
+	constructor(dbName = getUserDbName(null), options?: DexieOptions) {
 		super(dbName, options);
 
 		this.version(1).stores({
@@ -429,4 +440,177 @@ export class TestifyDatabase extends Dexie {
 	clearAllOfflineOps(): Promise<void> {
 		return offlineOpsRepo.clearAllOfflineOps(this);
 	}
+}
+
+// Cache of open database instances keyed by partition name
+const databaseInstances = new Map<string, TestifyDatabase>();
+let currentActiveDbName = getUserDbName(null);
+
+/**
+ * Returns the partitioned TestifyDatabase instance for a specific user ID (or guest if null/omitted).
+ * Does not change the globally active database partition.
+ */
+export function getDatabaseForUser(userId?: string | null): TestifyDatabase {
+	const dbName = getUserDbName(userId);
+	let instance = databaseInstances.get(dbName);
+	if (!instance) {
+		instance = new TestifyDatabase(dbName);
+		databaseInstances.set(dbName, instance);
+	}
+	return instance;
+}
+
+/**
+ * Returns the currently active partitioned TestifyDatabase instance.
+ * Defaults to 'testify_guest' if no user session has been activated.
+ */
+export function getActiveDatabase(): TestifyDatabase {
+	let instance = databaseInstances.get(currentActiveDbName);
+	if (!instance) {
+		instance = new TestifyDatabase(currentActiveDbName);
+		databaseInstances.set(currentActiveDbName, instance);
+	}
+	return instance;
+}
+
+/**
+ * Switches the active database partition to the specified user ID (or guest if omitted/null).
+ * Returns the newly active TestifyDatabase instance.
+ */
+export function switchActiveDatabase(userId?: string | null): TestifyDatabase {
+	const targetDbName = getUserDbName(userId);
+	currentActiveDbName = targetDbName;
+	return getActiveDatabase();
+}
+
+/**
+ * Deletes a user's physical Dexie database partition from IndexedDB.
+ * If the deleted database was currently active, switches to testify_guest.
+ */
+export async function deleteUserDatabase(userId: string): Promise<void> {
+	if (!userId || typeof userId !== 'string') return;
+	const dbName = getUserDbName(userId);
+
+	if (currentActiveDbName === dbName) {
+		switchActiveDatabase(null);
+	}
+
+	const existing = databaseInstances.get(dbName);
+	if (existing) {
+		try {
+			existing.close();
+		} catch {
+			// ignore
+		}
+		databaseInstances.delete(dbName);
+	}
+
+	if (typeof indexedDB !== 'undefined' && typeof Dexie.delete === 'function') {
+		try {
+			await Dexie.delete(dbName);
+		} catch (err) {
+			console.warn('[Dexie Partitioning] Failed deleting database:', err);
+		}
+	}
+}
+
+/**
+ * Migrates data from the legacy unpartitioned 'TestifyDatabase' into 'testify_guest'
+ * if the legacy database exists and 'testify_guest' is empty/new.
+ */
+let legacyMigrationAttempted = false;
+export async function migrateLegacyDatabaseIfNeeded(guestDb: TestifyDatabase): Promise<void> {
+	if (legacyMigrationAttempted) return;
+	legacyMigrationAttempted = true;
+
+	try {
+		if (typeof indexedDB === 'undefined' || typeof Dexie.exists !== 'function') {
+			return;
+		}
+
+		const legacyExists = await Dexie.exists('TestifyDatabase');
+		if (!legacyExists) return;
+
+		// Check if migration has already been completed in the past
+		const isMigrated = await guestDb.getSetting<boolean>('legacy_database_migrated', false);
+		if (isMigrated) return;
+
+		// Check if guest database already has data
+		const [guestTests, guestFolders] = await Promise.all([
+			guestDb.tests.count().catch(() => 0),
+			guestDb.folders.count().catch(() => 0),
+		]);
+
+		if (guestTests > 0 || guestFolders > 0) {
+			await guestDb.setSetting('legacy_database_migrated', true);
+			return; // guest already has data, preserve as-is
+		}
+
+		const legacyDb = new TestifyDatabase('TestifyDatabase');
+		await legacyDb.open();
+
+		const [
+			tests,
+			folders,
+			subjects,
+			settings,
+			apiKeys,
+			attempts,
+			devTraces,
+			testDocAssets,
+			generationJobs,
+			offlineOps,
+		] = await Promise.all([
+			legacyDb.tests.toArray().catch(() => []),
+			legacyDb.folders.toArray().catch(() => []),
+			legacyDb.subjects.toArray().catch(() => []),
+			legacyDb.settings.toArray().catch(() => []),
+			legacyDb.apiKeys.toArray().catch(() => []),
+			legacyDb.attempts.toArray().catch(() => []),
+			legacyDb.devTraces.toArray().catch(() => []),
+			legacyDb.testDocAssets.toArray().catch(() => []),
+			legacyDb.generationJobs.toArray().catch(() => []),
+			legacyDb.offlineOps.toArray().catch(() => []),
+		]);
+
+		if (tests.length > 0) await guestDb.tests.bulkPut(tests);
+		if (folders.length > 0) await guestDb.folders.bulkPut(folders);
+		if (subjects.length > 0) await guestDb.subjects.bulkPut(subjects);
+		if (settings.length > 0) await guestDb.settings.bulkPut(settings);
+		if (apiKeys.length > 0) await guestDb.apiKeys.bulkPut(apiKeys);
+		if (attempts.length > 0) await guestDb.attempts.bulkPut(attempts);
+		if (devTraces.length > 0) await guestDb.devTraces.bulkPut(devTraces);
+		if (testDocAssets.length > 0) await guestDb.testDocAssets.bulkPut(testDocAssets);
+		if (generationJobs.length > 0) await guestDb.generationJobs.bulkPut(generationJobs);
+		if (offlineOps.length > 0) await guestDb.offlineOps.bulkPut(offlineOps);
+
+		await guestDb.setSetting('legacy_database_migrated', true);
+		legacyDb.close();
+
+		try {
+			await Dexie.delete('TestifyDatabase');
+		} catch (delErr) {
+			console.warn('[Dexie Partitioning] Failed deleting legacy TestifyDatabase:', delErr);
+		}
+
+		console.info('[Dexie Partitioning] Legacy data successfully migrated to testify_guest');
+	} catch (err) {
+		console.warn('[Dexie Partitioning] Legacy migration error or skipped:', err);
+	}
+}
+
+/**
+ * Test utility to reset active database state and cached instances.
+ */
+export function _resetDatabaseInstancesForTesting(): void {
+	for (const instance of databaseInstances.values()) {
+		try {
+			instance.close();
+		} catch {
+			// ignore in tests
+		}
+	}
+	databaseInstances.clear();
+	currentActiveDbName = getUserDbName(null);
+	legacyMigrationAttempted = false;
 }
