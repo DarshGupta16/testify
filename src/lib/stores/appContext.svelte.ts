@@ -76,7 +76,11 @@ export class AppStore {
 		// 0. Perform legacy unpartitioned database migration if necessary
 		await migrateLegacyDatabaseIfNeeded(getDatabaseForUser(null));
 
-		// 1. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
+		// 1. Initialize Supabase cloud auth session to establish active partition (User or Guest) FIRST
+		await this.auth.init(this);
+
+		// 2. Initialize persistent UI preferences, subjects, folders, tests, & local exam collections
+		// These now load directly from the authenticated user's database partition (or guest if unauthenticated)!
 		await this.theme.init();
 		await this.subjects.init();
 		await this.folders.init();
@@ -100,7 +104,7 @@ export class AppStore {
 		this.folders.rebuildIndices(this.tests.tests);
 		await this.attempts.init();
 
-		// 2. Initialize network & PWA installation status
+		// 3. Initialize network & PWA installation status
 		this.network.init(
 			() => {
 				this.toast.show('Back online! Internet connection restored.', 'info', 4000);
@@ -111,25 +115,22 @@ export class AppStore {
 			}
 		);
 
-		// 3. Wire security session expiry hook to key purge
+		// 4. Wire security session expiry hook to key purge
 		this.security.setOnSessionExpire(() => {
 			this.apiKeys.purgeMemory();
 		});
 
-		// 4. Initialize security authentication state and API key records
+		// 5. Initialize security authentication state and API key records
 		await this.security.init();
 		await this.apiKeys.init(this.security.securityMode);
 
-		// 5. Initialize background generation queue worker & restore session jobs
+		// 6. Initialize background generation queue worker & restore session jobs
 		await this.queue.init(this);
-
-		// 6. Initialize Supabase cloud auth session & synchronization engine
-		await this.auth.init(this);
 
 		// 7. Initialize persistent application preferences
 		await this.settings.init();
 
-		// 6. Load saved extraction scale from Dexie
+		// 8. Load saved extraction scale from Dexie
 		try {
 			const savedScale = await db.getSetting<number>(SETTINGS_KEYS.EXTRACTION_SCALE, 1.25);
 			if (typeof savedScale === 'number' && savedScale > 0) {
@@ -137,6 +138,13 @@ export class AppStore {
 			}
 		} catch (err) {
 			console.error('[AppStore] Failed loading scale preference:', err);
+		}
+
+		// 9. Now that all stores are initialized, if authenticated, trigger background sync
+		if (this.auth.isAuthenticated) {
+			this.auth.startSyncCycle().catch((err) => {
+				console.warn('[AppStore] Initial background sync error:', err);
+			});
 		}
 
 		// 7. Load saved folder delete confirmation preference

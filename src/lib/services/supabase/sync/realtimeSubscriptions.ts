@@ -9,6 +9,21 @@ import { supabaseDeltaSync } from './supabaseDeltaSync';
  * echo loops from locally dispatched mutations.
  */
 export function setupRealtimeSubscriptions(app: AppStore): () => void {
+	// Clean up any pre-existing channel for this topic (e.g. from Vite HMR or previous subscription)
+	try {
+		const existingChannels = supabase.getChannels();
+		const existing = existingChannels.find(
+			(ch) =>
+				ch.topic === 'realtime:public:testify_sync' ||
+				(ch as unknown as { subTopic?: string }).subTopic === 'public:testify_sync'
+		);
+		if (existing) {
+			supabase.removeChannel(existing);
+		}
+	} catch (err) {
+		console.warn('[Realtime] Failed cleaning up previous channel:', err);
+	}
+
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const scheduleDeltaSync = () => {

@@ -534,66 +534,61 @@ export async function migrateLegacyDatabaseIfNeeded(guestDb?: TestifyDatabase): 
 
 		const targetGuestDb = guestDb ?? getDatabaseForUser(null);
 
-		// Check if migration has already been completed in the past
-		const isMigrated = await targetGuestDb.getSetting<boolean>('legacy_database_migrated', false).catch(() => false);
+		// Check if guest database already has data
+		const [guestTests, guestFolders] = await Promise.all([
+			targetGuestDb.tests.count().catch(() => 0),
+			targetGuestDb.folders.count().catch(() => 0),
+		]);
 
-		if (!isMigrated) {
-			// Check if guest database already has data
-			const [guestTests, guestFolders] = await Promise.all([
-				targetGuestDb.tests.count().catch(() => 0),
-				targetGuestDb.folders.count().catch(() => 0),
-			]);
+		if (guestTests === 0 && guestFolders === 0) {
+			const legacyDb = new TestifyDatabase('TestifyDatabase');
+			try {
+				await legacyDb.open();
 
-			if (guestTests === 0 && guestFolders === 0) {
-				const legacyDb = new TestifyDatabase('TestifyDatabase');
-				try {
-					await legacyDb.open();
+				const [
+					tests,
+					folders,
+					subjects,
+					settings,
+					apiKeys,
+					attempts,
+					devTraces,
+					testDocAssets,
+					generationJobs,
+					offlineOps,
+				] = await Promise.all([
+					legacyDb.tests.toArray().catch(() => []),
+					legacyDb.folders.toArray().catch(() => []),
+					legacyDb.subjects.toArray().catch(() => []),
+					legacyDb.settings.toArray().catch(() => []),
+					legacyDb.apiKeys.toArray().catch(() => []),
+					legacyDb.attempts.toArray().catch(() => []),
+					legacyDb.devTraces.toArray().catch(() => []),
+					legacyDb.testDocAssets.toArray().catch(() => []),
+					legacyDb.generationJobs.toArray().catch(() => []),
+					legacyDb.offlineOps.toArray().catch(() => []),
+				]);
 
-					const [
-						tests,
-						folders,
-						subjects,
-						settings,
-						apiKeys,
-						attempts,
-						devTraces,
-						testDocAssets,
-						generationJobs,
-						offlineOps,
-					] = await Promise.all([
-						legacyDb.tests.toArray().catch(() => []),
-						legacyDb.folders.toArray().catch(() => []),
-						legacyDb.subjects.toArray().catch(() => []),
-						legacyDb.settings.toArray().catch(() => []),
-						legacyDb.apiKeys.toArray().catch(() => []),
-						legacyDb.attempts.toArray().catch(() => []),
-						legacyDb.devTraces.toArray().catch(() => []),
-						legacyDb.testDocAssets.toArray().catch(() => []),
-						legacyDb.generationJobs.toArray().catch(() => []),
-						legacyDb.offlineOps.toArray().catch(() => []),
-					]);
+				if (tests.length > 0) await targetGuestDb.tests.bulkPut(tests);
+				if (folders.length > 0) await targetGuestDb.folders.bulkPut(folders);
+				if (subjects.length > 0) await targetGuestDb.subjects.bulkPut(subjects);
+				if (settings.length > 0) await targetGuestDb.settings.bulkPut(settings);
+				if (apiKeys.length > 0) await targetGuestDb.apiKeys.bulkPut(apiKeys);
+				if (attempts.length > 0) await targetGuestDb.attempts.bulkPut(attempts);
+				if (devTraces.length > 0) await targetGuestDb.devTraces.bulkPut(devTraces);
+				if (testDocAssets.length > 0) await targetGuestDb.testDocAssets.bulkPut(testDocAssets);
+				if (generationJobs.length > 0) await targetGuestDb.generationJobs.bulkPut(generationJobs);
+				if (offlineOps.length > 0) await targetGuestDb.offlineOps.bulkPut(offlineOps);
 
-					if (tests.length > 0) await targetGuestDb.tests.bulkPut(tests);
-					if (folders.length > 0) await targetGuestDb.folders.bulkPut(folders);
-					if (subjects.length > 0) await targetGuestDb.subjects.bulkPut(subjects);
-					if (settings.length > 0) await targetGuestDb.settings.bulkPut(settings);
-					if (apiKeys.length > 0) await targetGuestDb.apiKeys.bulkPut(apiKeys);
-					if (attempts.length > 0) await targetGuestDb.attempts.bulkPut(attempts);
-					if (devTraces.length > 0) await targetGuestDb.devTraces.bulkPut(devTraces);
-					if (testDocAssets.length > 0) await targetGuestDb.testDocAssets.bulkPut(testDocAssets);
-					if (generationJobs.length > 0) await targetGuestDb.generationJobs.bulkPut(generationJobs);
-					if (offlineOps.length > 0) await targetGuestDb.offlineOps.bulkPut(offlineOps);
-
-					console.info('[Dexie Partitioning] Legacy data successfully migrated to testify_guest');
-				} catch (copyErr) {
-					console.warn('[Dexie Partitioning] Legacy copy warning:', copyErr);
-				} finally {
-					legacyDb.close();
-				}
+				console.info('[Dexie Partitioning] Legacy data successfully migrated to testify_guest');
+			} catch (copyErr) {
+				console.warn('[Dexie Partitioning] Legacy copy warning:', copyErr);
+			} finally {
+				legacyDb.close();
 			}
-
-			await targetGuestDb.setSetting('legacy_database_migrated', true).catch(() => {});
 		}
+
+		await targetGuestDb.setSetting('legacy_database_migrated', true).catch(() => {});
 
 		// ALWAYS ensure any open or cached connection to TestifyDatabase is closed, then delete it
 		const cachedLegacy = databaseInstances.get('TestifyDatabase');

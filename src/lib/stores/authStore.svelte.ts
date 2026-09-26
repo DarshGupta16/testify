@@ -15,7 +15,9 @@ import {
 	updateAccountLastActive,
 	updateAccountTokens,
 } from '$lib/services/supabase';
+import { attemptToRow, folderToRow, subjectToRow, testToRow } from '$lib/services/supabase/sync/mappers';
 import type { AppStore } from '$lib/stores/appContext.svelte';
+import { createDefaultSubjects } from '$lib/types/subject';
 
 export type SyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
@@ -49,8 +51,10 @@ export class AuthStore {
 		this.app = app;
 
 		// 1. Load saved accounts from origin-private encrypted session vault
+		let savedAccountsList: SavedAccountSummary[] = [];
 		try {
-			this.savedAccounts = await getSavedAccounts();
+			savedAccountsList = await getSavedAccounts();
+			this.savedAccounts = savedAccountsList;
 		} catch (err) {
 			console.warn('[AuthStore] Error loading saved accounts:', err);
 		}
@@ -62,9 +66,12 @@ export class AuthStore {
 		}
 
 		try {
+			const wasGuestOnlyDevice = savedAccountsList.length === 0;
+
 			const { data, error } = await supabase.auth.getSession();
 			if (error) {
 				console.error('[AuthStore] Error fetching initial session:', error);
+				switchActiveDatabase(null);
 			} else {
 				this.session = data.session;
 				this.user = data.session?.user || null;
@@ -91,6 +98,20 @@ export class AuthStore {
 						}
 					);
 					this.savedAccounts = await getSavedAccounts();
+
+					// If this device had no other accounts set up on it (guest-only device)
+					// and guest partition has assessments, prompt user to import or keep separate
+					if (wasGuestOnlyDevice) {
+						const guestDb = getDatabaseForUser(null);
+						const guestTests = await guestDb.getAllTests();
+						if (guestTests.length > 0) {
+							this.pendingLocalTestsCount = guestTests.length;
+							this.showDeviceSyncPrompt = true;
+						}
+					}
+				} else {
+					// Unauthenticated: ensure active partition is testify_guest
+					switchActiveDatabase(null);
 				}
 			}
 
@@ -143,10 +164,6 @@ export class AuthStore {
 					this.handleUserLoggedOut();
 				}
 			});
-
-			if (this.user) {
-				await this.startSyncCycle();
-			}
 		} catch (err) {
 			console.error('[AuthStore] Initialization failed:', err);
 		} finally {
@@ -252,86 +269,52 @@ export class AuthStore {
 				guestDb.offlineOps.clear().catch(() => {}),
 			]);
 
+			// 2b. Re-seed default academic subjects for the clean guest database
+			await guestDb.subjects.bulkPut(createDefaultSubjects()).catch(() => {});
+
 			// 3. Upsert subjects to Supabase cloud
 			for (const s of subjects) {
-				await supabase.from('subjects').upsert({
-					id: s.id,
-					name: s.name,
-					created_at: s.createdAt,
-					updated_at: s.updatedAt || new Date().toISOString(),
-				});
+				try {
+					await supabase.from('subjects').upsert(subjectToRow(s));
+				} catch (err) {
+					console.warn('[AuthStore] Warning uploading subject:', err);
+				}
 			}
 
 			// 4. Upsert folders to Supabase cloud
 			for (const f of folders) {
-				await supabase.from('folders').upsert({
-					id: f.id,
-					name: f.name,
-					parent_folder_id: f.parentFolderId || null,
-					color: f.color || null,
-					icon: f.icon || null,
-					order_index: f.order,
-					description: f.description || null,
-					created_at: f.createdAt,
-					updated_at: f.updatedAt,
-				});
+				try {
+					await supabase.from('folders').upsert(folderToRow(f));
+				} catch (err) {
+					console.warn('[AuthStore] Warning uploading folder:', err);
+				}
 			}
 
 			// 5. Upsert tests to Supabase cloud
 			for (const t of tests) {
-				await supabase.from('tests').upsert({
-					id: t.id,
-					title: t.title,
-					description: t.description || null,
-					subject_id: t.subjectId,
-					folder_id: t.folderId || null,
-					duration_minutes: t.durationMinutes,
-					total_marks: t.totalMarks,
-					test_file_name: t.testFileName,
-					test_file_size_formatted: t.testFileSizeFormatted,
-					answer_key_file_name: t.answerKeyFileName || null,
-					answer_key_file_size_formatted: t.answerKeyFileSizeFormatted || null,
-					status: t.status,
-					questions: t.questions as unknown as import('$lib/services/supabase/types').Json,
-					blueprint: t.blueprint as unknown as import('$lib/services/supabase/types').Json,
-					token_usage: t.tokenUsage as unknown as import('$lib/services/supabase/types').Json,
-					ai_provider: t.aiProvider || null,
-					ai_model: t.aiModel || null,
-					created_at: t.createdAt,
-					updated_at: t.updatedAt || new Date().toISOString(),
-				});
+				try {
+					await supabase.from('tests').upsert(testToRow(t));
+				} catch (err) {
+					console.warn('[AuthStore] Warning uploading test:', err);
+				}
 			}
 
 			// 6. Upsert attempts to Supabase cloud
 			for (const a of attempts) {
-				await supabase.from('attempts').upsert({
-					id: a.id,
-					test_id: a.testId,
-					test_title: a.testTitle,
-					started_at: a.startedAt,
-					completed_at: a.completedAt || null,
-					duration_seconds_taken: a.durationSecondsTaken,
-					mode: a.mode,
-					status: a.status,
-					responses: a.responses as unknown as import('$lib/services/supabase/types').Json,
-					score: a.score,
-					max_possible_score: a.maxPossibleScore,
-					accuracy_percentage: a.accuracyPercentage,
-					total_questions: a.totalQuestions,
-					answered_count: a.answeredCount,
-					correct_count: a.correctCount,
-					incorrect_count: a.incorrectCount,
-					unattempted_count: a.unattemptedCount,
-					review_count: a.reviewCount,
-					updated_at: a.updatedAt || new Date().toISOString(),
-				});
+				try {
+					await supabase.from('attempts').upsert(attemptToRow(a));
+				} catch (err) {
+					console.warn('[AuthStore] Warning uploading attempt:', err);
+				}
 			}
 
 			// 7. Rehydrate in-memory stores so UI immediately displays newly moved papers
 			await this.app.rehydrateUserStores();
 			this.showDeviceSyncPrompt = false;
 
-			await this.startSyncCycle();
+			if (typeof navigator !== 'undefined' && navigator.onLine) {
+				await this.startSyncCycle();
+			}
 			this.app.toast.show('Guest papers moved to your account and synced to cloud.', 'success');
 		} catch (err) {
 			console.error('[AuthStore] Failed merging local data:', err);
