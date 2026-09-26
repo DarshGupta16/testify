@@ -396,17 +396,26 @@ export class AuthStore {
 		try {
 			const userId = this.user?.id;
 			if (userId) {
-				// 1. Purge all records from Supabase tables
-				await Promise.allSettled([
-					supabase.from('tests').delete().eq('user_id', userId),
-					supabase.from('folders').delete().eq('user_id', userId),
-					supabase.from('subjects').delete().eq('user_id', userId),
-					supabase.from('attempts').delete().eq('user_id', userId),
-					supabase.from('settings').delete().eq('user_id', userId),
-					supabase.from('synced_api_keys').delete().eq('user_id', userId),
-				]);
+				// 1. Invoke atomic delete_user_account RPC (SECURITY DEFINER in PostgreSQL)
+				const { error: rpcError } = await supabase.rpc('delete_user_account');
 
-				// 2. Sign out of Supabase
+				if (rpcError) {
+					console.warn(
+						'[AuthStore] RPC delete_user_account failed, attempting client fallback:',
+						rpcError
+					);
+					// Fallback to table-by-table delete if RPC is not yet deployed on server
+					await Promise.allSettled([
+						supabase.from('tests').delete().eq('user_id', userId),
+						supabase.from('folders').delete().eq('user_id', userId),
+						supabase.from('subjects').delete().eq('user_id', userId),
+						supabase.from('attempts').delete().eq('user_id', userId),
+						supabase.from('settings').delete().eq('user_id', userId),
+						supabase.from('synced_api_keys').delete().eq('user_id', userId),
+					]);
+				}
+
+				// 2. Sign out of Supabase session
 				await supabase.auth.signOut();
 			}
 
@@ -420,6 +429,8 @@ export class AuthStore {
 					await db.clearAllFolders();
 					await db.offlineOps.clear();
 					await db.testDocAssets.clear();
+					await db.subjects.clear();
+					this.app.subjects.subjects = [];
 					await this.app.apiKeys.clearAllKeys();
 				}
 				this.handleUserLoggedOut();
