@@ -290,21 +290,43 @@ export class AppStore {
 		await this.security.resetMasterPassword();
 	}
 
+	async handleSwitchToLax(password?: string): Promise<void> {
+		if (this.security.securityMode === 'lax') return;
+
+		// 1. If strict mode and has master password or encrypted keys, verify password and decrypt
+		const records = await db.getAllApiKeys();
+		const hasEncryptedKeys = records.some((r) => r.isEncrypted);
+
+		if (this.security.hasMasterPassword || hasEncryptedKeys) {
+			if (!password) {
+				throw new Error('Master password is required to decrypt API keys before switching to Lax mode.');
+			}
+			// Decrypt all keys into memory with the password (throws if incorrect)
+			await this.apiKeys.decryptAllKeys(password);
+		}
+
+		// 2. Convert all keys in memory to plaintext records in Dexie
+		await this.apiKeys.makeAllKeysPlaintext();
+
+		// 3. Automatically disable cross-device sync and purge synced keys from cloud
+		await this.apiKeys.setSyncToCloud(false);
+
+		// 4. Switch security mode to lax and reset master password / canary
+		await this.security.switchSecurityMode('lax');
+	}
+
 	async handleSwitchSecurityMode(targetMode: SecurityMode, password?: string): Promise<void> {
 		if (this.security.securityMode === targetMode) return;
 
-		// 1. Migrate stored credentials format
 		if (targetMode === 'strict') {
 			if (!password) {
 				throw new Error('Master password is required to switch to Strict mode.');
 			}
 			await this.apiKeys.encryptAllKeys(password);
+			await this.security.switchSecurityMode('strict', password);
 		} else {
-			await this.apiKeys.makeAllKeysPlaintext();
+			await this.handleSwitchToLax(password);
 		}
-
-		// 2. Commit security mode state change
-		await this.security.switchSecurityMode(targetMode, password);
 	}
 
 	handleSaveKey(provider: AIProvider, key: string, password?: string): void {

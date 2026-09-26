@@ -18,6 +18,8 @@ const app = getAppContext();
 
 let inputKey = $state('');
 let showKey = $state(false);
+let isRevealed = $state(false);
+let isCopied = $state(false);
 
 const isConfigured = $derived(Boolean(app.apiKeys.configuredProviders[provider.id]));
 const maskedKey = $derived(
@@ -27,6 +29,7 @@ const maskedKey = $derived(
 function handleStartEdit() {
 	inputKey = app.apiKeys.getKey(provider.id) || '';
 	showKey = false;
+	isRevealed = false;
 	onstartedit();
 }
 
@@ -34,6 +37,25 @@ function handleCancelEdit() {
 	inputKey = '';
 	showKey = false;
 	oncanceledit();
+}
+
+function handleCopy() {
+	const rawKey = app.apiKeys.getKey(provider.id);
+	if (!rawKey) return;
+	if (typeof navigator !== 'undefined' && navigator.clipboard) {
+		navigator.clipboard
+			.writeText(rawKey)
+			.then(() => {
+				isCopied = true;
+				setTimeout(() => {
+					isCopied = false;
+				}, 2000);
+				app.toast.show(`${provider.name} API key copied to clipboard.`, 'info');
+			})
+			.catch(() => {
+				app.toast.show('Failed to copy API key.', 'error');
+			});
+	}
 }
 
 async function handleSaveKey() {
@@ -122,18 +144,46 @@ function handleRemoveKey() {
 	<!-- Key Status / Input Row -->
 	{#if isConfigured && !isEditing}
 		<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 p-2 bg-muted/30 border border-border-color/40">
-			<div class="flex items-center gap-2 font-mono text-xs">
-				<span class="text-text-muted text-[11px]">Key:</span>
-				<span class="font-bold tracking-wider text-text-primary">
-					{#if app.security.securityMode === 'strict' && !app.security.isUnlocked}
-						<span class="text-text-muted italic">Encrypted</span>
-					{:else}
+			<div class="flex items-center gap-2 font-mono text-xs overflow-hidden">
+				<span class="text-text-muted text-[11px] shrink-0">Key:</span>
+				{#if app.security.securityMode === 'strict' && !app.security.isUnlocked}
+					<span class="text-amber-600 dark:text-amber-400 italic text-[11px] flex items-center gap-1 shrink-0">
+						🔒 Encrypted (Locked)
+					</span>
+				{:else if isRevealed}
+					<span class="font-bold tracking-normal text-text-primary select-all break-all bg-muted/60 px-1.5 py-0.5 border border-border-color/40">
+						{app.apiKeys.getKey(provider.id)}
+					</span>
+				{:else}
+					<span class="font-bold tracking-wider text-text-primary">
 						{maskedKey}
-					{/if}
-				</span>
+					</span>
+				{/if}
 			</div>
 
-			<div class="flex items-center gap-2 justify-end">
+			<div class="flex items-center gap-1.5 justify-end shrink-0">
+				{#if app.security.securityMode === 'strict' && !app.security.isUnlocked}
+					<span class="font-mono text-[10px] text-text-muted italic hidden sm:inline">
+						Unlock master password to view
+					</span>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (isRevealed = !isRevealed)}
+						class="neo-btn text-[11px] py-1 px-2 text-text-muted hover:text-text-primary"
+						title={isRevealed ? 'Hide full key' : 'Show full key'}
+					>
+						{isRevealed ? 'Hide' : 'Show'}
+					</button>
+					<button
+						type="button"
+						onclick={handleCopy}
+						class="neo-btn text-[11px] py-1 px-2 text-text-muted hover:text-text-primary"
+						title="Copy API key to clipboard"
+					>
+						{isCopied ? '✓ Copied' : 'Copy'}
+					</button>
+				{/if}
 				<button
 					type="button"
 					onclick={handleStartEdit}

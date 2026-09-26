@@ -128,7 +128,11 @@ async function handleSubmit(e: SubmitEvent) {
 	}
 
 	if (!app.apiKeys.hasKey(selectedProvider)) {
-		formError = `Please configure and save your ${selectedProvider.toUpperCase()} API key in settings before generating a test.`;
+		if (app.security.securityMode === 'strict' && !app.security.isUnlocked) {
+			formError = `Your API keys are encrypted in Strict mode. Please open the API Keys modal and enter your master password to unlock before generating.`;
+		} else {
+			formError = `Please configure and save your ${selectedProvider.toUpperCase()} API key in settings before generating a test.`;
+		}
 		return;
 	}
 
@@ -370,6 +374,17 @@ async function handleSubmit(e: SubmitEvent) {
 				<p class="text-text-primary leading-relaxed font-mono text-[11px]">
 					{formError}
 				</p>
+				{#if app.security.securityMode === 'strict' && !app.security.isUnlocked}
+					<div class="pt-2">
+						<button
+							type="button"
+							onclick={() => app.modals.openApiKeys()}
+							class="neo-btn text-[11px] font-mono font-bold px-2.5 py-1 bg-surface hover:bg-surface-hover flex items-center gap-1.5 cursor-pointer"
+						>
+							<span>Unlock API Keys →</span>
+						</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

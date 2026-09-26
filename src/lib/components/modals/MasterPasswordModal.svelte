@@ -9,6 +9,7 @@ let confirmPasswordInput = $state('');
 let showNewPassword = $state(false);
 let showConfirmPassword = $state(false);
 let passwordError = $state('');
+let isProcessing = $state(false);
 
 function handleClose() {
 	app.modals.closeMasterPassword();
@@ -17,6 +18,7 @@ function handleClose() {
 	passwordError = '';
 	showNewPassword = false;
 	showConfirmPassword = false;
+	isProcessing = false;
 }
 
 function handleKeyDown(event: KeyboardEvent) {
@@ -43,6 +45,7 @@ async function handleSaveMasterPassword() {
 		return;
 	}
 
+	isProcessing = true;
 	try {
 		await app.handleSetMasterPassword(pwd);
 		handleClose();
@@ -50,10 +53,13 @@ async function handleSaveMasterPassword() {
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Failed to set master password';
 		passwordError = message;
+	} finally {
+		isProcessing = false;
 	}
 }
 
 async function handleConfirmReset() {
+	isProcessing = true;
 	try {
 		await app.handleResetMasterPassword();
 		handleClose();
@@ -61,6 +67,48 @@ async function handleConfirmReset() {
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Failed to reset';
 		app.toast.show(message, 'error');
+	} finally {
+		isProcessing = false;
+	}
+}
+
+async function handleConfirmSwitchToLax() {
+	passwordError = '';
+	isProcessing = true;
+	try {
+		await app.handleSwitchToLax(newPasswordInput.trim());
+		handleClose();
+		app.toast.show('Security mode switched to Lax. Cross-device sync disabled.', 'info');
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Invalid master password';
+		passwordError = message;
+	} finally {
+		isProcessing = false;
+	}
+}
+
+async function handleConfirmEnableStrict() {
+	passwordError = '';
+	const pwd = newPasswordInput.trim();
+	if (!pwd) {
+		passwordError = 'Please enter your master password.';
+		return;
+	}
+	isProcessing = true;
+	try {
+		const valid = await app.security.verifyCanary(pwd);
+		if (!valid) {
+			passwordError = 'Incorrect master password.';
+			return;
+		}
+		await app.handleSwitchSecurityMode('strict', pwd);
+		handleClose();
+		app.toast.show('Security mode switched to Strict.', 'success');
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Failed to enable strict mode';
+		passwordError = message;
+	} finally {
+		isProcessing = false;
 	}
 }
 </script>
@@ -201,6 +249,197 @@ async function handleConfirmReset() {
 						class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-40"
 					>
 						Save Password & Enable Strict
+					</button>
+				</div>
+			{:else if app.modals.masterPasswordModalMode === 'switch_to_lax'}
+				<!-- Switch to Lax Mode Confirmation -->
+				<div class="flex items-center justify-between border-b-2 border-border-color pb-3">
+					<div class="flex items-center gap-2.5">
+						<div class="flex h-7 w-7 items-center justify-center border-2 border-border-color bg-amber-500 text-black shadow-[1.5px_1.5px_0px_var(--shadow-color)]">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="square"
+								class="h-4 w-4"
+							>
+								<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+								<line x1="12" y1="9" x2="12" y2="13" />
+								<line x1="12" y1="17" x2="12.01" y2="17" />
+							</svg>
+						</div>
+						<h3 id="master-password-title" class="font-sans text-sm font-extrabold uppercase tracking-tight text-text-primary">
+							Switch to Lax (Plaintext) Mode
+						</h3>
+					</div>
+					<button
+						type="button"
+						onclick={handleClose}
+						class="p-1 text-text-muted hover:text-text-primary text-xs"
+						aria-label="Close dialog"
+					>
+						✕
+					</button>
+				</div>
+
+				<!-- Warning Notice -->
+				<div class="p-3 bg-amber-500/10 border-2 border-amber-500/40 space-y-1.5">
+					<p class="font-sans text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+						<span>⚠️ Cross-Device Cloud Sync Will Be Disabled</span>
+					</p>
+					<p class="text-[11px] text-text-secondary leading-relaxed">
+						Lax mode stores your API keys unencrypted in local browser storage for convenience. For your security, unencrypted keys cannot be synced to the cloud. Cross-device sync will be turned off and existing synced keys will be purged from Supabase.
+					</p>
+				</div>
+
+				{#if passwordError}
+					<div class="p-2 bg-rose-500/10 border border-rose-500/40 text-rose-600 dark:text-rose-400 font-mono text-xs">
+						{passwordError}
+					</div>
+				{/if}
+
+				{#if app.security.hasMasterPassword}
+					<div class="space-y-1">
+						<label for="switch-lax-password" class="block font-mono text-[11px] font-bold uppercase text-text-secondary">
+							Master Password to Decrypt Keys
+						</label>
+						<div class="relative flex items-center">
+							<input
+								id="switch-lax-password"
+								type={showNewPassword ? 'text' : 'password'}
+								bind:value={newPasswordInput}
+								placeholder="Enter your master password..."
+								class="neo-input w-full text-xs font-mono py-2 pr-16"
+								onkeydown={(e) => {
+									if (e.key === 'Enter') handleConfirmSwitchToLax();
+								}}
+							/>
+							<button
+								type="button"
+								onclick={() => (showNewPassword = !showNewPassword)}
+								class="absolute right-2 p-1 font-mono text-[10px] text-text-muted hover:text-text-primary cursor-pointer"
+							>
+								{showNewPassword ? 'Hide' : 'Show'}
+							</button>
+						</div>
+					</div>
+				{:else}
+					<p class="text-xs text-text-muted font-mono">
+						No master password is required. Confirm to switch to Lax mode.
+					</p>
+				{/if}
+
+				<div class="flex items-center justify-end gap-2 pt-2 border-t border-border-color/30">
+					<button
+						type="button"
+						onclick={handleClose}
+						disabled={isProcessing}
+						class="neo-btn text-xs py-2 px-3"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handleConfirmSwitchToLax}
+						disabled={isProcessing || (app.security.hasMasterPassword && !newPasswordInput.trim())}
+						class="neo-btn bg-amber-500 hover:bg-amber-600 text-black border-2 border-border-color font-bold text-xs py-2 px-4 shadow-[2px_2px_0px_var(--shadow-color)] disabled:opacity-40"
+					>
+						{#if isProcessing}
+							Decrypting & Switching...
+						{:else}
+							Decrypt Keys & Switch to Lax
+						{/if}
+					</button>
+				</div>
+			{:else if app.modals.masterPasswordModalMode === 'enable_strict'}
+				<!-- Re-enable Strict Mode -->
+				<div class="flex items-center justify-between border-b-2 border-border-color pb-3">
+					<div class="flex items-center gap-2.5">
+						<div class="flex h-7 w-7 items-center justify-center border-2 border-border-color bg-accent-contrast text-accent-contrast-text shadow-[1.5px_1.5px_0px_var(--shadow-color)]">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="square"
+								class="h-4 w-4"
+							>
+								<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+								<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+							</svg>
+						</div>
+						<h3 id="master-password-title" class="font-sans text-sm font-extrabold uppercase tracking-tight text-text-primary">
+							Enable Strict (Encrypted) Mode
+						</h3>
+					</div>
+					<button
+						type="button"
+						onclick={handleClose}
+						class="p-1 text-text-muted hover:text-text-primary text-xs"
+						aria-label="Close dialog"
+					>
+						✕
+					</button>
+				</div>
+
+				<p class="text-xs text-text-secondary leading-relaxed">
+					Enter your master password to encrypt your API keys and activate Strict security mode.
+				</p>
+
+				{#if passwordError}
+					<div class="p-2 bg-rose-500/10 border border-rose-500/40 text-rose-600 dark:text-rose-400 font-mono text-xs">
+						{passwordError}
+					</div>
+				{/if}
+
+				<div class="space-y-1">
+					<label for="enable-strict-password" class="block font-mono text-[11px] font-bold uppercase text-text-secondary">
+						Master Password
+					</label>
+					<div class="relative flex items-center">
+						<input
+							id="enable-strict-password"
+							type={showNewPassword ? 'text' : 'password'}
+							bind:value={newPasswordInput}
+							placeholder="Enter your master password..."
+							class="neo-input w-full text-xs font-mono py-2 pr-16"
+							onkeydown={(e) => {
+								if (e.key === 'Enter') handleConfirmEnableStrict();
+							}}
+						/>
+						<button
+							type="button"
+							onclick={() => (showNewPassword = !showNewPassword)}
+							class="absolute right-2 p-1 font-mono text-[10px] text-text-muted hover:text-text-primary cursor-pointer"
+						>
+							{showNewPassword ? 'Hide' : 'Show'}
+						</button>
+					</div>
+				</div>
+
+				<div class="flex items-center justify-end gap-2 pt-2 border-t border-border-color/30">
+					<button
+						type="button"
+						onclick={handleClose}
+						disabled={isProcessing}
+						class="neo-btn text-xs py-2 px-3"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handleConfirmEnableStrict}
+						disabled={!newPasswordInput.trim() || isProcessing}
+						class="neo-btn neo-btn-primary text-xs py-2 px-4 disabled:opacity-40"
+					>
+						{#if isProcessing}
+							Encrypting...
+						{:else}
+							Encrypt & Enable Strict
+						{/if}
 					</button>
 				</div>
 			{:else}

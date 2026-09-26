@@ -1,6 +1,7 @@
 import { db } from '$lib/services/db';
 import { supabase } from '$lib/services/supabase/client';
 import type { AppStore } from '$lib/stores/appContext.svelte';
+import { SETTINGS_KEYS } from '$lib/services/settings';
 import type { AIProvider, SecurityMode, StoredApiKeyRecord } from '$lib/types/apiKeys';
 import { rowToAttempt, rowToFolder, rowToSubject, rowToTest } from './mappers';
 
@@ -121,7 +122,19 @@ export async function supabaseDeltaSync(app?: AppStore): Promise<void> {
 			}
 
 			if (mappedApiKeys.length > 0) {
-				await app.apiKeys.init(app.security.securityMode);
+				const hasEncryptedKeys = mappedApiKeys.some((k) => k.isEncrypted);
+				if (hasEncryptedKeys) {
+					app.security.securityMode = 'strict';
+					app.security.hasMasterPassword = true;
+					app.security.isUnlocked = false;
+					await db.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+					await db.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
+					app.apiKeys.syncToCloud = true;
+					await db.setSetting('sync_api_keys_to_cloud', true);
+					await app.apiKeys.init('strict');
+				} else {
+					await app.apiKeys.init(app.security.securityMode);
+				}
 			}
 
 			if (mappedTests.length > 0 || mappedFolders.length > 0) {

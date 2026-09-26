@@ -75,21 +75,30 @@ export class SecurityStore {
 	}
 
 	async init() {
-		// 1. Load saved security mode (default: lax)
+		// 1. Inspect existing stored API keys in physical Dexie database
+		const records = await this.database.getAllApiKeys();
+		const hasAnyEncrypted = records.some((r) => r.isEncrypted);
+
+		// If there are encrypted keys in the database (e.g. pulled from cloud sync or strict session),
+		// strict mode MUST be enabled so the user is required to unlock with master password.
 		const savedMode = await this.database.getSetting<SecurityMode>(
 			SETTINGS_KEYS.SECURITY_MODE,
-			'lax'
+			hasAnyEncrypted ? 'strict' : 'lax'
 		);
-		this.securityMode = savedMode === 'strict' ? 'strict' : 'lax';
+		this.securityMode = hasAnyEncrypted ? 'strict' : savedMode === 'strict' ? 'strict' : 'lax';
 
 		// 2. Load master password configuration flag
 		const hasPwdSetting = await this.database.getSetting<boolean>(
 			SETTINGS_KEYS.HAS_MASTER_PASSWORD,
 			false
 		);
-		const records = await this.database.getAllApiKeys();
-		const hasAnyEncrypted = records.some((r) => r.isEncrypted);
 		this.hasMasterPassword = hasPwdSetting || hasAnyEncrypted;
+
+		// If encrypted keys were detected, ensure persistent settings match
+		if (hasAnyEncrypted) {
+			await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'strict');
+			await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, true);
+		}
 
 		// 3. Set unlock state
 		if (this.securityMode === 'lax') {
@@ -268,6 +277,7 @@ export class SecurityStore {
 				await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, canary);
 			} else {
 				this.securityMode = 'lax';
+				this.hasMasterPassword = false;
 				this.isUnlocked = true;
 				this.activeMasterPassword = '';
 				if (this.wipeTimer) clearTimeout(this.wipeTimer);
@@ -276,6 +286,7 @@ export class SecurityStore {
 				this.stopTicker();
 
 				await this.database.setSetting(SETTINGS_KEYS.SECURITY_MODE, 'lax');
+				await this.database.setSetting(SETTINGS_KEYS.HAS_MASTER_PASSWORD, false);
 				await this.database.setSetting(SETTINGS_KEYS.CANARY_TOKEN, null);
 			}
 		} finally {

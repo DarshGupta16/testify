@@ -30,29 +30,18 @@ function handleLock() {
 	app.toast.show('API keys purged from browser memory.', 'info');
 }
 
-async function requestModeSwitch(targetMode: SecurityMode) {
+function requestModeSwitch(targetMode: SecurityMode) {
 	if (targetMode === app.security.securityMode) return;
 
 	if (targetMode === 'strict') {
 		if (!app.security.hasMasterPassword) {
 			app.modals.openSetMasterPassword();
-			return;
-		}
-		try {
-			await app.handleSwitchSecurityMode('strict');
-			app.toast.show('Security mode switched to STRICT.', 'success');
-		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : 'Failed to switch mode';
-			app.toast.show(message, 'error');
+		} else {
+			app.modals.openEnableStrict();
 		}
 	} else {
-		try {
-			await app.handleSwitchSecurityMode('lax');
-			app.toast.show('Security mode switched to LAX.', 'success');
-		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : 'Failed to switch mode';
-			app.toast.show(message, 'error');
-		}
+		// Strict -> Lax switch requires master password barrier and sync disablement warning
+		app.modals.openSwitchToLax();
 	}
 }
 </script>

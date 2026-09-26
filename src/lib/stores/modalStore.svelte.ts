@@ -1,7 +1,7 @@
 import type { TestItem } from '$lib/types/test';
 import { toCloneable } from '$lib/utils/snapshot.svelte';
 
-export type MasterPasswordModalMode = 'set' | 'reset';
+export type MasterPasswordModalMode = 'set' | 'reset' | 'switch_to_lax' | 'enable_strict';
 
 export class ModalStore {
 	isUploadModalOpen = $state<boolean>(false);
@@ -134,6 +134,16 @@ export class ModalStore {
 
 	openResetMasterPassword() {
 		this.masterPasswordModalMode = 'reset';
+		this.isMasterPasswordModalOpen = true;
+	}
+
+	openSwitchToLax() {
+		this.masterPasswordModalMode = 'switch_to_lax';
+		this.isMasterPasswordModalOpen = true;
+	}
+
+	openEnableStrict() {
+		this.masterPasswordModalMode = 'enable_strict';
 		this.isMasterPasswordModalOpen = true;
 	}
 

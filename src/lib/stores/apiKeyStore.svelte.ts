@@ -158,40 +158,31 @@ export class ApiKeyStore {
 	 */
 	async setSyncToCloud(enabled: boolean): Promise<void> {
 		this.syncToCloud = enabled;
-		fireAndForget(
-			this.database.setSetting('sync_api_keys_to_cloud', enabled),
-			'Saving API key cloud sync setting'
-		);
+		await this.database.setSetting('sync_api_keys_to_cloud', enabled);
 
 		if (enabled) {
 			const records = await this.database.getAllApiKeys();
 			for (const r of records) {
 				const { ciphertext, iv, salt } = r;
 				if (r.isEncrypted && ciphertext && iv && salt) {
-					fireAndForget(
-						trySupabaseOrQueue(
-							async () =>
-								supabase.from('synced_api_keys').upsert({
-									provider: r.provider,
-									security_mode: 'strict',
-									ciphertext,
-									iv,
-									salt,
-									updated_at: r.updatedAt,
-								}),
-							{ table: 'synced_api_keys', action: 'create', recordId: r.provider, data: r }
-						),
-						`Uploading encrypted ${r.provider} key to cloud`
+					await trySupabaseOrQueue(
+						async () =>
+							supabase.from('synced_api_keys').upsert({
+								provider: r.provider,
+								security_mode: 'strict',
+								ciphertext,
+								iv,
+								salt,
+								updated_at: r.updatedAt,
+							}),
+						{ table: 'synced_api_keys', action: 'create', recordId: r.provider, data: r }
 					);
 				}
 			}
 		} else {
-			fireAndForget(
-				trySupabaseOrQueue(
-					async () => supabase.from('synced_api_keys').delete().neq('provider', ''),
-					{ table: 'synced_api_keys', action: 'delete', recordId: 'ALL', data: null }
-				),
-				'Purging synced API keys from Supabase'
+			await trySupabaseOrQueue(
+				async () => supabase.from('synced_api_keys').delete().neq('provider', ''),
+				{ table: 'synced_api_keys', action: 'delete', recordId: 'ALL', data: null }
 			);
 		}
 	}
