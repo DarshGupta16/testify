@@ -406,7 +406,7 @@ function getRootSiblings(): FolderItem[] {
 			<button
 				type="button"
 				onclick={() => (isCreatingFolder = true)}
-				class="neo-btn text-xs !py-1.5 !px-2.5 sm:!px-3 !gap-1.5 font-bold inline-flex items-center cursor-pointer bg-surface hover:bg-muted shadow-[2px_2px_0px_var(--shadow-color)]"
+				class="neo-btn text-xs !py-1.5 !px-2.5 sm:!px-3 !gap-1.5 font-bold hidden sm:inline-flex items-center cursor-pointer bg-surface hover:bg-muted shadow-[2px_2px_0px_var(--shadow-color)]"
 				title="Create a new folder here"
 			>
 				<span class="font-black text-xs leading-none">+</span>

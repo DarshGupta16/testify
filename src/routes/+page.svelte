@@ -6,6 +6,7 @@ import EmptyState from '$lib/components/dashboard/EmptyState.svelte';
 import FilterBar from '$lib/components/dashboard/FilterBar.svelte';
 import FolderBreadcrumbs from '$lib/components/dashboard/FolderBreadcrumbs.svelte';
 import FolderEmptyState from '$lib/components/dashboard/FolderEmptyState.svelte';
+import MobileActionFab from '$lib/components/dashboard/MobileActionFab.svelte';
 import StatsBar from '$lib/components/dashboard/StatsBar.svelte';
 import SubfoldersGrid from '$lib/components/dashboard/SubfoldersGrid.svelte';
 import TestCard from '$lib/components/dashboard/TestCard.svelte';
@@ -94,7 +95,7 @@ const isFilterEmpty = $derived(app.filteredTests.length === 0 && isFilterActive)
 					{/if}
 				</div>
 
-				<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+				<div class="hidden sm:flex flex-wrap items-center gap-2 sm:gap-3">
 					<button
 						type="button"
 						onclick={() => app.modals.openUpload()}
@@ -200,4 +201,6 @@ const isFilterEmpty = $derived(app.filteredTests.length === 0 && isFilterActive)
 			{/if}
 		</div>
 	{/if}
+	<!-- Mobile Floating Action Button (< sm) -->
+	<MobileActionFab />
 </div>

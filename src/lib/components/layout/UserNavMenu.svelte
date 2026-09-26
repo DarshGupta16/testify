@@ -363,41 +363,19 @@ function getInitials(nameOrEmail?: string | null): string {
 				</div>
 			</div>
 
-			<!-- 3. Actions Section -->
-			<div class="space-y-1.5 pt-1 border-t-2 border-border-color">
-				<!-- + Add Another Account -->
-				<button
-					type="button"
-					onclick={() => {
-						closeUserMenu();
-						app.modals.openAuth('signin');
-					}}
-					class="neo-btn w-full py-1.5 px-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-surface hover:bg-muted border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)]"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						class="h-3.5 w-3.5"
-					>
-						<line x1="12" y1="5" x2="12" y2="19" />
-						<line x1="5" y1="12" x2="19" y2="12" />
-					</svg>
-					<span>Add Another Account</span>
-				</button>
-
-				{#if app.auth.isAuthenticated}
-					<!-- Sync Now Button -->
+			<!-- 3. Actions Toolbar (2 Rows of 3 Buttons) -->
+			<div class="space-y-2 pt-1 border-t-2 border-border-color">
+				<div class="grid grid-cols-3 gap-2 w-full">
+					<!-- 1. Add Another Account Button -->
 					<button
 						type="button"
-						disabled={app.auth.syncStatus === 'syncing'}
-						onclick={async () => {
+						onclick={() => {
 							closeUserMenu();
-							await app.auth.syncNow();
+							app.modals.openAuth('signin');
 						}}
-						class="neo-btn w-full py-1.5 px-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-surface hover:bg-muted border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] disabled:opacity-50"
+						class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
+						title="Add Another Account"
+						aria-label="Add Another Account"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -405,45 +383,28 @@ function getInitials(nameOrEmail?: string | null): string {
 							fill="none"
 							stroke="currentColor"
 							stroke-width="2"
-							class="h-3.5 w-3.5 {app.auth.syncStatus === 'syncing' ? 'animate-spin' : ''}"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="h-4.5 w-4.5"
 						>
-							<path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+							<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<line x1="19" y1="8" x2="19" y2="14" />
+							<line x1="22" y1="11" x2="16" y2="11" />
 						</svg>
-						<span>{app.auth.syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}</span>
 					</button>
-				{/if}
 
-				<!-- Settings Link -->
-				<a
-					href="/settings"
-					onclick={closeUserMenu}
-					class="neo-btn w-full py-1.5 px-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)]"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						class="h-3.5 w-3.5"
-					>
-						<circle cx="12" cy="12" r="3" />
-						<path
-							d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-						/>
-					</svg>
-					<span>Settings</span>
-				</a>
-
-				<!-- 4. Sign Out Section -->
-				{#if app.auth.isAuthenticated}
-					{#if !showSignOutConfirm}
+					<!-- 2. Cloud Sync Button -->
+					{#if app.auth.isAuthenticated}
 						<button
 							type="button"
-							onclick={() => {
-								showSignOutConfirm = true;
+							disabled={app.auth.syncStatus === 'syncing'}
+							onclick={async () => {
+								await app.auth.syncNow();
 							}}
-							class="neo-btn w-full py-1.5 px-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-2 border-rose-500/50 shadow-[2px_2px_0px_var(--shadow-color)]"
+							class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] disabled:opacity-50 cursor-pointer"
+							title={app.auth.syncStatus === 'syncing' ? 'Syncing...' : 'Sync Cloud Now'}
+							aria-label="Sync Cloud Now"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -451,83 +412,269 @@ function getInitials(nameOrEmail?: string | null): string {
 								fill="none"
 								stroke="currentColor"
 								stroke-width="2"
-								class="h-3.5 w-3.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="h-4.5 w-4.5 {app.auth.syncStatus === 'syncing' ? 'animate-spin text-blue-500' : ''}"
+							>
+								<path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
+								<path d="M17 22v-4h-4" />
+								<path d="M20.996 15.251A4.5 4.5 0 0 0 17.495 8h-1.79a7 7 0 1 0-12.709 5.607" />
+								<path d="M7 10v4h4" />
+								<path d="m7 14 1.535-1.605a5 5 0 0 1 8 1.5" />
+							</svg>
+						</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => {
+								closeUserMenu();
+								app.modals.openAuth('signin');
+							}}
+							class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-muted hover:text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
+							title="Sign in to sync with cloud"
+							aria-label="Sign in to sync with cloud"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="h-4.5 w-4.5 opacity-60"
+							>
+								<path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
+								<path d="M17 22v-4h-4" />
+								<path d="M20.996 15.251A4.5 4.5 0 0 0 17.495 8h-1.79a7 7 0 1 0-12.709 5.607" />
+								<path d="M7 10v4h4" />
+								<path d="m7 14 1.535-1.605a5 5 0 0 1 8 1.5" />
+							</svg>
+						</button>
+					{/if}
+
+					<!-- 3. Theme Toggle Button -->
+					<button
+						type="button"
+						onclick={() => app.theme.toggleTheme()}
+						class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
+						title={`Switch to ${app.theme.theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+						aria-label="Toggle theme mode"
+					>
+						{#if app.theme.theme === 'dark'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="square"
+								class="h-4.5 w-4.5 text-amber-300"
+							>
+								<circle cx="12" cy="12" r="5" />
+								<line x1="12" y1="1" x2="12" y2="3" />
+								<line x1="12" y1="21" x2="12" y2="23" />
+								<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+								<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+								<line x1="1" y1="12" x2="3" y2="12" />
+								<line x1="21" y1="12" x2="23" y2="12" />
+								<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+								<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+							</svg>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="square"
+								class="h-4.5 w-4.5 text-text-primary"
+							>
+								<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+							</svg>
+						{/if}
+					</button>
+
+					<!-- 4. API Keys Trigger -->
+					<button
+						type="button"
+						onclick={() => {
+							closeUserMenu();
+							app.modals.openApiKeys();
+						}}
+						class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] relative cursor-pointer"
+						title={`Manage AI API Keys (${app.apiKeys.configuredCount}/4 configured)`}
+						aria-label="Manage AI API Keys"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="square"
+							class="h-4.5 w-4.5"
+						>
+							<path d="M21 2l-2 2m-1.5 1.5L10 13l-4 4-2-2-4 4 3 3 4-4-2-2 7.5-7.5" />
+							<circle cx="16.5" cy="7.5" r="2.5" />
+						</svg>
+						{#if app.apiKeys.hasAnyConfigured}
+							<span
+								class="absolute -top-1 -right-1 font-mono text-[8px] font-bold px-1 bg-emerald-500 text-black leading-tight border border-border-color"
+							>
+								{app.apiKeys.configuredCount}
+							</span>
+						{/if}
+					</button>
+
+					<!-- 5. Settings Direct Link -->
+					<a
+						href="/settings"
+						onclick={closeUserMenu}
+						class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
+						title="Application Settings & Preferences"
+						aria-label="Application Settings & Preferences"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							class="h-4.5 w-4.5"
+						>
+							<circle cx="12" cy="12" r="3" />
+							<path
+								d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+							/>
+						</svg>
+					</a>
+
+					<!-- 6. Sign Out / Sign In Button -->
+					{#if app.auth.isAuthenticated}
+						<button
+							type="button"
+							onclick={() => {
+								showSignOutConfirm = !showSignOutConfirm;
+							}}
+							class={`neo-btn h-11 !p-0 flex items-center justify-center border-2 shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer ${
+								showSignOutConfirm
+									? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500'
+									: 'bg-surface hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-border-color hover:border-rose-500/50'
+							}`}
+							title="Sign Out Options"
+							aria-label="Sign Out"
+							aria-expanded={showSignOutConfirm}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								class="h-4.5 w-4.5"
 							>
 								<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
 								<polyline points="16 17 21 12 16 7" />
 								<line x1="21" y1="12" x2="9" y2="12" />
 							</svg>
-							<span>Sign Out...</span>
 						</button>
 					{:else}
-						<!-- Sign Out Confirmation Drawer -->
-						<div
-							class="p-2 border-2 border-rose-500/60 bg-rose-500/5 space-y-2 shadow-[2px_2px_0px_var(--shadow-color)]"
+						<button
+							type="button"
+							onclick={() => {
+								closeUserMenu();
+								app.modals.openAuth('signin');
+							}}
+							class="neo-btn h-11 !p-0 flex items-center justify-center bg-surface hover:bg-muted text-emerald-600 dark:text-emerald-400 border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)] cursor-pointer"
+							title="Sign in or register"
+							aria-label="Sign in or register"
 						>
-							<div class="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2.5"
-									class="h-3 w-3"
-								>
-									<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-									<line x1="12" y1="9" x2="12" y2="13" />
-									<line x1="12" y1="17" x2="12.01" y2="17" />
-								</svg>
-								<span>Sign Out Confirmation</span>
-							</div>
-
-							<!-- Option A: Wipe from device (Public Computers) -->
-							<button
-								type="button"
-								onclick={async () => {
-									closeUserMenu();
-									await app.auth.signOut({ wipeLocalData: true });
-								}}
-								class="neo-btn w-full p-2 text-left bg-rose-600 text-white hover:bg-rose-700 border-2 border-rose-800 shadow-[2px_2px_0px_var(--shadow-color)]"
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								class="h-4.5 w-4.5"
 							>
-								<div class="text-[11px] font-black uppercase flex items-center justify-between">
-									<span>Sign Out & Wipe Partition</span>
-									<span class="text-[9px] bg-rose-900 px-1 py-0.5 uppercase">Public PC</span>
-								</div>
-								<p class="text-[9px] text-rose-100/90 leading-tight mt-0.5 normal-case font-mono">
-									Deletes local papers & tokens from this device. Cloud papers remain safe.
-								</p>
-							</button>
-
-							<!-- Option B: Keep local papers (Family / Personal Computer) -->
-							<button
-								type="button"
-								onclick={async () => {
-									closeUserMenu();
-									await app.auth.signOut({ wipeLocalData: false });
-								}}
-								class="neo-btn w-full p-2 text-left bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)]"
-							>
-								<div class="text-[11px] font-black uppercase flex items-center justify-between">
-									<span>Sign Out (Keep Papers)</span>
-									<span class="text-[9px] bg-muted px-1 py-0.5 uppercase text-text-muted">Personal PC</span>
-								</div>
-								<p class="text-[9px] text-text-muted leading-tight mt-0.5 normal-case font-mono">
-									Retains local assessments on this device. Switches to Guest profile.
-								</p>
-							</button>
-
-							<!-- Cancel -->
-							<button
-								type="button"
-								onclick={() => {
-									showSignOutConfirm = false;
-								}}
-								class="w-full text-center text-[10px] text-text-muted hover:text-text-primary hover:underline font-bold uppercase py-0.5"
-							>
-								Cancel
-							</button>
-						</div>
+								<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+								<polyline points="10 17 15 12 10 7" />
+								<line x1="15" y1="12" x2="3" y2="12" />
+							</svg>
+						</button>
 					{/if}
+				</div>
+
+				<!-- 4. Sign Out Confirmation Drawer -->
+				{#if app.auth.isAuthenticated && showSignOutConfirm}
+					<div
+						class="p-2 border-2 border-rose-500/60 bg-rose-500/5 space-y-2 shadow-[2px_2px_0px_var(--shadow-color)]"
+					>
+						<div class="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								class="h-3 w-3"
+							>
+								<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+								<line x1="12" y1="9" x2="12" y2="13" />
+								<line x1="12" y1="17" x2="12.01" y2="17" />
+							</svg>
+							<span>Sign Out Confirmation</span>
+						</div>
+
+						<!-- Option A: Wipe from device (Public Computers) -->
+						<button
+							type="button"
+							onclick={async () => {
+								closeUserMenu();
+								await app.auth.signOut({ wipeLocalData: true });
+							}}
+							class="neo-btn w-full p-2 text-left bg-rose-600 text-white hover:bg-rose-700 border-2 border-rose-800 shadow-[2px_2px_0px_var(--shadow-color)]"
+						>
+							<div class="text-[11px] font-black uppercase flex items-center justify-between">
+								<span>Sign Out & Wipe Partition</span>
+								<span class="text-[9px] bg-rose-900 px-1 py-0.5 uppercase">Public PC</span>
+							</div>
+							<p class="text-[9px] text-rose-100/90 leading-tight mt-0.5 normal-case font-mono">
+								Deletes local papers & tokens from this device. Cloud papers remain safe.
+							</p>
+						</button>
+
+						<!-- Option B: Keep local papers (Family / Personal Computer) -->
+						<button
+							type="button"
+							onclick={async () => {
+								closeUserMenu();
+								await app.auth.signOut({ wipeLocalData: false });
+							}}
+							class="neo-btn w-full p-2 text-left bg-surface hover:bg-muted text-text-primary border-2 border-border-color shadow-[2px_2px_0px_var(--shadow-color)]"
+						>
+							<div class="text-[11px] font-black uppercase flex items-center justify-between">
+								<span>Sign Out (Keep Papers)</span>
+								<span class="text-[9px] bg-muted px-1 py-0.5 uppercase text-text-muted">Personal PC</span>
+							</div>
+							<p class="text-[9px] text-text-muted leading-tight mt-0.5 normal-case font-mono">
+								Retains local assessments on this device. Switches to Guest profile.
+							</p>
+						</button>
+
+						<!-- Cancel -->
+						<button
+							type="button"
+							onclick={() => {
+								showSignOutConfirm = false;
+							}}
+							class="w-full text-center text-[10px] text-text-muted hover:text-text-primary hover:underline font-bold uppercase py-0.5"
+						>
+							Cancel
+						</button>
+					</div>
 				{/if}
 			</div>
 		</div>
